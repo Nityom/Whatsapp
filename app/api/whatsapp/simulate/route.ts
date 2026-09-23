@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { processIncomingMessage, getOrCreateSession, resetSession } from '@/lib/conversation';
+import { processIncomingMessage, getConvexClient } from '@/lib/conversation';
+import { api } from '@/convex/_generated/api';
 
 /**
  * Webhook Simulator API
@@ -7,11 +8,12 @@ import { processIncomingMessage, getOrCreateSession, resetSession } from '@/lib/
  */
 export async function POST(request: NextRequest) {
   try {
+    const convex = getConvexClient();
     const body = await request.json();
     const { action, phoneNumber = '919876543210', text, type = 'text', latitude, longitude } = body;
 
     if (action === 'reset') {
-      const resetState = resetSession(phoneNumber);
+      const resetState = await convex.mutation(api.sessions.clearWhatsAppSession, { phoneNumber });
       return NextResponse.json({
         success: true,
         session: resetState,
@@ -20,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'get_session') {
-      const session = getOrCreateSession(phoneNumber);
+      const session = await convex.query(api.sessions.getWhatsAppSession, { phoneNumber });
       return NextResponse.json({
         success: true,
         session,
@@ -28,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Default action: send message
-    const reply = processIncomingMessage({
+    const result = await processIncomingMessage({
       phoneNumber,
       type,
       text,
@@ -36,11 +38,12 @@ export async function POST(request: NextRequest) {
       longitude,
     });
 
-    const session = getOrCreateSession(phoneNumber);
+    const session = await convex.query(api.sessions.getWhatsAppSession, { phoneNumber });
 
     return NextResponse.json({
       success: true,
-      reply,
+      reply: result.text,
+      nativeLocation: result.nativeLocation,
       session,
     });
   } catch (error: unknown) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processIncomingMessage } from '@/lib/conversation';
-import { sendWhatsAppMessage } from '@/lib/whatsapp';
+import { sendWhatsAppMessage, sendWhatsAppLocation } from '@/lib/whatsapp';
 
 /**
  * GET Handler - Webhook Verification by Meta
@@ -122,8 +122,8 @@ export async function POST(request: NextRequest) {
             );
           }
 
-          // Process message through deterministic in-memory state machine
-          const replyText = processIncomingMessage({
+          // Process message through deterministic Convex-backed state machine
+          const result = await processIncomingMessage({
             phoneNumber: sender,
             type: messageType,
             text: messageText,
@@ -131,8 +131,13 @@ export async function POST(request: NextRequest) {
             longitude,
           });
 
-          // Send reply via WhatsApp Business Cloud API
-          await sendWhatsAppMessage(sender, replyText);
+          // Send text reply via WhatsApp Business Cloud API
+          await sendWhatsAppMessage(sender, result.text);
+
+          // If a native WhatsApp location was generated on confirmation, send native location pin
+          if (result.nativeLocation) {
+            await sendWhatsAppLocation(sender, result.nativeLocation);
+          }
         }
       }
     }

@@ -1,361 +1,543 @@
 /**
- * Scooty Rental WhatsApp Chatbot - Conversation State Machine
- * Business: ScootyGo Rentals (Pune, Maharashtra)
- *
- * NOTE: This is an IN-MEMORY state store for demonstration purposes only.
- * This state will NOT persist across server restarts or serverless function cold starts.
- * For production, replace this with a persistent store (e.g., Redis, PostgreSQL, etc.).
- *
- * NO AI - NO DATABASE - FIXED CONVERSATION FLOW ONLY
+ * ScootyGo Rentals WhatsApp Chatbot - Conversation Engine
+ * Backed by Convex Database for 100% persistent state across Vercel serverless requests.
+ * 
+ * NO AI - NO DATABASE OTHER THAN CONVEX - DETERMINISTIC FIXED CONVERSATION FLOW
  */
+
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+import { findNearestLocation, generateGoogleMapsUrl, GeoLocationItem } from "./geo";
+import { WhatsAppLocationPayload } from "./whatsapp";
+
+const CONVEX_URL =
+  process.env.NEXT_PUBLIC_CONVEX_URL || "https://quaint-hound-638.convex.cloud";
+
+export function getConvexClient(): ConvexHttpClient {
+  return new ConvexHttpClient(CONVEX_URL);
+}
 
 export type ConversationStep =
-  | 'WELCOME'
-  | 'WAITING_FOR_DATE'
-  | 'WAITING_FOR_PICKUP_TIME'
-  | 'WAITING_FOR_RETURN_TIME'
-  | 'WAITING_FOR_LOCATION'
-  | 'WAITING_FOR_SCOOTER'
-  | 'WAITING_FOR_NAME'
-  | 'WAITING_FOR_CONFIRMATION'
-  | 'COMPLETED';
-
-export interface UserSession {
-  phoneNumber: string;
-  currentStep: ConversationStep;
-  date?: string;
-  pickupTime?: string;
-  returnTime?: string;
-  latitude?: number;
-  longitude?: number;
-  selectedScooter?: string;
-  scooterPrice?: string;
-  customerName?: string;
-  lastUpdated: number;
-}
-
-// In-memory session store mapping phone number -> UserSession
-// DEMO ONLY: Does not survive server restart
-const sessions = new Map<string, UserSession>();
-
-/**
- * Scooter catalog details
- */
-export const SCOOTER_OPTIONS: Record<string, { name: string; location: string; price: string }> = {
-  '1': {
-    name: 'Honda Activa 6G',
-    location: 'Baner',
-    price: '₹500/day',
-  },
-  '2': {
-    name: 'Honda Activa 125',
-    location: 'Aundh',
-    price: '₹600/day',
-  },
-  '3': {
-    name: 'TVS Jupiter',
-    location: 'Wakad',
-    price: '₹550/day',
-  },
-};
-
-export const MESSAGE_TEMPLATES = {
-  WELCOME: `👋 Welcome to ScootyGo Rentals!
-
-I can help you book a scooty. 🛵
-
-Please choose an option:
-
-1️⃣ Book a Scooty
-2️⃣ Check Prices
-3️⃣ My Booking
-4️⃣ Talk to Support`,
-
-  STEP_BOOK_DATE: `🛵 Great! Let's book your scooty.
-
-What date would you like to rent it?
-
-Example:
-25 September`,
-
-  STEP_PICKUP_TIME: `Great! 📅
-
-What time would you like to pick up the scooty?
-
-Example:
-10 AM`,
-
-  STEP_RETURN_TIME: `Perfect! 🕙
-
-What time would you like to return the scooty?
-
-Example:
-8 PM`,
-
-  STEP_REQUEST_LOCATION: `📍 Now please share your WhatsApp location.
-
-This will help us find the nearest available scooty.`,
-
-  SCOOTER_CATALOG: `🛵 Available Scooties Near You
-
-1️⃣ Honda Activa 6G
-📍 Baner
-💰 ₹500/day
-
-2️⃣ Honda Activa 125
-📍 Aundh
-💰 ₹600/day
-
-3️⃣ TVS Jupiter
-📍 Wakad
-💰 ₹550/day
-
-Reply with 1, 2, or 3 to select.`,
-
-  PRICES: `💰 ScootyGo Rentals — Demo Prices
-
-🛵 Honda Activa 6G
-₹500/day
-
-🛵 Honda Activa 125
-₹600/day
-
-🛵 TVS Jupiter
-₹550/day
-
-To book a scooty, reply:
-
-1`,
-
-  MY_BOOKING: `📋 Demo Booking
-
-Booking ID: SCR-DEMO-001
-Status: Pending Confirmation
-
-For this demo, booking information is temporary and is not stored in a database.`,
-
-  SUPPORT: `👨💼 Our support team will assist you.
-
-Please call the rental office or continue this conversation.`,
-};
-
-/**
- * Retrieve or initialize a session for a given phone number.
- */
-export function getOrCreateSession(phoneNumber: string): UserSession {
-  let session = sessions.get(phoneNumber);
-  if (!session) {
-    session = {
-      phoneNumber,
-      currentStep: 'WELCOME',
-      lastUpdated: Date.now(),
-    };
-    sessions.set(phoneNumber, session);
-  }
-  return session;
-}
-
-/**
- * Reset a user's session back to initial state.
- */
-export function resetSession(phoneNumber: string): UserSession {
-  const session: UserSession = {
-    phoneNumber,
-    currentStep: 'WELCOME',
-    lastUpdated: Date.now(),
-  };
-  sessions.set(phoneNumber, session);
-  return session;
-}
+  | "WELCOME"
+  | "WAITING_FOR_DATE"
+  | "WAITING_FOR_PICKUP_TIME"
+  | "WAITING_FOR_RETURN_TIME"
+  | "WAITING_FOR_LOCATION"
+  | "WAITING_FOR_SCOOTER"
+  | "WAITING_FOR_NAME"
+  | "WAITING_FOR_CONFIRMATION"
+  | "COMPLETED";
 
 export interface IncomingMessageInput {
   phoneNumber: string;
-  type: 'text' | 'location' | string;
+  type: "text" | "location" | string;
   text?: string;
   latitude?: number;
   longitude?: number;
 }
 
+export interface ProcessMessageResult {
+  text: string;
+  nativeLocation?: WhatsAppLocationPayload;
+}
+
+export const MESSAGE_TEMPLATES = {
+  WELCOME: `👋 Welcome to ScootyGo Rentals!
+
+I can help you book a scooter or bike. 🛵🏍️
+
+Please choose an option:
+
+1️⃣ Book a Scooty/Bike
+2️⃣ Check Prices
+3️⃣ My Booking
+4️⃣ Talk to Support`,
+
+  STEP_BOOK_DATE: `🛵 Great! Let's book your ride.
+
+What date would you like to rent it?
+
+Example:
+20 October`,
+
+  STEP_PICKUP_TIME: `⏰ What pickup time would you like?
+
+Example:
+10:00 AM`,
+
+  STEP_RETURN_TIME: `🕐 What return time would you like?
+
+Example:
+6:00 PM`,
+
+  STEP_REQUEST_LOCATION: `📍 Please share your current location with us.
+
+This helps us find the nearest ScootyGo pickup location.
+
+Please use WhatsApp's location-sharing option.`,
+
+  SUPPORT: `📞 ScootyGo Support
+
+We're available 24/7.
+
+Phone:
++91 90000 00000
+
+WhatsApp:
++91 90000 00000
+
+📍 Pune`,
+};
+
 /**
  * Core state machine processor for incoming WhatsApp messages.
- * Returns the exact fixed text response to be sent back to the customer.
+ * Uses Convex for persistent serverless state management.
  */
-export function processIncomingMessage(input: IncomingMessageInput): string {
-  const { phoneNumber, type, text = '', latitude, longitude } = input;
+export async function processIncomingMessage(
+  input: IncomingMessageInput
+): Promise<ProcessMessageResult> {
+  const convex = getConvexClient();
+  const { phoneNumber, type, text = "", latitude, longitude } = input;
   const trimmedText = text.trim();
   const lowerText = trimmedText.toLowerCase();
 
-  const session = getOrCreateSession(phoneNumber);
-  session.lastUpdated = Date.now();
-
-  // Global reset trigger: if user says hi, hello, hey, start, reset
-  const isGreeting = ['hi', 'hello', 'hey', 'start'].includes(lowerText);
+  // Global reset trigger: if customer sends a greeting or reset word
+  const isGreeting = ["hi", "hello", "hey", "start", "reset", "menu"].includes(lowerText);
   if (isGreeting) {
-    resetSession(phoneNumber);
-    return MESSAGE_TEMPLATES.WELCOME;
+    try {
+      await convex.mutation(api.sessions.clearWhatsAppSession, { phoneNumber });
+    } catch (err) {
+      console.error("[Convex Session Reset Error]", err);
+    }
+    return { text: MESSAGE_TEMPLATES.WELCOME };
   }
 
-  // Handle flow based on current step
-  switch (session.currentStep) {
-    case 'WELCOME': {
-      if (trimmedText === '1') {
-        session.currentStep = 'WAITING_FOR_DATE';
-        return MESSAGE_TEMPLATES.STEP_BOOK_DATE;
-      }
-      if (trimmedText === '2') {
-        return MESSAGE_TEMPLATES.PRICES;
-      }
-      if (trimmedText === '3') {
-        return MESSAGE_TEMPLATES.MY_BOOKING;
-      }
-      if (trimmedText === '4') {
-        return MESSAGE_TEMPLATES.SUPPORT;
-      }
+  // Fetch current session from Convex
+  let session = null;
+  try {
+    session = await convex.query(api.sessions.getWhatsAppSession, { phoneNumber });
+  } catch (err) {
+    console.error("[Convex Query Session Error]", err);
+  }
 
-      // Default prompt if unrecognized option at welcome stage
-      return MESSAGE_TEMPLATES.WELCOME;
-    }
+  const currentStep = (session?.currentStep as ConversationStep) || "WELCOME";
+  const draft = session?.bookingDraft || {};
 
-    case 'WAITING_FOR_DATE': {
-      // Step 3: Accept text as requested date
-      session.date = trimmedText;
-      session.currentStep = 'WAITING_FOR_PICKUP_TIME';
-      return MESSAGE_TEMPLATES.STEP_PICKUP_TIME;
-    }
-
-    case 'WAITING_FOR_PICKUP_TIME': {
-      // Step 4: Accept text as pickup time
-      session.pickupTime = trimmedText;
-      session.currentStep = 'WAITING_FOR_RETURN_TIME';
-      return MESSAGE_TEMPLATES.STEP_RETURN_TIME;
-    }
-
-    case 'WAITING_FOR_RETURN_TIME': {
-      // Step 5: Accept text as return time
-      session.returnTime = trimmedText;
-      session.currentStep = 'WAITING_FOR_LOCATION';
-      return MESSAGE_TEMPLATES.STEP_REQUEST_LOCATION;
-    }
-
-    case 'WAITING_FOR_LOCATION': {
-      // Step 6: When location is received
-      if (type === 'location' && latitude !== undefined && longitude !== undefined) {
-        session.latitude = latitude;
-        session.longitude = longitude;
-        session.currentStep = 'WAITING_FOR_SCOOTER';
-        return MESSAGE_TEMPLATES.SCOOTER_CATALOG;
+  switch (currentStep) {
+    case "WELCOME": {
+      if (trimmedText === "1") {
+        await convex.mutation(api.sessions.saveWhatsAppSession, {
+          phoneNumber,
+          currentStep: "WAITING_FOR_DATE",
+          bookingDraft: {},
+        });
+        return { text: MESSAGE_TEMPLATES.STEP_BOOK_DATE };
       }
 
-      // If user sent text instead of location attachment
-      return `📍 Now please share your WhatsApp location.
+      if (trimmedText === "2") {
+        // Dynamic vehicle prices from Convex
+        try {
+          const vehicles = await convex.query(api.vehicles.listAvailableVehicles);
+          if (!vehicles || vehicles.length === 0) {
+            return { text: "No vehicles currently available for pricing. Please try again later." };
+          }
 
-This will help us find the nearest available scooty.`;
-    }
-
-    case 'WAITING_FOR_SCOOTER': {
-      // Step 7: Scooter selection (1, 2, or 3)
-      if (trimmedText === '1' || trimmedText === '2' || trimmedText === '3') {
-        const selected = SCOOTER_OPTIONS[trimmedText];
-        session.selectedScooter = selected.name;
-        session.scooterPrice = selected.price;
-        session.currentStep = 'WAITING_FOR_NAME';
-
-        return `Great choice! 🛵
-
-${selected.name}
-💰 ${selected.price}
-
-Please enter your full name.`;
+          // Group by name/model to display distinct options
+          const seen = new Set<string>();
+          const lines: string[] = ["💰 ScootyGo Rental Prices\n"];
+          for (const v of vehicles) {
+            if (!seen.has(v.name)) {
+              seen.add(v.name);
+              const icon = v.type === "bike" ? "🏍️" : "🛵";
+              lines.push(`${icon} ${v.name}\n₹${v.pricePerDay.toLocaleString("en-IN")}/day\n`);
+            }
+          }
+          lines.push("To book a scooty or bike, reply:\n1");
+          return { text: lines.join("\n") };
+        } catch (err) {
+          console.error("[Convex Prices Query Error]", err);
+          return { text: "Unable to fetch prices right now. Please try again later." };
+        }
       }
 
-      return `Please reply with 1, 2, or 3 to select your scooty:
+      if (trimmedText === "3") {
+        // Query customer bookings from Convex
+        try {
+          const bookings = await convex.query(api.bookings.getBookingsByCustomer, {
+            customerPhone: phoneNumber,
+          });
 
-1️⃣ Honda Activa 6G (₹500/day)
-2️⃣ Honda Activa 125 (₹600/day)
-3️⃣ TVS Jupiter (₹550/day)`;
+          if (!bookings || bookings.length === 0) {
+            return {
+              text: `📋 You don't have any bookings yet.\n\nSend "1" to book a ride.`,
+            };
+          }
+
+          const lines: string[] = ["📋 Your Bookings\n"];
+          for (const b of bookings.slice(0, 3)) {
+            lines.push(
+              `Booking ID:\n${b.bookingId}\n\nRide:\n${b.vehicleName}\n\nDate:\n${b.startDate}\n\nPickup:\n${b.pickupTime}\n\nStatus:\n${b.status.toUpperCase()}\n---`
+            );
+          }
+          return { text: lines.join("\n") };
+        } catch (err) {
+          console.error("[Convex Bookings Query Error]", err);
+          return { text: "Could not retrieve bookings. Please try again." };
+        }
+      }
+
+      if (trimmedText === "4") {
+        return { text: MESSAGE_TEMPLATES.SUPPORT };
+      }
+
+      // Default prompt for any unrecognized input at welcome stage
+      return { text: MESSAGE_TEMPLATES.WELCOME };
     }
 
-    case 'WAITING_FOR_NAME': {
-      // Step 8: Customer provides full name
-      session.customerName = trimmedText;
-      session.currentStep = 'WAITING_FOR_CONFIRMATION';
+    case "WAITING_FOR_DATE": {
+      // Step 2: Save rental date
+      await convex.mutation(api.sessions.saveWhatsAppSession, {
+        phoneNumber,
+        currentStep: "WAITING_FOR_PICKUP_TIME",
+        bookingDraft: {
+          startDate: trimmedText,
+          returnDate: trimmedText, // Default to same day
+        },
+      });
+      return { text: MESSAGE_TEMPLATES.STEP_PICKUP_TIME };
+    }
 
-      const scooter = session.selectedScooter || 'Honda Activa 6G';
-      const date = session.date || '25 September';
-      const pickupTime = session.pickupTime || '10 AM';
-      const returnTime = session.returnTime || '8 PM';
-      const price = session.scooterPrice || '₹500/day';
-      const name = session.customerName || 'Valued Customer';
+    case "WAITING_FOR_PICKUP_TIME": {
+      // Step 3: Save pickup time
+      await convex.mutation(api.sessions.saveWhatsAppSession, {
+        phoneNumber,
+        currentStep: "WAITING_FOR_RETURN_TIME",
+        bookingDraft: {
+          pickupTime: trimmedText,
+        },
+      });
+      return { text: MESSAGE_TEMPLATES.STEP_RETURN_TIME };
+    }
 
-      return `Please confirm your booking:
+    case "WAITING_FOR_RETURN_TIME": {
+      // Step 4: Save return time and ask for location
+      await convex.mutation(api.sessions.saveWhatsAppSession, {
+        phoneNumber,
+        currentStep: "WAITING_FOR_LOCATION",
+        bookingDraft: {
+          returnTime: trimmedText,
+        },
+      });
+      return { text: MESSAGE_TEMPLATES.STEP_REQUEST_LOCATION };
+    }
 
-🛵 Scooter: ${scooter}
-📅 Pickup: ${date}
-🕙 Pickup Time: ${pickupTime}
-🕙 Return Time: ${returnTime}
-📍 Location received
-👤 Name: ${name}
-💰 Price: ${price}
+    case "WAITING_FOR_LOCATION": {
+      // Step 5: Receive WhatsApp location
+      if (type !== "location" || latitude === undefined || longitude === undefined) {
+        return {
+          text: `📍 Please share your current location using WhatsApp's location attachment pin so we can find your nearest ScootyGo hub.`,
+        };
+      }
+
+      // Query active locations from Convex
+      const activeLocations = await convex.query(api.locations.listActiveLocations);
+      const nearest = findNearestLocation(latitude, longitude, activeLocations as GeoLocationItem[]);
+
+      if (!nearest) {
+        return {
+          text: "Sorry, no rental locations are currently active. Please try again later or type 4 for support.",
+        };
+      }
+
+      const nearestLocation = nearest.location;
+      const distanceKm = nearest.distanceKm;
+
+      // Query available vehicles for this location
+      const availableVehicles = await convex.query(api.vehicles.listVehiclesByLocation, {
+        locationId: nearestLocation._id as Id<"locations">,
+        onlyAvailable: true,
+      });
+
+      // Save nearest location into session draft
+      await convex.mutation(api.sessions.saveWhatsAppSession, {
+        phoneNumber,
+        currentStep: "WAITING_FOR_SCOOTER",
+        pickupLocationId: nearestLocation._id as Id<"locations">,
+        bookingDraft: {
+          customerLatitude: latitude,
+          customerLongitude: longitude,
+          distanceKm,
+          locationName: nearestLocation.name,
+          locationAddress: nearestLocation.address,
+        },
+      });
+
+      if (!availableVehicles || availableVehicles.length === 0) {
+        return {
+          text: `📍 We found the nearest ScootyGo location:
+
+ScootyGo Rentals - ${nearestLocation.name}
+📍 ${nearestLocation.address}
+Approx. distance: ${distanceKm} km
+
+Currently, there are no available vehicles at this hub. Please contact support (type 4) or start over with "Hi".`,
+        };
+      }
+
+      // Format dynamic available rides list
+      const vehicleLines: string[] = [
+        `📍 We found the nearest ScootyGo location:\n\nScootyGo Rentals - ${nearestLocation.name}\n\n📍 ${nearestLocation.address}\n\nApprox. distance:\n${distanceKm} km\n\nNow let's find available rides for you. 🛵\n\n🛵 Available Rides Near You\n`,
+      ];
+
+      availableVehicles.forEach((v, idx) => {
+        const icon = v.type === "bike" ? "🏍️" : "🛵";
+        vehicleLines.push(
+          `${idx + 1}️⃣ ${v.name}\n₹${v.pricePerDay.toLocaleString("en-IN")}/day\n📍 ${nearestLocation.name}\n`
+        );
+      });
+
+      vehicleLines.push("Reply with the number of your preferred ride.");
+
+      return { text: vehicleLines.join("\n") };
+    }
+
+    case "WAITING_FOR_SCOOTER": {
+      // Step 6: Vehicle selection
+      const locationId = session?.pickupLocationId;
+      if (!locationId) {
+        await convex.mutation(api.sessions.clearWhatsAppSession, { phoneNumber });
+        return { text: "Session expired. Please send 'Hi' to start again." };
+      }
+
+      const availableVehicles = await convex.query(api.vehicles.listVehiclesByLocation, {
+        locationId,
+        onlyAvailable: true,
+      });
+
+      const selectedIndex = parseInt(trimmedText, 10) - 1;
+      const selectedVehicle = availableVehicles[selectedIndex];
+
+      if (isNaN(selectedIndex) || !selectedVehicle) {
+        // Invalid selection response as required by specs
+        const vehicleLines: string[] = [
+          `❌ Sorry, this vehicle is currently unavailable.\n\nPlease choose another available ride.\n\n🛵 Available Rides Near You:\n`,
+        ];
+        availableVehicles.forEach((v, idx) => {
+          vehicleLines.push(
+            `${idx + 1}️⃣ ${v.name}\n₹${v.pricePerDay.toLocaleString("en-IN")}/day\n📍 ${draft.locationName || "Pune"}\n`
+          );
+        });
+        vehicleLines.push("Reply with the number of your preferred ride.");
+        return { text: vehicleLines.join("\n") };
+      }
+
+      // Valid vehicle selected
+      await convex.mutation(api.sessions.saveWhatsAppSession, {
+        phoneNumber,
+        currentStep: "WAITING_FOR_NAME",
+        selectedVehicleId: selectedVehicle._id,
+        bookingDraft: {
+          vehicleName: selectedVehicle.name,
+          vehiclePrice: selectedVehicle.pricePerDay,
+        },
+      });
+
+      return { text: `👤 Please enter your name.` };
+    }
+
+    case "WAITING_FOR_NAME": {
+      // Step 7: Customer enters name
+      const customerName = trimmedText;
+
+      // Create or update customer in Convex
+      const customer = await convex.mutation(api.customers.getOrCreateCustomer, {
+        phoneNumber,
+        name: customerName,
+      });
+
+      if (!customer) {
+        return { text: "Unable to process customer details. Please send 'Hi' to start over." };
+      }
+
+      // Update session draft with customerId and customerName
+      await convex.mutation(api.sessions.saveWhatsAppSession, {
+        phoneNumber,
+        currentStep: "WAITING_FOR_CONFIRMATION",
+        customerId: customer._id,
+        bookingDraft: {
+          customerName,
+        },
+      });
+
+      // Fetch location coordinates to generate Google Maps link
+      const location = session?.pickupLocationId
+        ? await convex.query(api.locations.getLocation, { locationId: session.pickupLocationId })
+        : null;
+
+      const lat = location?.latitude || 18.5590;
+      const lon = location?.longitude || 73.7868;
+      const mapsUrl = generateGoogleMapsUrl(lat, lon);
+
+      const rideName = draft.vehicleName || "Honda Activa 6G";
+      const startDate = draft.startDate || "20 October";
+      const pickupTime = draft.pickupTime || "10:00 AM";
+      const returnTime = draft.returnTime || "6:00 PM";
+      const locName = location?.name || draft.locationName || "Baner";
+      const locAddress = location?.address || draft.locationAddress || "Baner Road, Pune";
+      const price = draft.vehiclePrice || 500;
+
+      const summary = `🛵 Booking Summary
+
+Ride:
+${rideName}
+
+Date:
+${startDate}
+
+Pickup:
+${pickupTime}
+
+Return:
+${returnTime}
+
+Pickup Location:
+ScootyGo Rentals - ${locName}
+${locAddress}
+
+🗺️ Open in Google Maps:
+${mapsUrl}
+
+Name:
+${customerName}
+
+Price:
+₹${price.toLocaleString("en-IN")}/day
+
+Would you like to confirm?
 
 Reply:
+YES
+or
+NO`;
 
-CONFIRM
-
-to submit your booking.`;
+      return { text: summary };
     }
 
-    case 'WAITING_FOR_CONFIRMATION': {
-      // Step 9: Customer confirms
-      if (lowerText === 'confirm' || lowerText === 'yes') {
-        session.currentStep = 'COMPLETED';
+    case "WAITING_FOR_CONFIRMATION": {
+      // Step 8: Confirmation
+      if (lowerText === "yes" || lowerText === "confirm" || lowerText === "y") {
+        if (!session?.customerId || !session?.selectedVehicleId || !session?.pickupLocationId) {
+          await convex.mutation(api.sessions.clearWhatsAppSession, { phoneNumber });
+          return { text: "Session expired or incomplete. Please send 'Hi' to start again." };
+        }
 
-        const scooter = session.selectedScooter || 'Honda Activa 6G';
-        const date = session.date || '25 September';
-        const pickupTime = session.pickupTime || '10 AM';
-        const returnTime = session.returnTime || '8 PM';
-        const name = session.customerName || 'Valued Customer';
+        const location = await convex.query(api.locations.getLocation, {
+          locationId: session.pickupLocationId,
+        });
 
-        return `✅ Booking request submitted!
+        const lat = location?.latitude || 18.5590;
+        const lon = location?.longitude || 73.7868;
+        const mapsUrl = generateGoogleMapsUrl(lat, lon);
 
-🛵 ${scooter}
-📅 ${date}
-🕙 ${pickupTime} → ${returnTime}
-👤 ${name}
+        const totalAmount = draft.vehiclePrice || 500;
+        const rideName = draft.vehicleName || "Honda Activa 6G";
+        const startDate = draft.startDate || "20 October";
+        const pickupTime = draft.pickupTime || "10:00 AM";
+        const returnDate = draft.returnDate || startDate;
+        const returnTime = draft.returnTime || "6:00 PM";
+        const customerName = draft.customerName || "Customer";
+        const locName = location?.name || "Baner";
+        const locAddress = location?.address || "Baner Road, Pune";
 
-Booking ID: SCR-DEMO-001
+        // Create the real booking in Convex
+        const booking = await convex.mutation(api.bookings.createBooking, {
+          customerId: session.customerId,
+          vehicleId: session.selectedVehicleId,
+          pickupLocationId: session.pickupLocationId,
+          returnLocationId: session.pickupLocationId,
+          startDate,
+          pickupTime,
+          returnDate,
+          returnTime,
+          totalAmount,
+          customerName,
+          customerPhone: phoneNumber,
+          status: "confirmed",
+          paymentStatus: "pending",
+        });
 
-Our rental team will confirm your booking shortly.
+        if (!booking) {
+          return { text: "Unable to create booking. Please contact support or send 'Hi'." };
+        }
 
-Thank you for choosing ScootyGo Rentals! 🛵`;
+        // Reset session in Convex
+        await convex.mutation(api.sessions.clearWhatsAppSession, { phoneNumber });
+
+        const confirmationText = `✅ Booking Confirmed!
+
+Your ScootyGo booking is confirmed. 🛵
+
+Booking ID:
+${booking.bookingId}
+
+Ride:
+${rideName}
+
+Date:
+${startDate}
+
+Pickup:
+${pickupTime}
+
+Return:
+${returnTime}
+
+Pickup Location:
+ScootyGo Rentals - ${locName}
+
+Address:
+${locAddress}
+
+💰 Total:
+₹${totalAmount.toLocaleString("en-IN")}
+
+🗺️ Google Maps:
+${mapsUrl}
+
+Thank you for choosing ScootyGo!`;
+
+        return {
+          text: confirmationText,
+          nativeLocation: {
+            latitude: lat,
+            longitude: lon,
+            name: `ScootyGo Rentals - ${locName}`,
+            address: locAddress,
+          },
+        };
       }
 
-      return `Please reply:
+      if (lowerText === "no" || lowerText === "cancel" || lowerText === "n") {
+        await convex.mutation(api.sessions.clearWhatsAppSession, { phoneNumber });
+        return {
+          text: `❌ Booking cancelled.\n\nNo booking has been created.\n\nSend "Hi" anytime to start again.`,
+        };
+      }
 
-CONFIRM
-
-to submit your booking, or type HI to start over.`;
+      return {
+        text: `Please reply:\n\nYES\n\nor\n\nNO`,
+      };
     }
 
-    case 'COMPLETED': {
-      // After completion, if user sends another message, restart with welcome
-      resetSession(phoneNumber);
-      return MESSAGE_TEMPLATES.WELCOME;
+    case "COMPLETED": {
+      await convex.mutation(api.sessions.clearWhatsAppSession, { phoneNumber });
+      return { text: MESSAGE_TEMPLATES.WELCOME };
     }
 
     default: {
-      resetSession(phoneNumber);
-      return MESSAGE_TEMPLATES.WELCOME;
+      await convex.mutation(api.sessions.clearWhatsAppSession, { phoneNumber });
+      return { text: MESSAGE_TEMPLATES.WELCOME };
     }
   }
-}
-
-/**
- * Helper to inspect active sessions (used by local simulation and debugging)
- */
-export function getAllSessions(): Record<string, UserSession> {
-  const result: Record<string, UserSession> = {};
-  sessions.forEach((val, key) => {
-    result[key] = val;
-  });
-  return result;
 }
