@@ -636,21 +636,24 @@ Please enter the 4-digit verification code sent to your WhatsApp number (*${cont
 
   // Default fallback: Friendly reception response with guided menu
   return {
-    text: `I'm happy to help you! 😊
+    text: `Hello! How can I help you? 😊
+(कशी मदत करू शकतो?)
 
-Please select an option or reply with your question in plain English, Hindi, or Marathi:
+👇 *Please reply with any number (1 to 9):*
+(फक्त 1 ते 9 मधील कोणताही एक नंबर पाठवा):
 
-1️⃣ 🏥 *Book an Appointment*
-2️⃣ 📅 *My Appointments*
-3️⃣ 💊 *My Prescriptions*
-4️⃣ 🧾 *Bills & Payments*
-5️⃣ 🔔 *Next Follow-up*
-6️⃣ 👨‍⚕️ *Doctor Availability & Timings*
-7️⃣ 🧪 *Laboratory Reports*
-8️⃣ 📍 *Hospital Information & Location*
-9️⃣ ☎️ *Talk to Reception*
+1️⃣ 🏥 Book an Appointment (नवीन अपॉइंटमेंट)
+2️⃣ 📅 My Appointments (माझी अपॉइंटमेंट)
+3️⃣ 💊 My Prescriptions (औषधांचा पर्चा / दवाई)
+4️⃣ 🧾 Bills & Payments (हॉस्पिटल बिल)
+5️⃣ 🔔 Next Follow-up (पुढची भेट तारीख)
+6️⃣ 👨‍⚕️ Doctor Availability (डॉक्टरांची वेळ)
+7️⃣ 🧪 Laboratory Reports (लॅब टेस्ट रिपोर्ट)
+8️⃣ 📍 Hospital Location & Address (पत्ता)
+9️⃣ ☎️ Talk to Reception (फोनवर बोला / रिसेप्शन)
 
-_(Example: "I want to see Dr. Raut tomorrow" or "What are doctor timings?")_`,
+👉 Just send a number: *1*, *2*, *3*, *4*, *5*, *6*, *7*, *8*, or *9*
+(उदा. 1 किंवा 2 असा नंबर पाठवा.)`,
     nextStep: "IDLE",
   };
 }
@@ -685,12 +688,15 @@ async function initiateAppointmentBooking(
 
     return {
       text: `🏥 *Book an Appointment at Cortex Hospital*
+(अपॉइंटमेंट बुक करा)
 
 Which specialist would you like to consult?
+(कोणत्या डॉक्टरांना दाखवायचे आहे?):
 
 ${docOptions}
 
-Please reply with *1* or *2*, or type the doctor's name.`,
+👉 Please reply *1* or *2*
+(फक्त 1 किंवा 2 नंबर पाठवा.)`,
       nextStep: "BOOKING_SELECT_DOCTOR",
       updatedContext: { bookingDraft: draft },
     };
@@ -698,15 +704,24 @@ Please reply with *1* or *2*, or type the doctor's name.`,
 
   // Doctor is already known, ask for Date if not provided
   if (!draft.date) {
+    const today = new Date();
+    const tmrw = new Date(today);
+    tmrw.setDate(today.getDate() + 1);
+    const dayAfter = new Date(today);
+    dayAfter.setDate(today.getDate() + 2);
+
     return {
-      text: `Great! Let's book your appointment with *${draft.doctorName}* (${draft.specialty}).
+      text: `Great! Let's book your appointment with:
+👨‍⚕️ *${draft.doctorName}* (${draft.specialty})
 
-📅 For which date would you like the appointment?
+📅 *Select Date / तारीख निवडा:*
+1️⃣ Today (आज - ${formatDisplayDate(formatDate(today))})
+2️⃣ Tomorrow (उद्या / कल - ${formatDisplayDate(formatDate(tmrw))})
+3️⃣ Day after tomorrow (परवा / परसों - ${formatDisplayDate(formatDate(dayAfter))})
+4️⃣ Or type another date (e.g. 10 November)
 
-Reply:
-• *Today*
-• *Tomorrow*
-• Or type a specific date (e.g. *2026-11-05* or *10 November*)
+👉 Please reply with *1*, *2*, or *3*.
+(फक्त 1, 2 किंवा 3 नंबर पाठवा.)
 
 _(Note: Cortex Hospital OPD is closed on Sundays.)_`,
       nextStep: "BOOKING_SELECT_DATE",
@@ -736,11 +751,12 @@ async function handleBookingSelectDoctor(
 
   if (!selectedDoc) {
     return {
-      text: `Please select a valid doctor:
-1️⃣ ${docs[0]?.name || "Dr. Vipeen Raut"} (Orthopaedics)
-2️⃣ ${docs[1]?.name || "Dr. Shillpa Raut"} (Gynecology & Obstetrics)
+      text: `Please reply with a number:
+1️⃣ ${docs[0]?.name || "Dr. Vipeen Raut"} (हाडे व सांधे तज्ज्ञ)
+2️⃣ ${docs[1]?.name || "Dr. Shillpa Raut"} (स्त्रीरोग व प्रसूती तज्ज्ञ)
 
-Reply *1* or *2*.`,
+👉 Reply *1* or *2*
+(फक्त 1 किंवा 2 पाठवा.)`,
       nextStep: "BOOKING_SELECT_DOCTOR",
     };
   }
@@ -751,16 +767,24 @@ Reply *1* or *2*.`,
     specialty: selectedDoc.specialty,
   };
 
+  const today = new Date();
+  const tmrw = new Date(today);
+  tmrw.setDate(today.getDate() + 1);
+  const dayAfter = new Date(today);
+  dayAfter.setDate(today.getDate() + 2);
+
   return {
     text: `Selected: *${selectedDoc.name}*
 _${selectedDoc.designation}_
 
-📅 What date would you like to visit?
+📅 *Select Date / तारीख निवडा:*
+1️⃣ Today (आज - ${formatDisplayDate(formatDate(today))})
+2️⃣ Tomorrow (उद्या / कल - ${formatDisplayDate(formatDate(tmrw))})
+3️⃣ Day after tomorrow (परवा / परसों - ${formatDisplayDate(formatDate(dayAfter))})
+4️⃣ Or type another date (e.g. 10 Nov)
 
-Reply:
-• *Today*
-• *Tomorrow*
-• Or type a specific date (e.g. *2026-11-05* or *10 November*)`,
+👉 Please reply *1*, *2*, or *3*.
+(फक्त 1, 2 किंवा 3 नंबर पाठवा.)`,
     nextStep: "BOOKING_SELECT_DATE",
     updatedContext: { bookingDraft: updatedDraft },
   };
@@ -770,15 +794,34 @@ async function handleBookingSelectDate(
   userText: string,
   context: AgentContext
 ): Promise<AgentResponse> {
-  const dateStr = parseDateInput(userText);
+  const clean = userText.trim().toLowerCase();
+  const today = new Date();
+  let dateStr: string | null = null;
+
+  if (clean === "1" || clean === "today" || clean === "आज") {
+    dateStr = formatDate(today);
+  } else if (clean === "2" || clean === "tomorrow" || clean === "उद्या" || clean === "कल") {
+    const tmrw = new Date(today);
+    tmrw.setDate(today.getDate() + 1);
+    dateStr = formatDate(tmrw);
+  } else if (clean === "3" || clean === "day after tomorrow" || clean === "परवा" || clean === "परसों") {
+    const dayAfter = new Date(today);
+    dayAfter.setDate(today.getDate() + 2);
+    dateStr = formatDate(dayAfter);
+  } else {
+    dateStr = parseDateInput(userText);
+  }
+
   if (!dateStr) {
     return {
-      text: `Please enter a valid date.
-Examples:
-• *Today*
-• *Tomorrow*
-• *2026-11-05*
-• *10 November*`,
+      text: `Please reply with a number:
+1️⃣ Today (आज)
+2️⃣ Tomorrow (उद्या / कल)
+3️⃣ Day after tomorrow (परवा)
+4️⃣ Or type a specific date (e.g. 2026-11-05)
+
+👉 Reply *1*, *2*, or *3*.
+(फक्त 1, 2 किंवा 3 पाठवा.)`,
       nextStep: "BOOKING_SELECT_DATE",
     };
   }
@@ -831,14 +874,20 @@ Reply *Tomorrow* or specify another date.`,
 
   let slotText = `Certainly! Let me check *${docName}'s* availability for *${formatDisplayDate(dateStr)}*.\n\n📅 *Available Slots on ${formatDisplayDate(dateStr)}*\nDoctor: *${docName}*\n\n`;
 
-  if (morning.length > 0) {
-    slotText += `☀️ *Morning OPD (10:00 AM – 1:00 PM):*\n${morning.join(" | ")}\n\n`;
-  }
-  if (evening.length > 0) {
-    slotText += `🌙 *Evening OPD (6:00 PM – 8:00 PM):*\n${evening.join(" | ")}\n\n`;
-  }
+  slotText += `👇 *Please reply with the slot number (1, 2, 3...)*\n(फक्त वेळेचा नंबर पाठवा):\n\n`;
 
-  slotText += `Please reply with your preferred time slot (e.g. *${slotData.availableSlots[0]}*).`;
+  slotData.availableSlots.forEach((slot, index) => {
+    const num = index + 1;
+    const [h, m] = slot.split(":").map(Number);
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    const ampm = h >= 12 ? "PM" : "AM";
+    const formattedTime = `${String(hour12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
+    const period = h < 14 ? "☀️ Morning" : "🌙 Evening";
+
+    slotText += `*${num}.* ⏰ ${formattedTime} _(${period})_\n`;
+  });
+
+  slotText += `\n👉 Reply with any number (*1*, *2*, *3*...) or time (*${slotData.availableSlots[0]}*).\n(उदा. 1 किंवा 2 असा नंबर पाठवा.)`;
 
   return {
     text: slotText,
@@ -855,29 +904,37 @@ async function handleBookingSelectSlot(
   const dateStr = draft.date || formatDate(new Date());
   const docName = draft.doctorName || "Dr. Vipeen Raut";
 
-  // Check valid slot format e.g. "10:15", "10:30", "18:00", "6:00 pm"
-  let cleanSlot = userText.trim();
-  const timeMatch = cleanSlot.match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i);
+  let cleanInput = userText.trim();
+  let cleanSlot = cleanInput;
 
-  if (timeMatch) {
-    let hours = parseInt(timeMatch[1], 10);
-    const minutes = timeMatch[2];
-    const modifier = (timeMatch[3] || "").toLowerCase();
+  const slotData = await getAvailableSlots(dateStr, docName);
 
-    if (modifier === "pm" && hours < 12) hours += 12;
-    if (modifier === "am" && hours === 12) hours = 0;
-    cleanSlot = `${String(hours).padStart(2, "0")}:${minutes}`;
+  // 1. Check if user selected by slot index number (e.g. "1", "2", "3"...)
+  const slotNum = parseInt(cleanInput, 10);
+  if (!isNaN(slotNum) && slotNum >= 1 && slotNum <= slotData.availableSlots.length && !cleanInput.includes(":")) {
+    cleanSlot = slotData.availableSlots[slotNum - 1];
+  } else {
+    // 2. Check if user typed time e.g. "10:15" or "10:15 AM"
+    const timeMatch = cleanInput.match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i);
+    if (timeMatch) {
+      let hours = parseInt(timeMatch[1], 10);
+      const minutes = timeMatch[2];
+      const modifier = (timeMatch[3] || "").toLowerCase();
+
+      if (modifier === "pm" && hours < 12) hours += 12;
+      if (modifier === "am" && hours === 12) hours = 0;
+      cleanSlot = `${String(hours).padStart(2, "0")}:${minutes}`;
+    }
   }
 
-  // Verify against Cortex PMS available slots
-  const slotData = await getAvailableSlots(dateStr, docName);
   if (!slotData.availableSlots.includes(cleanSlot)) {
+    let errText = `Please reply with the number of your preferred slot (1 to ${slotData.availableSlots.length}):\n\n`;
+    slotData.availableSlots.slice(0, 8).forEach((s, i) => {
+      errText += `*${i + 1}.* ⏰ ${s}\n`;
+    });
+    errText += `\n👉 Reply with a number like *1* or *2*.\n(कृपया 1 किंवा 2 असा नंबर पाठवा.)`;
     return {
-      text: `Slot *${cleanSlot}* is not available.
-Available slots are:
-${slotData.availableSlots.slice(0, 10).join(" | ")}
-
-Please select one of the listed slots.`,
+      text: errText,
       nextStep: "BOOKING_SELECT_SLOT",
     };
   }
@@ -936,11 +993,14 @@ async function handleRegisterAge(userText: string, context: AgentContext): Promi
   const draft = { ...(context.bookingDraft || {}), patientAge: ageMatch[0] };
   return {
     text: `Got it (${ageMatch[0]} yrs).
-What is the patient's gender?
-Reply:
-1️⃣ Male
-2️⃣ Female
-3️⃣ Other`,
+What is the patient's gender? / लिंग निवडा:
+
+1️⃣ Male (पुरुष)
+2️⃣ Female (महिला / स्त्री)
+3️⃣ Other
+
+👉 Please reply *1* or *2*.
+(फक्त 1 किंवा 2 नंबर पाठवा.)`,
     nextStep: "REGISTER_SEX",
     updatedContext: { bookingDraft: draft },
   };
@@ -949,7 +1009,7 @@ Reply:
 async function handleRegisterSex(userText: string, context: AgentContext): Promise<AgentResponse> {
   let sex: "Male" | "Female" | "Other" = "Male";
   const clean = userText.toLowerCase().trim();
-  if (clean === "2" || clean.startsWith("f") || clean.includes("female") || clean.includes("स्त्री")) {
+  if (clean === "2" || clean.startsWith("f") || clean.includes("female") || clean.includes("स्त्री") || clean.includes("महिला")) {
     sex = "Female";
   } else if (clean === "3" || clean.startsWith("o")) {
     sex = "Other";
@@ -957,7 +1017,8 @@ async function handleRegisterSex(userText: string, context: AgentContext): Promi
 
   const draft = { ...(context.bookingDraft || {}), sex };
   return {
-    text: `Almost done! Please share the patient's residential city/area (e.g. *Wardha* or *Nagpur*):`,
+    text: `Almost done! Please share the patient's residential city or village:
+(कृपया गाव किंवा शहराचे नाव पाठवा, उदा. *Wardha* किंवा *Nagpur*):`,
     nextStep: "REGISTER_ADDRESS",
     updatedContext: { bookingDraft: draft },
   };
@@ -1111,10 +1172,12 @@ If you wish to re-book at any time, simply reply *1*.`,
 ━━━━━━━━━━━━━━━━━━━━━
 ${apptList}
 
-Options:
-• Reply *Cancel* to cancel your latest appointment
-• Reply *1* to book a new appointment
-• Reply *Menu* for the main menu`,
+👇 *Reply with a number (फक्त नंबर पाठवा):*
+1️⃣ Cancel this appointment (अपॉइंटमेंट रद्द करा)
+2️⃣ Book a new appointment (नवीन अपॉइंटमेंट)
+3️⃣ Main Menu (मुख्य मेनू)
+
+👉 Please reply *1*, *2*, or *3*.`,
     nextStep: "IDLE",
   };
 }
@@ -1265,7 +1328,14 @@ UPI ID: \`cortexhospital@upi\`
 }
 
 🔗 *Download Official Invoice:*
-https://cortexhospital.com/print-bill?billId=${latest._id}`,
+https://cortexhospital.com/print-bill?billId=${latest._id}
+
+👇 *Reply with number (फक्त नंबर पाठवा):*
+1️⃣ Book an Appointment (नवीन अपॉइंटमेंट)
+3️⃣ My Prescriptions (औषधांचा पर्चा)
+9️⃣ Talk to Billing Counter (बिलिंग काउंटर)
+
+👉 Please reply *1*, *3*, or *9*.`,
     nextStep: "IDLE",
   };
 }
@@ -1317,7 +1387,13 @@ Reply *1* to Book an Appointment.`,
 Consultations within 10 days of your visit are charged at discounted follow-up rates (₹200 for Dr. Vipeen Raut / ₹100 for Dr. Shillpa Raut).
 
 Would you like to book your follow-up slot for *${nextDate}*?
-Reply *1* to Book this Follow-up.`,
+
+👇 *Reply with number (फक्त नंबर पाठवा):*
+1️⃣ Book this Follow-up (तारीख बुक करा)
+2️⃣ Choose Another Date (दुसरी तारीख)
+3️⃣ Main Menu (मुख्य मेनू)
+
+👉 Please reply *1*, *2*, or *3*.`,
     nextStep: "IDLE",
     updatedContext: {
       bookingDraft: {
@@ -1359,7 +1435,12 @@ ${docProfiles}
 ⭐ *Special Clinic:*
 🦴 *HIP & KNEE JOINT CLINIC* – Every Thursday 6:00 PM to 8:00 PM
 
-Reply *1* to book an appointment with any doctor!`,
+👇 *Reply with number (फक्त नंबर पाठवा):*
+1️⃣ Book an Appointment (अपॉइंटमेंट बुक करा)
+8️⃣ Hospital Address & Location (पत्ता)
+9️⃣ Talk to Reception (रिसेप्शन)
+
+👉 Please reply *1*, *8*, or *9*.`,
     nextStep: "IDLE",
   };
 }
@@ -1393,7 +1474,12 @@ ${conf.address.fullFormatted}
 🗺️ *Google Maps Link:*
 https://maps.google.com/?q=${conf.coordinates.latitude},${conf.coordinates.longitude}
 
-Reply *1* to Book an Appointment or *9* to talk to Reception.`,
+👇 *Reply with number (फक्त नंबर पाठवा):*
+1️⃣ Book an Appointment (अपॉइंटमेंट बुक करा)
+6️⃣ Doctor Availability (डॉक्टरांची वेळ)
+9️⃣ Talk to Reception (रिसेप्शन)
+
+👉 Please reply *1*, *6*, or *9*.`,
     nativeLocation: {
       latitude: conf.coordinates.latitude,
       longitude: conf.coordinates.longitude,

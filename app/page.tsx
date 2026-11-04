@@ -23,6 +23,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { LocationItem } from '@/components/LocationMap';
+import { DEFAULT_WELCOME_MESSAGE } from '@/lib/cortexConfig';
 
 const LocationMap = dynamic(() => import('@/components/LocationMap'), {
   ssr: false,
@@ -140,23 +141,7 @@ export default function HomePage() {
           {
             id: 'init-1',
             sender: 'bot',
-            text: `Hello! 👋 Welcome to Cortex Hospital.
-
-I'm your virtual hospital assistant, available 24/7 to help you with appointments, prescriptions, bills, follow-ups and hospital information.
-
-How can I assist you today?
-
-🏥 Book an Appointment
-📅 My Appointments
-💊 My Prescriptions
-🧾 Bills & Payments
-🔔 Next Follow-up
-👨‍⚕️ Doctor Availability
-🧪 Laboratory Reports
-📍 Hospital Information
-☎️ Talk to Reception
-
-Your health and convenience matter to us. ❤️`,
+            text: DEFAULT_WELCOME_MESSAGE,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           },
         ]);
@@ -293,25 +278,7 @@ Your health and convenience matter to us. ❤️`,
         {
           id: `rst_${Date.now()}`,
           sender: 'bot',
-          text: `🔄 *Session Reset.*
-
-Hello! 👋 Welcome to Cortex Hospital.
-
-I'm your virtual hospital assistant, available 24/7 to help you with appointments, prescriptions, bills, follow-ups and hospital information.
-
-How can I assist you today?
-
-🏥 Book an Appointment
-📅 My Appointments
-💊 My Prescriptions
-🧾 Bills & Payments
-🔔 Next Follow-up
-👨‍⚕️ Doctor Availability
-🧪 Laboratory Reports
-📍 Hospital Information
-☎️ Talk to Reception
-
-Your health and convenience matter to us. ❤️`,
+          text: `🔄 *Session Reset.*\n\n${DEFAULT_WELCOME_MESSAGE}`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
