@@ -1,8 +1,7 @@
 /**
  * WhatsApp Cloud API Client
- * Used to send text and native location messages via the official WhatsApp Business Cloud API.
- * 
- * Note: Never log access tokens or expose them to the client.
+ * Used to send text, documents/PDFs, and native location messages
+ * via the official WhatsApp Business Cloud API.
  */
 
 const GRAPH_API_VERSION = process.env.GRAPH_API_VERSION || 'v21.0';
@@ -32,11 +31,11 @@ export async function sendWhatsAppMessage(to: string, message: string): Promise<
 
   if (!token || !phoneNumberId) {
     console.warn(
-      `[WhatsApp API] Message to ${to} was not sent via Cloud API because WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID is not configured.`
+      `[WhatsApp API] Message to ${to} was simulated because WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID is not configured.`
     );
     console.log(`[WhatsApp API Simulated Outgoing Text] To: ${to}\nMessage:\n${message}\n`);
     return {
-      success: true, // Return true in simulation so dev flow proceeds
+      success: true,
       messageId: `sim_${Date.now()}`,
     };
   }
@@ -90,9 +89,6 @@ export async function sendWhatsAppMessage(to: string, message: string): Promise<
 
 /**
  * Sends a native WhatsApp location pin message using the WhatsApp Cloud API.
- * 
- * @param to - Recipient phone number
- * @param location - Latitude, Longitude, Name, and Address of the location
  */
 export async function sendWhatsAppLocation(
   to: string,
@@ -102,9 +98,6 @@ export async function sendWhatsAppLocation(
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
 
   if (!token || !phoneNumberId) {
-    console.warn(
-      `[WhatsApp API] Location pin to ${to} was not sent via Cloud API because WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID is not configured.`
-    );
     console.log(
       `[WhatsApp API Simulated Outgoing Location] To: ${to}\nName: ${location.name}\nAddress: ${location.address}\nLat: ${location.latitude}, Lon: ${location.longitude}\n`
     );
@@ -148,17 +141,72 @@ export async function sendWhatsAppLocation(
     }
 
     const messageId = data?.messages?.[0]?.id;
-    console.log(`[WhatsApp Location API Success] Location sent to ${to}. MessageId: ${messageId}`);
     return {
       success: true,
       messageId,
     };
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error(`[WhatsApp Location API Exception] Failed to send location to ${to}:`, errorMessage);
     return {
       success: false,
       error: errorMessage,
+    };
+  }
+}
+
+/**
+ * Sends a document / PDF using WhatsApp Cloud API
+ */
+export async function sendWhatsAppDocument(
+  to: string,
+  documentUrl: string,
+  filename: string,
+  caption?: string
+): Promise<SendMessageResult> {
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+  if (!token || !phoneNumberId) {
+    console.log(
+      `[WhatsApp API Simulated Outgoing Document] To: ${to}\nFile: ${filename}\nLink: ${documentUrl}\nCaption: ${caption}\n`
+    );
+    return {
+      success: true,
+      messageId: `sim_doc_${Date.now()}`,
+    };
+  }
+
+  const endpoint = `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`;
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: to,
+        type: 'document',
+        document: {
+          link: documentUrl,
+          caption: caption || filename,
+          filename: filename,
+        },
+      }),
+    });
+
+    const data = await response.json();
+    return {
+      success: response.ok,
+      messageId: data?.messages?.[0]?.id,
+    };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }

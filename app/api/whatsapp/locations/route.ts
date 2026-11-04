@@ -1,14 +1,21 @@
 import { NextResponse } from 'next/server';
-import { getConvexClient } from '@/lib/conversation';
-import { api } from '@/convex/_generated/api';
+import { CORTEX_HOSPITAL_CONFIG } from '@/lib/cortexConfig';
 
 export async function GET() {
-  try {
-    const convex = getConvexClient();
-    const locations = await convex.query(api.locations.listLocationsWithVehicles);
-    return NextResponse.json({ success: true, locations });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
-  }
+  const conf = CORTEX_HOSPITAL_CONFIG;
+  return NextResponse.json({
+    success: true,
+    locations: [
+      {
+        id: 'cortex-hospital',
+        name: conf.name,
+        address: conf.address.fullFormatted,
+        latitude: conf.coordinates.latitude,
+        longitude: conf.coordinates.longitude,
+        phone: conf.contacts.mobile,
+        timings: conf.schedule.opdTimings,
+        doctors: conf.doctors.map((d) => `${d.name} (${d.specialty})`),
+      },
+    ],
+  });
 }

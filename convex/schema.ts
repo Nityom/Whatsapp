@@ -2,99 +2,33 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
-  locations: defineTable({
-    name: v.string(),
-    city: v.string(),
-    address: v.string(),
-    latitude: v.number(),
-    longitude: v.number(),
-    phone: v.string(),
-    status: v.union(v.literal("active"), v.literal("inactive")),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_status", ["status"])
-    .index("by_name", ["name"]),
-
-  vehicles: defineTable({
-    name: v.string(),
-    brand: v.string(),
-    model: v.string(),
-    type: v.union(v.literal("scooter"), v.literal("bike")),
-    registrationNumber: v.string(),
-    pricePerDay: v.number(),
-    pricePerHour: v.number(),
-    locationId: v.id("locations"),
-    status: v.union(
-      v.literal("available"),
-      v.literal("booked"),
-      v.literal("maintenance"),
-      v.literal("inactive")
-    ),
-    imageUrl: v.optional(v.string()),
-    description: v.optional(v.string()),
-    features: v.optional(v.array(v.string())),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_locationId", ["locationId"])
-    .index("by_status", ["status"])
-    .index("by_location_and_status", ["locationId", "status"]),
-
-  customers: defineTable({
-    name: v.string(),
-    phoneNumber: v.string(),
-    whatsappNumber: v.string(),
-    email: v.optional(v.string()),
-    totalBookings: v.number(),
-    status: v.union(v.literal("active"), v.literal("inactive")),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }).index("by_phoneNumber", ["phoneNumber"]),
-
-  bookings: defineTable({
-    bookingId: v.string(),
-    customerId: v.id("customers"),
-    vehicleId: v.id("vehicles"),
-    pickupLocationId: v.id("locations"),
-    returnLocationId: v.id("locations"),
-    startDate: v.string(),
-    pickupTime: v.string(),
-    returnDate: v.string(),
-    returnTime: v.string(),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("confirmed"),
-      v.literal("active"),
-      v.literal("completed"),
-      v.literal("cancelled")
-    ),
-    totalAmount: v.number(),
-    paymentStatus: v.union(
-      v.literal("pending"),
-      v.literal("paid"),
-      v.literal("refunded")
-    ),
-    customerName: v.string(),
-    customerPhone: v.string(),
-    notes: v.optional(v.string()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_bookingId", ["bookingId"])
-    .index("by_customerId", ["customerId"])
-    .index("by_vehicleId", ["vehicleId"])
-    .index("by_status", ["status"])
-    .index("by_customerPhone", ["customerPhone"]),
-
+  // Hospital WhatsApp Conversation & Patient Session State
   whatsappSessions: defineTable({
     phoneNumber: v.string(),
-    customerId: v.optional(v.id("customers")),
-    currentStep: v.string(),
-    selectedVehicleId: v.optional(v.id("vehicles")),
-    pickupLocationId: v.optional(v.id("locations")),
+    currentStep: v.string(), // "WELCOME", "IDLE", "BOOKING_SELECT_DOCTOR", "BOOKING_SELECT_DATE", "BOOKING_SELECT_SLOT", "BOOKING_CONFIRMATION", "REGISTER_NAME", "REGISTER_AGE", "REGISTER_SEX", "REGISTER_ADDRESS", "OTP_VERIFICATION", "HANDED_OVER"
+    language: v.optional(v.string()), // "en" | "hi" | "mr"
+    patientId: v.optional(v.string()),
+    patientReference: v.optional(v.string()), // UHID e.g. CRX0001
+    patientName: v.optional(v.string()),
+    isVerified: v.optional(v.boolean()),
+    verificationOtp: v.optional(v.string()),
+    otpExpiresAt: v.optional(v.number()),
+    pendingAction: v.optional(v.string()), // e.g. "VIEW_PRESCRIPTION", "VIEW_BILL"
+    isHandedOver: v.optional(v.boolean()),
+    handoverReason: v.optional(v.string()),
+    handoverTimestamp: v.optional(v.number()),
     bookingDraft: v.optional(
       v.object({
+        doctorName: v.optional(v.string()),
+        specialty: v.optional(v.string()),
+        date: v.optional(v.string()),
+        slot: v.optional(v.string()),
+        patientName: v.optional(v.string()),
+        patientAge: v.optional(v.string()),
+        patientPhone: v.optional(v.string()),
+        patientAddress: v.optional(v.string()),
+        complaint: v.optional(v.string()),
+        // Legacy fields for backward compatibility
         startDate: v.optional(v.string()),
         pickupTime: v.optional(v.string()),
         returnDate: v.optional(v.string()),
@@ -109,7 +43,21 @@ export default defineSchema({
         vehiclePrice: v.optional(v.number()),
       })
     ),
+    // Legacy fields for backward compatibility
+    customerId: v.optional(v.string()),
+    selectedVehicleId: v.optional(v.string()),
+    pickupLocationId: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_phoneNumber", ["phoneNumber"]),
+
+  // Chat message audit log
+  chatMessages: defineTable({
+    phoneNumber: v.string(),
+    sender: v.union(v.literal("patient"), v.literal("assistant"), v.literal("staff")),
+    text: v.string(),
+    type: v.optional(v.string()),
+    metadata: v.optional(v.any()),
+    createdAt: v.number(),
+  }).index("by_phone", ["phoneNumber"]),
 });

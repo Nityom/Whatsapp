@@ -1,7 +1,7 @@
 {
-  "name": "whatsapp",
+  "name": "cortex-hospital-whatsapp",
   "version": "1.0.0",
-  "description": "ScootyGo Rentals WhatsApp Chatbot with Convex Database",
+  "description": "Cortex Hospital AI WhatsApp Assistant connected to Cortex PMS",
   "main": "index.js",
   "scripts": {
     "dev": "next dev",
@@ -15,6 +15,7 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@google/genai": "^2.32.0",
     "@types/leaflet": "^1.9.22",
     "convex": "^1.46.0",
     "leaflet": "^1.9.4",

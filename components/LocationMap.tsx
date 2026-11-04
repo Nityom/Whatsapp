@@ -9,8 +9,9 @@ export interface LocationItem {
   address: string;
   latitude: number;
   longitude: number;
-  availableCount: number;
-  vehicles: string[];
+  phone?: string;
+  timings?: string;
+  doctors?: string[];
 }
 
 interface LocationMapProps {
@@ -30,8 +31,11 @@ export default function LocationMap({ locations }: LocationMapProps) {
 
       if (!isMounted) return;
 
+      const wardhaLat = 20.7453;
+      const wardhaLng = 78.5992;
+
       if (!mapInstanceRef.current) {
-        const map = L.map(mapContainerRef.current).setView([18.55, 73.82], 12);
+        const map = L.map(mapContainerRef.current).setView([wardhaLat, wardhaLng], 14);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution:
@@ -44,17 +48,17 @@ export default function LocationMap({ locations }: LocationMapProps) {
 
       const map = mapInstanceRef.current;
 
-      // Custom SVG Marker Icon
-      const customPin = L.divIcon({
-        className: 'custom-map-marker',
+      // Custom Hospital Pin Marker
+      const hospitalPin = L.divIcon({
+        className: 'custom-hospital-marker',
         html: `
-          <div style="background-color: #008069; color: white; width: 32px; height: 32px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); border: 2px solid #ffffff;">
-            <div style="transform: rotate(45deg); font-size: 14px;">🛵</div>
+          <div style="background-color: #7B1828; color: white; width: 36px; height: 36px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(123,24,40,0.4); border: 2.5px solid #ffffff;">
+            <div style="transform: rotate(45deg); font-size: 16px;">🏥</div>
           </div>
         `,
-        iconSize: [32, 32],
-        iconAnchor: [16, 32],
-        popupAnchor: [0, -32],
+        iconSize: [36, 36],
+        iconAnchor: [18, 36],
+        popupAnchor: [0, -36],
       });
 
       // Clear existing markers
@@ -64,33 +68,50 @@ export default function LocationMap({ locations }: LocationMapProps) {
         }
       });
 
-      // Add markers
-      locations.forEach((loc) => {
-        const vehicleListHtml =
-          loc.vehicles.length > 0
-            ? loc.vehicles
-                .map(
-                  (v) =>
-                    `<div style="font-size: 12px; color: #374151; padding: 2px 0;">• ${v}</div>`
-                )
-                .join('')
-            : '<div style="font-size: 12px; color: #9ca3af; font-style: italic;">No vehicles available</div>';
+      const hospitalLocations =
+        locations.length > 0
+          ? locations
+          : [
+              {
+                id: 'cortex',
+                name: 'Cortex Hospital',
+                address: 'Aarti Chowk, Nagpur Road, Wardha - 442001',
+                latitude: wardhaLat,
+                longitude: wardhaLng,
+                phone: '07152-255795 / +91 9373280505',
+                timings: '10:00 AM – 1:00 PM & 6:00 PM – 8:00 PM',
+              },
+            ];
+
+      hospitalLocations.forEach((loc) => {
+        const marker = L.marker([loc.latitude, loc.longitude], { icon: hospitalPin }).addTo(map);
 
         const popupContent = `
-          <div style="font-family: sans-serif; min-width: 180px; padding: 4px;">
-            <div style="font-weight: 700; color: #008069; font-size: 15px; margin-bottom: 2px;">${loc.name}</div>
-            <div style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">${loc.address}</div>
-            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 4px; padding: 4px 8px; margin-bottom: 6px;">
-              <span style="font-size: 12px; font-weight: 600; color: #166534;">Available Vehicles: ${loc.availableCount}</span>
+          <div style="font-family: system-ui, sans-serif; min-width: 200px; padding: 4px;">
+            <div style="font-weight: 700; color: #7B1828; font-size: 14px; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+              <span>🏥</span> ${loc.name}
             </div>
-            <div style="font-size: 12px; font-weight: 600; color: #111827; margin-bottom: 4px;">Vehicles:</div>
-            ${vehicleListHtml}
+            <div style="font-size: 11px; color: #4b5563; margin-bottom: 6px;">
+              ${loc.address}
+            </div>
+            <div style="font-size: 11px; color: #1f2937; margin-bottom: 4px;">
+              <strong>⏰ OPD:</strong> ${loc.timings || '10 AM - 1 PM & 6 PM - 8 PM'}
+            </div>
+            <div style="font-size: 11px; color: #1f2937; margin-bottom: 8px;">
+              <strong>📞 Ph:</strong> ${loc.phone || '07152-255795'}
+            </div>
+            <a 
+              href="https://maps.google.com/?q=${loc.latitude},${loc.longitude}" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style="display: inline-block; background-color: #7B1828; color: #ffffff; padding: 4px 8px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: 600;"
+            >
+              Get Directions ↗
+            </a>
           </div>
         `;
 
-        L.marker([loc.latitude, loc.longitude], { icon: customPin })
-          .addTo(map)
-          .bindPopup(popupContent);
+        marker.bindPopup(popupContent);
       });
     }
 
@@ -98,15 +119,11 @@ export default function LocationMap({ locations }: LocationMapProps) {
 
     return () => {
       isMounted = false;
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
     };
   }, [locations]);
 
   return (
-    <div className="w-full h-80 rounded-xl overflow-hidden border border-gray-200 shadow-inner relative z-0">
+    <div className="w-full h-72 rounded-xl overflow-hidden shadow-inner border border-gray-200">
       <div ref={mapContainerRef} className="w-full h-full" />
     </div>
   );
