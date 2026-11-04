@@ -1,11 +1,13 @@
 /**
  * Cortex Hospital PMS Backend Client
- * Connects directly to Cortex-Admin via Convex (jovial-sheep-76.convex.cloud)
+ * Strictly connected to DEVELOPMENT deployment: dev:jovial-sheep-76 (jovial-sheep-76.convex.cloud)
+ * Note: Production deployment (majestic-setter-702) is protected and intentionally isolated.
  */
 
 import { ConvexHttpClient } from "convex/browser";
 import { CORTEX_HOSPITAL_CONFIG, DoctorInfo } from "./cortexConfig";
 
+// Target Convex environment: Strictly DEV (dev:jovial-sheep-76)
 const CORTEX_URL =
   process.env.CORTEX_CONVEX_URL ||
   process.env.NEXT_PUBLIC_CORTEX_URL ||
