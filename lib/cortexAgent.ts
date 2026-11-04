@@ -106,16 +106,33 @@ export function isMedicalAdviceQuery(text: string): boolean {
   );
 }
 
+/** Check if user input is a greeting or menu request (handles hi, hii, hello, etc.) */
+export function isGreetingText(text: string): boolean {
+  const clean = text.toLowerCase().trim().replace(/[!.,?]+$/, "");
+  return (
+    /^h+i+$/i.test(clean) ||
+    /^h+e+y+$/i.test(clean) ||
+    /^h+e+l+o+$/i.test(clean) ||
+    /^h+e+l+l+o+$/i.test(clean) ||
+    clean === "namaste" ||
+    clean === "namaskar" ||
+    clean === "start" ||
+    clean === "restart" ||
+    clean === "menu" ||
+    clean === "help" ||
+    clean.startsWith("hi ") ||
+    clean.startsWith("hii ") ||
+    clean.startsWith("hello ")
+  );
+}
+
 /** Check if user query is an interruption of an active sub-step */
 export function isInterruptionQuery(text: string): boolean {
   const l = text.toLowerCase().trim();
   return (
-    l === "menu" ||
-    l === "hi" ||
-    l === "hello" ||
+    isGreetingText(text) ||
     l === "cancel" ||
     l === "reset" ||
-    l === "start" ||
     l === "2" ||
     l === "3" ||
     l === "4" ||
@@ -275,14 +292,7 @@ How can I help you today?
 
   // 2. Human Handover Management (Section 11)
   if (context.isHandedOver) {
-    if (
-      lower === "hi" ||
-      lower === "hello" ||
-      lower === "menu" ||
-      lower === "start" ||
-      lower === "restart" ||
-      lower === "resume"
-    ) {
+    if (isGreetingText(userText) || lower === "resume") {
       return {
         text: `🤖 Virtual Assistant Resumed!
         
@@ -463,15 +473,7 @@ Please enter the 4-digit verification code sent to your WhatsApp number (*${cont
   }
 
   // 8. Top-Level Greetings / Welcome Trigger (Section 15)
-  if (
-    lower === "hi" ||
-    lower === "hello" ||
-    lower === "hey" ||
-    lower === "start" ||
-    lower === "namaste" ||
-    lower === "menu" ||
-    lower === "help"
-  ) {
+  if (context.currentStep === "WELCOME" || isGreetingText(userText)) {
     return {
       text: DEFAULT_WELCOME_MESSAGE,
       nextStep: "IDLE",
