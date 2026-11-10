@@ -123,26 +123,11 @@ export const CORTEX_HOSPITAL_CONFIG: HospitalConfig = {
 /**
  * Standard Default Welcome Message (Strictly adhering to Section 15 of System Prompt, numbered 1-9 for easy access)
  */
-export const DEFAULT_WELCOME_MESSAGE = `Hello! 👋 Welcome to Cortex Hospital.
+export const DEFAULT_WELCOME_MESSAGE = `Welcome to Cortex Hospital 👋
+Please choose your language / कृपया भाषा चुनें / कृपया भाषा निवडा:
 
-I'm your virtual hospital assistant, available 24/7 to help you with appointments, prescriptions, bills, follow-ups and hospital information.
+1️⃣ English
+2️⃣ हिन्दी
+3️⃣ मराठी
 
-How can I assist you today?
-👇 *Reply with number (1, 2, 3...)*
-(फक्त नंबर पाठवा / सिर्फ नंबर भेजें):
-
-1️⃣ 🏥 Book an Appointment (नवीन अपॉइंटमेंट)
-2️⃣ 📅 My Appointments (माझी अपॉइंटमेंट)
-3️⃣ 💊 My Prescriptions (औषधांचा पर्चा / दवाई)
-4️⃣ 🧾 Bills & Payments (हॉस्पिटल बिल)
-5️⃣ 🔔 Next Follow-up (पुढची तारीख)
-6️⃣ 👨‍⚕️ Doctor Availability (डॉक्टरांची वेळ)
-7️⃣ 🧪 Laboratory Reports (लॅब रिपोर्ट / टेस्ट)
-8️⃣ 📍 Hospital Location & Address (पत्ता)
-9️⃣ ☎️ Talk to Reception (फोनवर बोला / रिसेप्शन)
-
-👉 Please reply with any number from 1 to 9.
-(कृपया 1 ते 9 मधील कोणताही एक नंबर पाठवा.)
-
-Your health and convenience matter to us. ❤️`;
-
+Reply with 1, 2, or 3 (or type the language).`;

@@ -6,7 +6,7 @@
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { handleConversationTurn, AgentContext, AgentResponse } from "./cortexAgent";
-import { WhatsAppLocationPayload } from "./whatsapp";
+import { WhatsAppLocationPayload, WhatsAppInteractive } from "./whatsapp";
 
 const CONVEX_URL =
   process.env.NEXT_PUBLIC_CONVEX_URL || "https://quaint-hound-638.convex.cloud";
@@ -26,6 +26,7 @@ export interface IncomingMessageInput {
 export interface ProcessMessageResult {
   text: string;
   nativeLocation?: WhatsAppLocationPayload;
+  interactive?: WhatsAppInteractive;
   session?: any;
 }
 
@@ -134,6 +135,7 @@ export async function processIncomingMessage(
   return {
     text: agentResponse.text,
     nativeLocation: agentResponse.nativeLocation,
+    interactive: agentResponse.interactive,
     session: savedSession || updatedContext,
   };
 }

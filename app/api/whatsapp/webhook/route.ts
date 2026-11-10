@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processIncomingMessage } from '@/lib/conversation';
-import { sendWhatsAppMessage, sendWhatsAppLocation } from '@/lib/whatsapp';
+import { sendWhatsAppMessage, sendWhatsAppLocation, sendWhatsAppInteractive } from '@/lib/whatsapp';
 
 /**
  * GET Handler - Webhook Verification by Meta
@@ -43,6 +43,10 @@ interface WhatsAppMessage {
   type: string;
   text?: {
     body: string;
+  };
+  interactive?: {
+    button_reply?: { id: string; title?: string };
+    list_reply?: { id: string; title?: string };
   };
   location?: {
     latitude: number;
@@ -110,6 +114,8 @@ export async function POST(request: NextRequest) {
             console.log(
               `\nWhatsApp message received\nFrom: +${sender}\nType: text\nMessage: ${messageText}\n`
             );
+          } else if (messageType === 'interactive') {
+            messageText = message.interactive?.button_reply?.id || message.interactive?.list_reply?.id;
           } else if (messageType === 'location') {
             latitude = message.location?.latitude;
             longitude = message.location?.longitude;
@@ -132,7 +138,12 @@ export async function POST(request: NextRequest) {
           });
 
           // Send text reply via WhatsApp Business Cloud API
-          await sendWhatsAppMessage(sender, result.text);
+          if (result.interactive) {
+            const sent = await sendWhatsAppInteractive(sender, result.interactive);
+            if (!sent.success) await sendWhatsAppMessage(sender, result.text);
+          } else {
+            await sendWhatsAppMessage(sender, result.text);
+          }
 
           // If a native WhatsApp location was generated on confirmation, send native location pin
           if (result.nativeLocation) {

@@ -12,6 +12,31 @@ export interface SendMessageResult {
   error?: string;
 }
 
+export type WhatsAppInteractive =
+  | { kind: "buttons"; body: string; buttons: Array<{ id: string; title: string }> }
+  | { kind: "list"; body: string; buttonText: string; sections: Array<{ title: string; rows: Array<{ id: string; title: string; description?: string }> }> };
+
+export async function sendWhatsAppInteractive(to: string, interactive: WhatsAppInteractive): Promise<SendMessageResult> {
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  if (!token || !phoneNumberId) {
+    console.log(`[WhatsApp API Simulated Interactive] To: ${to}\n${JSON.stringify(interactive)}`);
+    return { success: true, messageId: `sim_interactive_${Date.now()}` };
+  }
+  const endpoint = `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`;
+  const payload = interactive.kind === "buttons"
+    ? { type: "interactive", interactive: { type: "button", body: { text: interactive.body }, action: { buttons: interactive.buttons.map((b) => ({ type: "reply", reply: { id: b.id, title: b.title } })) } } }
+    : { type: "interactive", interactive: { type: "list", body: { text: interactive.body }, action: { button: interactive.buttonText, sections: interactive.sections } } };
+  try {
+    const response = await fetch(endpoint, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to, ...payload }) });
+    const data = await response.json();
+    if (!response.ok) return { success: false, error: data?.error?.message || "Failed to send interactive message" };
+    return { success: true, messageId: data?.messages?.[0]?.id };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
 export interface WhatsAppLocationPayload {
   latitude: number | string;
   longitude: number | string;

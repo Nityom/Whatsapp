@@ -26,7 +26,7 @@ import {
   matchDoctorByName,
   PatientRecord,
 } from "./cortexClient";
-import { WhatsAppLocationPayload } from "./whatsapp";
+import { WhatsAppLocationPayload, WhatsAppInteractive } from "./whatsapp";
 
 export interface AgentContext {
   phoneNumber: string;
@@ -58,6 +58,7 @@ export interface AgentContext {
 export interface AgentResponse {
   text: string;
   nativeLocation?: WhatsAppLocationPayload;
+  interactive?: WhatsAppInteractive;
   nextStep?: string;
   updatedContext?: Partial<AgentContext>;
 }
@@ -124,6 +125,35 @@ export function isGreetingText(text: string): boolean {
     clean.startsWith("hii ") ||
     clean.startsWith("hello ")
   );
+}
+
+function languagePrompt(): string {
+  return `Welcome to Cortex Hospital 👋\nPlease choose your language / कृपया भाषा चुनें / कृपया भाषा निवडा:\n\n1️⃣ English\n2️⃣ हिन्दी\n3️⃣ मराठी\n\nReply with 1, 2, or 3 (or type the language).`;
+}
+
+function mainMenu(language: string): string {
+  if (language === "hi") return `Cortex Hospital में आपका स्वागत है। मैं आपकी कैसे सहायता करूँ?\n\n1️⃣ अपॉइंटमेंट बुक करें\n2️⃣ मेरी अपॉइंटमेंट\n3️⃣ प्रिस्क्रिप्शन देखें\n4️⃣ बिल और भुगतान\n5️⃣ अगली फ़ॉलो-अप तारीख\n6️⃣ डॉक्टर का समय\n7️⃣ लैब रिपोर्ट\n8️⃣ अस्पताल का पता\n9️⃣ रिसेप्शन से बात करें\n\nविकल्प पर टैप करें या 1–9 में से नंबर भेजें।`;
+  if (language === "mr") return `Cortex Hospital मध्ये आपले स्वागत आहे. मी आपली कशी मदत करू?\n\n1️⃣ अपॉइंटमेंट बुक करा\n2️⃣ माझी अपॉइंटमेंट\n3️⃣ प्रिस्क्रिप्शन पहा\n4️⃣ बिल आणि पेमेंट\n5️⃣ पुढील फॉलो-अप तारीख\n6️⃣ डॉक्टरांची वेळ\n7️⃣ लॅब रिपोर्ट\n8️⃣ हॉस्पिटलचा पत्ता\n9️⃣ रिसेप्शनशी बोला\n\nपर्याय निवडा किंवा 1–9 पैकी क्रमांक पाठवा.`;
+  return `Welcome to Cortex Hospital. How can I help you?\n\n1️⃣ Book an appointment\n2️⃣ My appointments\n3️⃣ View prescription\n4️⃣ Bills and payments\n5️⃣ Next follow-up\n6️⃣ Doctor availability\n7️⃣ Lab reports\n8️⃣ Hospital location\n9️⃣ Talk to reception\n\nTap an option or reply with a number from 1–9.`;
+}
+
+function languageButtons(): WhatsAppInteractive {
+  return { kind: "buttons", body: "Choose your language / कृपया भाषा चुनें / कृपया भाषा निवडा", buttons: [
+    { id: "lang_en", title: "English" }, { id: "lang_hi", title: "हिन्दी" }, { id: "lang_mr", title: "मराठी" },
+  ] };
+}
+
+function menuList(language: string): WhatsAppInteractive {
+  const labels = language === "hi"
+    ? ["अपॉइंटमेंट बुक करें", "मेरी अपॉइंटमेंट", "प्रिस्क्रिप्शन देखें", "बिल और भुगतान", "अगली फ़ॉलो-अप तारीख", "डॉक्टर का समय", "लैब रिपोर्ट", "अस्पताल का पता", "रिसेप्शन से बात करें"]
+    : language === "mr"
+      ? ["अपॉइंटमेंट बुक करा", "माझी अपॉइंटमेंट", "प्रिस्क्रिप्शन पहा", "बिल आणि पेमेंट", "पुढील फॉलो-अप तारीख", "डॉक्टरांची वेळ", "लॅब रिपोर्ट", "हॉस्पिटलचा पत्ता", "रिसेप्शनशी बोला"]
+      : ["Book an appointment", "My appointments", "View prescription", "Bills and payments", "Next follow-up", "Doctor availability", "Lab reports", "Hospital location", "Talk to reception"];
+  return { kind: "list", body: language === "hi" ? "सेवा चुनें या नंबर भेजें" : language === "mr" ? "सेवा निवडा किंवा क्रमांक पाठवा" : "Choose a service or reply with its number", buttonText: language === "hi" ? "सेवाएँ" : language === "mr" ? "पर्याय" : "Options", sections: [{ title: language === "hi" ? "मुख्य मेनू" : language === "mr" ? "मुख्य मेनू" : "Main menu", rows: labels.map((title, index) => ({ id: `menu_${index + 1}`, title })) }] };
+}
+
+function dateChoices(dateLabels: string[]): WhatsAppInteractive {
+  return { kind: "list", body: "Choose an appointment date or type another date", buttonText: "Dates", sections: [{ title: "Available dates", rows: dateLabels.map((title, index) => ({ id: `date_${index + 1}`, title })) }] };
 }
 
 /** Check if user query is an interruption of an active sub-step */
@@ -261,8 +291,32 @@ export async function handleConversationTurn(
   },
   context: AgentContext
 ): Promise<AgentResponse> {
-  const userText = (input.text || "").trim();
+  let userText = (input.text || "").trim();
+  const choiceId = userText.toLowerCase();
+  if (/^(doctor|date|slot|sex)_\d+$/.test(choiceId)) userText = choiceId.split("_")[1];
   const lower = userText.toLowerCase();
+  const normalizedText = lower.startsWith("lang_") ? lower.replace("lang_", "") : lower.startsWith("menu_") ? lower.replace("menu_", "") : lower;
+
+  // New chats start with an explicit language choice. Numbered replies work in
+  // every WhatsApp client; the same options can be rendered as reply buttons.
+  if (isGreetingText(userText) && context.currentStep !== "WELCOME" && context.currentStep !== "LANGUAGE_SELECT") {
+    return { text: mainMenu(context.language || "en"), interactive: menuList(context.language || "en"), nextStep: "IDLE" };
+  }
+  if (context.currentStep === "WELCOME" || context.currentStep === "LANGUAGE_SELECT") {
+    const choice = normalizedText.trim();
+    const language = choice === "1" || /^(english|en)$/i.test(choice) ? "en"
+      : choice === "2" || /^(हिन्दी|हिंदी|hindi|hi)$/i.test(choice) ? "hi"
+      : choice === "3" || /^(मराठी|marathi|mr)$/i.test(choice) ? "mr" : undefined;
+    if (!language) {
+      return { text: languagePrompt(), interactive: languageButtons(), nextStep: "LANGUAGE_SELECT" };
+    }
+    return {
+      text: mainMenu(language),
+      interactive: menuList(language),
+      nextStep: "IDLE",
+      updatedContext: { language, bookingDraft: undefined },
+    };
+  }
 
   // 1. Check if user sent a location pin
   if (input.type === "location" || (input.latitude && input.longitude)) {
@@ -472,24 +526,13 @@ Please enter the 4-digit verification code sent to your WhatsApp number (*${cont
     return await handleRegisterAddress(userText, context);
   }
 
-  // 8. Top-Level Greetings / Welcome Trigger (Section 15)
-  if (context.currentStep === "WELCOME" || isGreetingText(userText)) {
-    return {
-      text: DEFAULT_WELCOME_MESSAGE,
-      nextStep: "IDLE",
-      updatedContext: {
-        bookingDraft: undefined,
-      },
-    };
-  }
-
   // 9. Top-Level Intent Routing based on Number or Natural Language
-  const matchedDoc = matchDoctorByName(userText);
+  const matchedDoc = matchDoctorByName(normalizedText);
   const parsedDate = parseDateInput(userText);
 
   // 1: Book Appointment / See Doctor
   if (
-    lower === "1" ||
+    normalizedText === "1" ||
     lower.includes("book") ||
     lower.includes("appointment") ||
     lower.includes("apointment") ||
@@ -527,7 +570,7 @@ Please enter the 4-digit verification code sent to your WhatsApp number (*${cont
 
   // 2: My Appointments
   if (
-    lower === "2" ||
+    normalizedText === "2" ||
     lower.includes("my appointment") ||
     lower.includes("check appointment") ||
     lower.includes("upcoming appointment") ||
@@ -540,7 +583,7 @@ Please enter the 4-digit verification code sent to your WhatsApp number (*${cont
 
   // 3: My Prescriptions
   if (
-    lower === "3" ||
+    normalizedText === "3" ||
     lower.includes("prescription") ||
     lower.includes("prescribtion") ||
     lower.includes("parcha") ||
@@ -550,12 +593,12 @@ Please enter the 4-digit verification code sent to your WhatsApp number (*${cont
     lower.includes("medicine list") ||
     lower.includes("aushadh")
   ) {
-    return await initiateSecureAccess(input.phoneNumber, context, "VIEW_PRESCRIPTION");
+    return await handlePrescriptionQuery(input.phoneNumber, context);
   }
 
   // 4: Bills & Payments
   if (
-    lower === "4" ||
+    normalizedText === "4" ||
     lower.includes("bill") ||
     lower.includes("payment") ||
     lower.includes("invoice") ||
@@ -572,7 +615,7 @@ Please enter the 4-digit verification code sent to your WhatsApp number (*${cont
 
   // 5: Next Follow-up
   if (
-    lower === "5" ||
+    normalizedText === "5" ||
     lower.includes("follow up") ||
     lower.includes("followup") ||
     lower.includes("follow-up") ||
@@ -586,7 +629,7 @@ Please enter the 4-digit verification code sent to your WhatsApp number (*${cont
 
   // 6: Doctor Availability & Schedules
   if (
-    lower === "6" ||
+    normalizedText === "6" ||
     lower.includes("doctor") ||
     lower.includes("availability") ||
     lower.includes("schedule") ||
@@ -603,7 +646,7 @@ Please enter the 4-digit verification code sent to your WhatsApp number (*${cont
 
   // 7: Laboratory Reports
   if (
-    lower === "7" ||
+    normalizedText === "7" ||
     lower.includes("lab") ||
     lower.includes("report") ||
     lower.includes("investigation") ||
@@ -618,7 +661,7 @@ Please enter the 4-digit verification code sent to your WhatsApp number (*${cont
 
   // 8: Hospital Information & Location
   if (
-    lower === "8" ||
+    normalizedText === "8" ||
     lower.includes("hospital") ||
     lower.includes("location") ||
     lower.includes("address") ||
@@ -699,6 +742,7 @@ ${docOptions}
 (फक्त 1 किंवा 2 नंबर पाठवा.)`,
       nextStep: "BOOKING_SELECT_DOCTOR",
       updatedContext: { bookingDraft: draft },
+      interactive: { kind: "list", body: "Choose a specialist", buttonText: "Doctors", sections: [{ title: "Available doctors", rows: docs.slice(0, 10).map((d, index) => ({ id: `doctor_${index + 1}`, title: d.name, description: d.specialty })) }] },
     };
   }
 
@@ -726,6 +770,7 @@ ${docOptions}
 _(Note: Cortex Hospital OPD is closed on Sundays.)_`,
       nextStep: "BOOKING_SELECT_DATE",
       updatedContext: { bookingDraft: draft },
+      interactive: dateChoices([`Today · ${formatDisplayDate(formatDate(today))}`, `Tomorrow · ${formatDisplayDate(formatDate(tmrw))}`, `Day after · ${formatDisplayDate(formatDate(dayAfter))}`, "Type another date"]),
     };
   }
 
@@ -787,6 +832,7 @@ _${selectedDoc.designation}_
 (फक्त 1, 2 किंवा 3 नंबर पाठवा.)`,
     nextStep: "BOOKING_SELECT_DATE",
     updatedContext: { bookingDraft: updatedDraft },
+    interactive: dateChoices([`Today · ${formatDisplayDate(formatDate(today))}`, `Tomorrow · ${formatDisplayDate(formatDate(tmrw))}`, `Day after · ${formatDisplayDate(formatDate(dayAfter))}`, "Type another date"]),
   };
 }
 
@@ -893,6 +939,7 @@ Reply *Tomorrow* or specify another date.`,
     text: slotText,
     nextStep: "BOOKING_SELECT_SLOT",
     updatedContext: { bookingDraft: draft },
+    interactive: { kind: "list", body: `Available slots with ${docName} · ${formatDisplayDate(dateStr)}`, buttonText: "Time slots", sections: [{ title: "Select a time", rows: slotData.availableSlots.slice(0, 10).map((slot, index) => ({ id: `slot_${index + 1}`, title: slot })) }] },
   };
 }
 
@@ -1003,6 +1050,7 @@ What is the patient's gender? / लिंग निवडा:
 (फक्त 1 किंवा 2 नंबर पाठवा.)`,
     nextStep: "REGISTER_SEX",
     updatedContext: { bookingDraft: draft },
+    interactive: { kind: "buttons", body: "Choose the patient's gender", buttons: [{ id: "sex_1", title: "Male" }, { id: "sex_2", title: "Female" }, { id: "sex_3", title: "Other" }] },
   };
 }
 
