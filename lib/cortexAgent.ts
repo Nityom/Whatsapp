@@ -318,7 +318,7 @@ export function mainMenu(language: string): string {
 नमस्ते! 👋 मैं आपका डिजिटल अस्पताल सहायक हूँ।
 
 मैं आपकी क्या सहायता कर सकता हूँ?
-👇 *नीचे दिए गए बटन पर टैप करें या 1 से 10 में से नंबर भेजें:*
+👇 *नीचे दिए गए बटन पर टैप करें या 1 से 9 में से नंबर भेजें:*
 
 1️⃣ 🏥 अपॉइंटमेंट बुक करें
 2️⃣ 📅 मेरी अपॉइंटमेंट
@@ -326,10 +326,9 @@ export function mainMenu(language: string): string {
 4️⃣ 🧾 बिल और भुगतान
 5️⃣ 🔔 अगली फ़ॉलो-अप तारीख
 6️⃣ 👨‍⚕️ डॉक्टर का समय
-7️⃣ 🧪 लैब टेस्ट रिपोर्ट
-8️⃣ 📍 अस्पताल का पता और स्थान
-9️⃣ ☎️ रिसेप्शन से बात करें
-🔟 🌐 भाषा बदलें (Change Language)
+7️⃣ 📍 अस्पताल का पता और स्थान
+8️⃣ ☎️ रिसेप्शन से बात करें
+9️⃣ 🌐 भाषा बदलें (Change Language)
 
 आपका स्वास्थ्य और सुविधा हमारी प्राथमिकता है। ❤️`;
   }
@@ -339,7 +338,7 @@ export function mainMenu(language: string): string {
 नमस्कार! 👋 मी आपला डिजिटल हॉस्पिटल सहाय्यक आहे.
 
 मी आपली काय मदत करू शकतो?
-👇 *खालील पर्यायावर टॅप करा किंवा 1 ते 10 मधील क्रमांक पाठवा:*
+👇 *खालील पर्यायावर टॅप करा किंवा 1 ते 9 मधील क्रमांक पाठवा:*
 
 1️⃣ 🏥 नवीन अपॉइंटमेंट बुक करा
 2️⃣ 📅 माझी अपॉइंटमेंट
@@ -347,10 +346,9 @@ export function mainMenu(language: string): string {
 4️⃣ 🧾 हॉस्पिटल बिल व पेमेंट
 5️⃣ 🔔 पुढील फॉलो-अप तारीख
 6️⃣ 👨‍⚕️ डॉक्टरांची वेळ व माहिती
-7️⃣ 🧪 लॅब टेस्ट रिपोर्ट
-8️⃣ 📍 हॉस्पिटलचा पत्ता
-9️⃣ ☎️ रिसेप्शनशी बोला
-🔟 🌐 भाषा बदला (Change Language)
+7️⃣ 📍 हॉस्पिटलचा पत्ता
+8️⃣ ☎️ रिसेप्शनशी बोला
+9️⃣ 🌐 भाषा बदला (Change Language)
 
 आपले आरोग्य आणि सोय हीच आमची प्राथमिकता आहे. ❤️`;
   }
@@ -359,7 +357,7 @@ export function mainMenu(language: string): string {
 Hello! 👋 I am your virtual hospital assistant, available 24/7.
 
 How can I assist you today?
-👇 *Tap an option below or reply with a number from 1 to 10:*
+👇 *Tap an option below or reply with a number from 1 to 9:*
 
 1️⃣ 🏥 Book an Appointment
 2️⃣ 📅 My Appointments
@@ -367,10 +365,9 @@ How can I assist you today?
 4️⃣ 🧾 Bills & Payments
 5️⃣ 🔔 Next Follow-up Date
 6️⃣ 👨‍⚕️ Doctor Availability & Timings
-7️⃣ 🧪 Laboratory Reports
-8️⃣ 📍 Hospital Location & Address
-9️⃣ ☎️ Talk to Reception
-🔟 🌐 Change Language
+7️⃣ 📍 Hospital Location & Address
+8️⃣ ☎️ Talk to Reception
+9️⃣ 🌐 Change Language
 
 Your health and convenience matter to us. ❤️`;
 }
@@ -381,41 +378,38 @@ export function menuList(language: string): WhatsAppInteractive {
 
   const labels = isHi
     ? [
-        "1. अपॉइंटमेंट बुक करें",
-        "2. मेरी अपॉइंटमेंट",
-        "3. प्रिस्क्रिप्शन देखें",
-        "4. बिल और भुगतान",
-        "5. अगली फ़ॉलो-अप",
-        "6. डॉक्टर का समय",
-        "7. लैब टेस्ट रिपोर्ट",
-        "8. अस्पताल का पता",
-        "9. रिसेप्शन से बात करें",
-        "10. भाषा बदलें",
+        { id: "menu_1", title: "1. अपॉइंटमेंट बुक करें" },
+        { id: "menu_2", title: "2. मेरी अपॉइंटमेंट" },
+        { id: "menu_3", title: "3. प्रिस्क्रिप्शन देखें" },
+        { id: "menu_4", title: "4. बिल और भुगतान" },
+        { id: "menu_5", title: "5. अगली फ़ॉलो-अप" },
+        { id: "menu_6", title: "6. डॉक्टर का समय" },
+        { id: "menu_7", title: "7. अस्पताल का पता" },
+        { id: "menu_8", title: "8. रिसेप्शन से बात करें" },
+        { id: "menu_9", title: "9. भाषा बदलें" },
       ]
     : isMr
     ? [
-        "1. अपॉइंटमेंट बुक करा",
-        "2. माझी अपॉइंटमेंट",
-        "3. प्रिस्क्रिप्शन पहा",
-        "4. बिल आणि पेमेंट",
-        "5. पुढील फॉलो-अप",
-        "6. डॉक्टरांची वेळ",
-        "7. लॅब टेस्ट रिपोर्ट",
-        "8. हॉस्पिटलचा पत्ता",
-        "9. रिसेप्शनशी बोला",
-        "10. भाषा बदला",
+        { id: "menu_1", title: "1. अपॉइंटमेंट बुक करा" },
+        { id: "menu_2", title: "2. माझी अपॉइंटमेंट" },
+        { id: "menu_3", title: "3. प्रिस्क्रिप्शन पहा" },
+        { id: "menu_4", title: "4. बिल आणि पेमेंट" },
+        { id: "menu_5", title: "5. पुढील फॉलो-अप" },
+        { id: "menu_6", title: "6. डॉक्टरांची वेळ" },
+        { id: "menu_7", title: "7. हॉस्पिटलचा पत्ता" },
+        { id: "menu_8", title: "8. रिसेप्शनशी बोला" },
+        { id: "menu_9", title: "9. भाषा बदला" },
       ]
     : [
-        "1. Book Appointment",
-        "2. My Appointments",
-        "3. View Prescription",
-        "4. Bills & Payments",
-        "5. Next Follow-up",
-        "6. Doctor Timings",
-        "7. Laboratory Reports",
-        "8. Hospital Address",
-        "9. Talk to Reception",
-        "10. Change Language",
+        { id: "menu_1", title: "1. Book Appointment" },
+        { id: "menu_2", title: "2. My Appointments" },
+        { id: "menu_3", title: "3. View Prescription" },
+        { id: "menu_4", title: "4. Bills & Payments" },
+        { id: "menu_5", title: "5. Next Follow-up" },
+        { id: "menu_6", title: "6. Doctor Timings" },
+        { id: "menu_7", title: "7. Hospital Address" },
+        { id: "menu_8", title: "8. Talk to Reception" },
+        { id: "menu_9", title: "9. Change Language" },
       ];
 
   const bodyText = isHi
@@ -433,10 +427,7 @@ export function menuList(language: string): WhatsAppInteractive {
     sections: [
       {
         title: isHi ? "उपलब्ध सेवाएं" : isMr ? "उपलब्ध पर्याय" : "Available Options",
-        rows: labels.map((title, index) => ({
-          id: `menu_${index + 1}`,
-          title,
-        })),
+        rows: labels,
       },
     ],
   };
@@ -572,8 +563,9 @@ export async function handleConversationTurn(
     };
   }
 
-  // 4. User requests Reception Handover
+  // 4. User requests Reception Handover (Option 8 or 9)
   if (
+    normalizedText === "8" ||
     normalizedText === "9" ||
     lower.includes("reception") ||
     lower.includes("human") ||
@@ -842,23 +834,9 @@ export async function handleConversationTurn(
     return await handleDoctorAvailabilityQuery(userText, context);
   }
 
-  // 7: Laboratory Reports (No OTP required)
+  // 7: Hospital Information & Location (Option 7 or 8)
   if (
     normalizedText === "7" ||
-    lower.includes("lab") ||
-    lower.includes("report") ||
-    lower.includes("investigation") ||
-    lower.includes("xray") ||
-    lower.includes("x-ray") ||
-    lower.includes("opg") ||
-    lower.includes("blood test") ||
-    lower.includes("tapasni")
-  ) {
-    return await handleLabReportsQuery(input.phoneNumber, context);
-  }
-
-  // 8: Hospital Information & Location
-  if (
     normalizedText === "8" ||
     lower.includes("hospital") ||
     lower.includes("location") ||
@@ -875,8 +853,9 @@ export async function handleConversationTurn(
     return await handleHospitalInfoQuery(userText, context);
   }
 
-  // 10: Change Language (bhasha badle / भाषा बदलें)
+  // 9: Change Language (bhasha badle / भाषा बदलें) (Option 9 or 10)
   if (
+    normalizedText === "9" ||
     normalizedText === "10" ||
     isLanguageChangeQuery(userText) ||
     isLanguageChangeQuery(normalizedText)
@@ -887,6 +866,19 @@ export async function handleConversationTurn(
       nextStep: "LANGUAGE_SELECT",
       updatedContext: { currentStep: "LANGUAGE_SELECT" },
     };
+  }
+
+  // Laboratory Reports (By explicit keyword query only)
+  if (
+    lower.includes("lab report") ||
+    lower.includes("laboratory") ||
+    lower.includes("blood test") ||
+    lower.includes("xray report") ||
+    lower.includes("x-ray report") ||
+    lower.includes("लॅब रिपोर्ट") ||
+    lower.includes("लैब रिपोर्ट")
+  ) {
+    return await handleLabReportsQuery(input.phoneNumber, context);
   }
 
   // Default fallback in user's selected language
@@ -1989,11 +1981,11 @@ async function handlePrescriptionQuery(
   return {
     text: inLanguage(
       lang,
-      `💊 *CORTEX HOSPITAL – DIGITAL PRESCRIPTION*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *Patient:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *Doctor:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *Prescription Date:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *Diagnosis:* ${latest.diagnosis || "Consultation"}\n\n📋 *Prescribed Medicines:*\n${medsList}\n\n📝 *Doctor's Advice:*\n${latest.advice || "Follow medication schedule."}\n\n🔔 *Next Follow-up:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "As advised"}\n\n🔗 *View / Print Official Document:*\nhttps://jovial-sheep-76.convex.site/print-prescription?id=${latest._id}`,
+      `👤 *Patient:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *Doctor:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *Prescription Date:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *Diagnosis:* ${latest.diagnosis || "Consultation"}\n\n📋 *Prescribed Medicines:*\n${medsList}\n\n📝 *Doctor's Advice:*\n${latest.advice || "Follow medication schedule."}\n\n🔔 *Next Follow-up:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "As advised"}\n\n🔗 *View / Print Official Document:*\nhttps://jovial-sheep-76.convex.site/print-prescription?id=${latest._id}`,
 
-      `💊 *CORTEX HOSPITAL – डिजिटल प्रिस्क्रिप्शन*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *मरीज:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *डॉक्टर:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *तारीख:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *निदान:* ${latest.diagnosis || "परामर्श"}\n\n📋 *दवाएं:*\n${medsList}\n\n📝 *सलाह:*\n${latest.advice || "दवा की समय सारणी का पालन करें।"}\n\n🔔 *अगली फ़ॉलो-अप:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "डॉक्टर के निर्देशानुसार"}\n\n🔗 *पर्चा डाउनलोड लिंक:*\nhttps://jovial-sheep-76.convex.site/print-prescription?id=${latest._id}`,
+      `👤 *मरीज:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *डॉक्टर:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *तारीख:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *निदान:* ${latest.diagnosis || "परामर्श"}\n\n📋 *दवाएं:*\n${medsList}\n\n📝 *सलाह:*\n${latest.advice || "दवा की समय सारणी का पालन करें।"}\n\n🔔 *अगली फ़ॉलो-अप:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "डॉक्टर के निर्देशानुसार"}\n\n🔗 *पर्चा डाउनलोड लिंक:*\nhttps://jovial-sheep-76.convex.site/print-prescription?id=${latest._id}`,
 
-      `💊 *CORTEX HOSPITAL – डिजिटल प्रिस्क्रिप्शन*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *रुग्ण:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *डॉक्टर:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *तारीख:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *निदान:* ${latest.diagnosis || "तपासणी"}\n\n📋 *औषधे:*\n${medsList}\n\n📝 *डॉक्टरांचा सल्ला:*\n${latest.advice || "औषधांचे वेळापत्रक पाळावे."}\n\n🔔 *पुढील भेट:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "डॉक्टरांच्या सल्ल्यानुसार"}\n\n🔗 *प्रिस्क्रिप्शन डाउनलोड लिंक:*\nhttps://jovial-sheep-76.convex.site/print-prescription?id=${latest._id}`
+      `👤 *रुग्ण:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *डॉक्टर:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *तारीख:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *निदान:* ${latest.diagnosis || "तपासणी"}\n\n📋 *औषधे:*\n${medsList}\n\n📝 *डॉक्टरांचा सल्ला:*\n${latest.advice || "औषधांचे वेळापत्रक पाळावे."}\n\n🔔 *पुढील भेट:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "डॉक्टरांच्या सल्ल्यानुसार"}\n\n🔗 *प्रिस्क्रिप्शन डाउनलोड लिंक:*\nhttps://jovial-sheep-76.convex.site/print-prescription?id=${latest._id}`
     ),
     nextStep: "IDLE",
   };

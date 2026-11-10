@@ -337,11 +337,10 @@ export default function HomePage() {
     { label: '💊 My Prescriptions', text: '3' },
     { label: '🧾 Check Pending Bill', text: '4' },
     { label: '🔔 Check Next Follow-up', text: '5' },
-    { label: '🧪 Laboratory Reports', text: '7' },
-    { label: '📍 Hospital Address & Location', text: '8' },
-    { label: '🌐 Change Language', text: '10' },
+    { label: '📍 Hospital Address & Location', text: '7' },
+    { label: '🌐 Change Language', text: '9' },
     { label: '🚨 Emergency: Chest Pain', text: 'I have severe chest pain and breathing problem' },
-    { label: '☎️ Human Handover (Reception)', text: '9' },
+    { label: '☎️ Human Handover (Reception)', text: '8' },
   ];
 
   return (

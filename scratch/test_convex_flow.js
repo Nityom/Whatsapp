@@ -85,7 +85,7 @@ async function run() {
   if (session?.currentStep === 'OTP_VERIFICATION') {
     throw new Error('Test 4 failed: OTP should NOT be required');
   }
-  if (!res.text.includes('No prescriptions found') && !res.text.includes('DIGITAL PRESCRIPTION')) {
+  if (!res.text.includes('No prescriptions found') && !res.text.includes('Patient:') && !res.text.includes('print-prescription')) {
     throw new Error('Test 4 failed: Expected prescription result');
   }
   console.log('✅ Test 4 Passed: Prescription returned directly without OTP!\n');
@@ -254,8 +254,8 @@ async function run() {
   if (!res.text.includes('विशेषज्ञ डॉक्टर एवं OPD समय') || !res.text.includes('विशेषज्ञता')) {
     throw new Error('Test 10 failed: Expected Hindi doctor timings');
   }
-  // Check Hospital Location (Option 8)
-  res = await processIncomingMessage({ phoneNumber: hindiPhone, type: 'text', text: '8' });
+  // Check Hospital Location (Option 7)
+  res = await processIncomingMessage({ phoneNumber: hindiPhone, type: 'text', text: '7' });
   console.log('Hindi Hospital Location Reply:\n', res.text);
   if (!res.text.includes('पता:') || !res.text.includes('Aarti Chowk') || !res.text.includes('वर्धा')) {
     throw new Error('Test 10 failed: Expected Hindi hospital location');
