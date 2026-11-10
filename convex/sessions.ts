@@ -36,6 +36,7 @@ export const saveWhatsAppSession = mutation({
         patientAge: v.optional(v.string()),
         patientPhone: v.optional(v.string()),
         patientAddress: v.optional(v.string()),
+        sex: v.optional(v.union(v.literal("Male"), v.literal("Female"), v.literal("Other"))),
         complaint: v.optional(v.string()),
         startDate: v.optional(v.string()),
         pickupTime: v.optional(v.string()),
@@ -120,7 +121,8 @@ export const clearWhatsAppSession = mutation({
 
     if (existing) {
       await ctx.db.patch(existing._id, {
-        currentStep: "IDLE",
+        currentStep: "WELCOME",
+        language: undefined,
         isVerified: false,
         bookingDraft: undefined,
         pendingAction: undefined,
@@ -136,7 +138,7 @@ export const clearWhatsAppSession = mutation({
 
     const newId = await ctx.db.insert("whatsappSessions", {
       phoneNumber: args.phoneNumber,
-      currentStep: "IDLE",
+      currentStep: "WELCOME",
       isVerified: false,
       isHandedOver: false,
       createdAt: now,

@@ -1,12 +1,11 @@
 /**
  * Cortex Hospital – AI WhatsApp Assistant Brain & Conversational Engine
  * Implements all 16 Sections of the Cortex Hospital System Prompt.
- * Connects directly to Cortex-Admin (Convex) for live PMS data.
+ * Connects directly to Cortex-Admin (Convex dev:jovial-sheep-76) for live PMS data.
  */
 
 import {
   CORTEX_HOSPITAL_CONFIG,
-  DEFAULT_WELCOME_MESSAGE,
   DoctorInfo,
 } from "./cortexConfig";
 import {
@@ -31,7 +30,7 @@ import { WhatsAppLocationPayload, WhatsAppInteractive } from "./whatsapp";
 export interface AgentContext {
   phoneNumber: string;
   currentStep: string;
-  language?: string;
+  language?: string; // "en" | "hi" | "mr"
   patientId?: string;
   patientReference?: string;
   patientName?: string;
@@ -45,12 +44,13 @@ export interface AgentContext {
   bookingDraft?: {
     doctorName?: string;
     specialty?: string;
-    date?: string;
-    slot?: string;
+    date?: string; // YYYY-MM-DD
+    slot?: string; // HH:mm
     patientName?: string;
     patientAge?: string;
     patientPhone?: string;
     patientAddress?: string;
+    sex?: "Male" | "Female" | "Other";
     complaint?: string;
   };
 }
@@ -64,26 +64,38 @@ export interface AgentResponse {
 }
 
 /* =========================================================================
-   NATURAL LANGUAGE HELPERS (English, Hindi, Marathi, Hinglish)
+   LANGUAGE & DATE HELPERS
    ========================================================================= */
 
-export function detectLanguage(text: string): "mr" | "hi" | "en" {
-  const t = text.toLowerCase();
-  // Marathi indicators
-  if (
-    /हवी|आहे|पाहिजे|कधी|वेळ|तारीख|भेट|औषध|तपासणी|पत्ता|नमस्कार|डॉक्टर/.test(t) ||
-    /mala|aahe|pahije|kadhi|ahet|bhet|dakhvayche|karaychi|aaho/.test(t)
-  ) {
-    return "mr";
+export function inLanguage(
+  language: string | undefined,
+  english: string,
+  hindi: string,
+  marathi: string
+): string {
+  if (language === "hi") return hindi;
+  if (language === "mr") return marathi;
+  return english;
+}
+
+/** Format dates for display strictly as DD/MM/YY */
+export function formatDisplayDate(dateStr: string): string {
+  try {
+    const iso = String(dateStr).match(/^(20\d{2})-(\d{1,2})-(\d{1,2})/);
+    if (iso) return `${iso[3].padStart(2, "0")}/${iso[2].padStart(2, "0")}/${iso[1].slice(-2)}`;
+    const dmy = String(dateStr).match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2}|20\d{2})/);
+    if (dmy) return `${dmy[1].padStart(2, "0")}/${dmy[2].padStart(2, "0")}/${dmy[3].slice(-2)}`;
+    return dateStr;
+  } catch {
+    return dateStr;
   }
-  // Hindi indicators
-  if (
-    /चाहिए|होगा|मिलेगा|दिखाना|पर्चा|दवाई|कब|कैसे|नमस्ते|धन्यवाद/.test(t) ||
-    /karna|chahiye|dikha|bhejo|kitna|hoga|milega|batao|kab|paisa/.test(t)
-  ) {
-    return "hi";
-  }
-  return "en";
+}
+
+function formatDate(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 /** Check for medical emergencies */
@@ -107,7 +119,7 @@ export function isMedicalAdviceQuery(text: string): boolean {
   );
 }
 
-/** Check if user input is a greeting or menu request (handles hi, hii, hello, etc.) */
+/** Check if user input is a greeting or restart */
 export function isGreetingText(text: string): boolean {
   const clean = text.toLowerCase().trim().replace(/[!.,?]+$/, "");
   return (
@@ -127,33 +139,19 @@ export function isGreetingText(text: string): boolean {
   );
 }
 
-function languagePrompt(): string {
-  return `Welcome to Cortex Hospital 👋\nPlease choose your language / कृपया भाषा चुनें / कृपया भाषा निवडा:\n\n1️⃣ English\n2️⃣ हिन्दी\n3️⃣ मराठी\n\nReply with 1, 2, or 3 (or type the language).`;
-}
-
-function mainMenu(language: string): string {
-  if (language === "hi") return `Cortex Hospital में आपका स्वागत है। मैं आपकी कैसे सहायता करूँ?\n\n1️⃣ अपॉइंटमेंट बुक करें\n2️⃣ मेरी अपॉइंटमेंट\n3️⃣ प्रिस्क्रिप्शन देखें\n4️⃣ बिल और भुगतान\n5️⃣ अगली फ़ॉलो-अप तारीख\n6️⃣ डॉक्टर का समय\n7️⃣ लैब रिपोर्ट\n8️⃣ अस्पताल का पता\n9️⃣ रिसेप्शन से बात करें\n\nविकल्प पर टैप करें या 1–9 में से नंबर भेजें।`;
-  if (language === "mr") return `Cortex Hospital मध्ये आपले स्वागत आहे. मी आपली कशी मदत करू?\n\n1️⃣ अपॉइंटमेंट बुक करा\n2️⃣ माझी अपॉइंटमेंट\n3️⃣ प्रिस्क्रिप्शन पहा\n4️⃣ बिल आणि पेमेंट\n5️⃣ पुढील फॉलो-अप तारीख\n6️⃣ डॉक्टरांची वेळ\n7️⃣ लॅब रिपोर्ट\n8️⃣ हॉस्पिटलचा पत्ता\n9️⃣ रिसेप्शनशी बोला\n\nपर्याय निवडा किंवा 1–9 पैकी क्रमांक पाठवा.`;
-  return `Welcome to Cortex Hospital. How can I help you?\n\n1️⃣ Book an appointment\n2️⃣ My appointments\n3️⃣ View prescription\n4️⃣ Bills and payments\n5️⃣ Next follow-up\n6️⃣ Doctor availability\n7️⃣ Lab reports\n8️⃣ Hospital location\n9️⃣ Talk to reception\n\nTap an option or reply with a number from 1–9.`;
-}
-
-function languageButtons(): WhatsAppInteractive {
-  return { kind: "buttons", body: "Choose your language / कृपया भाषा चुनें / कृपया भाषा निवडा", buttons: [
-    { id: "lang_en", title: "English" }, { id: "lang_hi", title: "हिन्दी" }, { id: "lang_mr", title: "मराठी" },
-  ] };
-}
-
-function menuList(language: string): WhatsAppInteractive {
-  const labels = language === "hi"
-    ? ["अपॉइंटमेंट बुक करें", "मेरी अपॉइंटमेंट", "प्रिस्क्रिप्शन देखें", "बिल और भुगतान", "अगली फ़ॉलो-अप तारीख", "डॉक्टर का समय", "लैब रिपोर्ट", "अस्पताल का पता", "रिसेप्शन से बात करें"]
-    : language === "mr"
-      ? ["अपॉइंटमेंट बुक करा", "माझी अपॉइंटमेंट", "प्रिस्क्रिप्शन पहा", "बिल आणि पेमेंट", "पुढील फॉलो-अप तारीख", "डॉक्टरांची वेळ", "लॅब रिपोर्ट", "हॉस्पिटलचा पत्ता", "रिसेप्शनशी बोला"]
-      : ["Book an appointment", "My appointments", "View prescription", "Bills and payments", "Next follow-up", "Doctor availability", "Lab reports", "Hospital location", "Talk to reception"];
-  return { kind: "list", body: language === "hi" ? "सेवा चुनें या नंबर भेजें" : language === "mr" ? "सेवा निवडा किंवा क्रमांक पाठवा" : "Choose a service or reply with its number", buttonText: language === "hi" ? "सेवाएँ" : language === "mr" ? "पर्याय" : "Options", sections: [{ title: language === "hi" ? "मुख्य मेनू" : language === "mr" ? "मुख्य मेनू" : "Main menu", rows: labels.map((title, index) => ({ id: `menu_${index + 1}`, title })) }] };
-}
-
-function dateChoices(dateLabels: string[]): WhatsAppInteractive {
-  return { kind: "list", body: "Choose an appointment date or type another date", buttonText: "Dates", sections: [{ title: "Available dates", rows: dateLabels.map((title, index) => ({ id: `date_${index + 1}`, title })) }] };
+/** Check if user wants to change language */
+export function isLanguageChangeQuery(text: string): boolean {
+  const clean = text.toLowerCase().trim();
+  return (
+    clean === "10" ||
+    clean === "change language" ||
+    clean === "language" ||
+    clean === "bhasha" ||
+    clean === "भाषा" ||
+    clean === "भाषा बदला" ||
+    clean === "भाषा बदलें" ||
+    clean === "lang"
+  );
 }
 
 /** Check if user query is an interruption of an active sub-step */
@@ -161,53 +159,51 @@ export function isInterruptionQuery(text: string): boolean {
   const l = text.toLowerCase().trim();
   return (
     isGreetingText(text) ||
+    isLanguageChangeQuery(text) ||
+    isEmergencyQuery(text) ||
+    isMedicalAdviceQuery(text) ||
     l === "cancel" ||
     l === "reset" ||
-    l === "2" ||
-    l === "3" ||
-    l === "4" ||
-    l === "5" ||
-    l === "6" ||
-    l === "7" ||
-    l === "8" ||
-    l === "9" ||
+    l === "menu" ||
+    l === "main menu" ||
+    l.includes("reception") ||
     l.includes("prescription") ||
-    l.includes("prescribtion") ||
     l.includes("parcha") ||
     l.includes("bill") ||
-    l.includes("payment") ||
     l.includes("invoice") ||
     l.includes("followup") ||
     l.includes("follow up") ||
-    l.includes("reception") ||
-    l.includes("doctor availability") ||
-    l.includes("lab report") ||
-    isEmergencyQuery(text)
+    l.includes("doctor") ||
+    l.includes("timing") ||
+    l.includes("availability") ||
+    l.includes("hospital") ||
+    l.includes("location") ||
+    l.includes("address") ||
+    l.includes("lab") ||
+    l.includes("report")
   );
 }
 
-/** Parse date expression into YYYY-MM-DD */
+/** Parse various date formats into YYYY-MM-DD */
 export function parseDateInput(input: string): string | null {
-  const clean = input.toLowerCase().trim();
+  const clean = input.trim().toLowerCase();
   const today = new Date();
 
-  if (/\b(day after tomorrow|परसों|परवा)\b/i.test(clean)) {
+  if (/\b(today|आज)\b/i.test(clean) || clean === "1" || clean === "date_1") {
+    return formatDate(today);
+  }
+  if (/\b(tomorrow|कल|उद्या)\b/i.test(clean) || clean === "2" || clean === "date_2") {
+    const tmrw = new Date(today);
+    tmrw.setDate(today.getDate() + 1);
+    return formatDate(tmrw);
+  }
+  if (/\b(day after tomorrow|day after|परसों|परवा)\b/i.test(clean) || clean === "3" || clean === "date_3") {
     const dayAfter = new Date(today);
     dayAfter.setDate(today.getDate() + 2);
     return formatDate(dayAfter);
   }
 
-  if (/\b(tomorrow|कल|उद्या)\b/i.test(clean)) {
-    const tmrw = new Date(today);
-    tmrw.setDate(today.getDate() + 1);
-    return formatDate(tmrw);
-  }
-
-  if (/\b(today|आज)\b/i.test(clean)) {
-    return formatDate(today);
-  }
-
-  // Check YYYY-MM-DD
+  // Check ISO format YYYY-MM-DD
   const isoMatch = clean.match(/\b(20\d{2})[-/](0?[1-9]|1[0-2])[-/](0?[1-9]|[12]\d|3[01])\b/);
   if (isoMatch) {
     const y = isoMatch[1];
@@ -216,65 +212,168 @@ export function parseDateInput(input: string): string | null {
     return `${y}-${m}-${d}`;
   }
 
-  // Check DD-MM-YYYY or DD/MM/YYYY
-  const dmyMatch = clean.match(/\b(0?[1-9]|[12]\d|3[01])[-/](0?[1-9]|1[0-2])[-/](20\d{2})\b/);
+  // Check DD-MM-YYYY, DD/MM/YYYY, DD-MM-YY or DD/MM/YY
+  const dmyMatch = clean.match(/\b(0?[1-9]|[12]\d|3[01])[-/](0?[1-9]|1[0-2])[-/](\d{2}|20\d{2})\b/);
   if (dmyMatch) {
     const d = dmyMatch[1].padStart(2, "0");
     const m = dmyMatch[2].padStart(2, "0");
-    const y = dmyMatch[3];
+    const y = dmyMatch[3].length === 2 ? `20${dmyMatch[3]}` : dmyMatch[3];
     return `${y}-${m}-${d}`;
-  }
-
-  // Check expressions like "5 Nov", "10 November", "20 October"
-  const monthNames: Record<string, number> = {
-    jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
-    apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
-    aug: 8, august: 8, sep: 9, september: 9, oct: 10, october: 10,
-    nov: 11, november: 11, dec: 12, december: 12,
-  };
-  const words = clean.split(/[\s,]+/);
-  let dayNum: number | null = null;
-  let monthNum: number | null = null;
-  let yearNum = today.getFullYear();
-
-  for (const w of words) {
-    if (/^\d{1,2}(st|nd|rd|th)?$/.test(w)) {
-      dayNum = parseInt(w.replace(/\D/g, ""), 10);
-    } else if (monthNames[w.slice(0, 3)]) {
-      monthNum = monthNames[w.slice(0, 3)];
-    } else if (/^20\d{2}$/.test(w)) {
-      yearNum = parseInt(w, 10);
-    }
-  }
-
-  if (dayNum && monthNum) {
-    return `${yearNum}-${String(monthNum).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
   }
 
   return null;
 }
 
-function formatDate(d: Date): string {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+/* =========================================================================
+   UI MENUS & INTERACTIVE BUTTONS
+   ========================================================================= */
+
+export function languagePrompt(): string {
+  return `👋 *Welcome to Cortex Hospital*
+━━━━━━━━━━━━━━━━━━━━━
+Please select your preferred language:
+कृपया अपनी पसंदीदा भाषा चुनें:
+कृपया आपली भाषा निवडा:
+
+1️⃣ English
+2️⃣ हिन्दी (Hindi)
+3️⃣ मराठी (Marathi)
+
+👉 *Tap a button below or reply with 1, 2, or 3:*`;
 }
 
-/** Format dates for display e.g. "Wednesday, 04 Nov 2026" */
-export function formatDisplayDate(dateStr: string): string {
-  try {
-    const [y, m, d] = dateStr.split("-").map(Number);
-    const date = new Date(y, m - 1, d);
-    return date.toLocaleDateString("en-IN", {
-      weekday: "long",
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return dateStr;
+export function languageButtons(): WhatsAppInteractive {
+  return {
+    kind: "buttons",
+    body: "Please choose your language / भाषा चुनें / भाषा निवडा:",
+    buttons: [
+      { id: "lang_en", title: "1. English" },
+      { id: "lang_hi", title: "2. हिन्दी" },
+      { id: "lang_mr", title: "3. मराठी" },
+    ],
+  };
+}
+
+export function mainMenu(language: string): string {
+  if (language === "hi") {
+    return `🏥 *Cortex Hospital, वर्धा*
+नमस्ते! 👋 मैं आपका डिजिटल अस्पताल सहायक हूँ।
+
+मैं आपकी क्या सहायता कर सकता हूँ?
+👇 *नीचे दिए गए बटन पर टैप करें या 1 से 10 में से नंबर भेजें:*
+
+1️⃣ 🏥 अपॉइंटमेंट बुक करें
+2️⃣ 📅 मेरी अपॉइंटमेंट
+3️⃣ 💊 प्रिस्क्रिप्शन देखें
+4️⃣ 🧾 बिल और भुगतान
+5️⃣ 🔔 अगली फ़ॉलो-अप तारीख
+6️⃣ 👨‍⚕️ डॉक्टर की उपलब्धता और समय
+7️⃣ 🧪 लैब टेस्ट रिपोर्ट
+8️⃣ 📍 अस्पताल का पता और स्थान
+9️⃣ ☎️ रिसेप्शन से बात करें
+🔟 🌐 भाषा बदलें (Change Language)
+
+आपका स्वास्थ्य और सुविधा हमारी प्राथमिकता है। ❤️`;
   }
+
+  if (language === "mr") {
+    return `🏥 *Cortex Hospital, वर्धा*
+नमस्कार! 👋 मी आपला डिजिटल हॉस्पिटल सहाय्यक आहे.
+
+मी आपली काय मदत करू शकतो?
+👇 *खालील पर्यायावर टॅप करा किंवा 1 ते 10 मधील क्रमांक पाठवा:*
+
+1️⃣ 🏥 नवीन अपॉइंटमेंट बुक करा
+2️⃣ 📅 माझी अपॉइंटमेंट
+3️⃣ 💊 माझे प्रिस्क्रिप्शन पहा
+4️⃣ 🧾 हॉस्पिटल बिल व पेमेंट
+5️⃣ 🔔 पुढील फॉलो-अप तारीख
+6️⃣ 👨‍⚕️ डॉक्टरांची वेळ व माहिती
+7️⃣ 🧪 लॅब टेस्ट रिपोर्ट
+8️⃣ 📍 हॉस्पिटलचा पत्ता
+9️⃣ ☎️ रिसेप्शनशी बोला
+🔟 🌐 भाषा बदला (Change Language)
+
+आपले आरोग्य आणि सोय हीच आमची प्राथमिकता आहे. ❤️`;
+  }
+
+  return `🏥 *Cortex Hospital, Wardha*
+Hello! 👋 I am your virtual hospital assistant, available 24/7.
+
+How can I assist you today?
+👇 *Tap an option below or reply with a number from 1 to 10:*
+
+1️⃣ 🏥 Book an Appointment
+2️⃣ 📅 My Appointments
+3️⃣ 💊 View Prescription
+4️⃣ 🧾 Bills & Payments
+5️⃣ 🔔 Next Follow-up Date
+6️⃣ 👨‍⚕️ Doctor Availability & Timings
+7️⃣ 🧪 Laboratory Reports
+8️⃣ 📍 Hospital Location & Address
+9️⃣ ☎️ Talk to Reception
+🔟 🌐 Change Language
+
+Your health and convenience matter to us. ❤️`;
+}
+
+export function menuList(language: string): WhatsAppInteractive {
+  const isHi = language === "hi";
+  const isMr = language === "mr";
+
+  const labels = isHi
+    ? [
+        "1. अपॉइंटमेंट बुक करें",
+        "2. मेरी अपॉइंटमेंट",
+        "3. प्रिस्क्रिप्शन देखें",
+        "4. बिल और भुगतान",
+        "5. अगली फ़ॉलो-अप",
+        "6. डॉक्टर का समय",
+        "7. लैब रिपोर्ट",
+        "8. अस्पताल का पता",
+        "9. रिसेप्शन से बात करें",
+        "10. भाषा बदलें",
+      ]
+    : isMr
+    ? [
+        "1. अपॉइंटमेंट बुक करा",
+        "2. माझी अपॉइंटमेंट",
+        "3. प्रिस्क्रिप्शन पहा",
+        "4. बिल आणि पेमेंट",
+        "5. पुढील फॉलो-अप",
+        "6. डॉक्टरांची वेळ",
+        "7. लॅब रिपोर्ट",
+        "8. हॉस्पिटलचा पत्ता",
+        "9. रिसेप्शनशी बोला",
+        "10. भाषा बदला",
+      ]
+    : [
+        "1. Book Appointment",
+        "2. My Appointments",
+        "3. View Prescription",
+        "4. Bills & Payments",
+        "5. Next Follow-up",
+        "6. Doctor Timings",
+        "7. Lab Reports",
+        "8. Hospital Location",
+        "9. Talk to Reception",
+        "10. Change Language",
+      ];
+
+  return {
+    kind: "list",
+    body: isHi ? "कृपया सेवा चुनें:" : isMr ? "कृपया पर्याय निवडा:" : "Please choose a service:",
+    buttonText: isHi ? "सेवाएं" : isMr ? "पर्याय" : "Select Service",
+    sections: [
+      {
+        title: isHi ? "मुख्य मेनू" : isMr ? "मुख्य मेनू" : "Main Menu",
+        rows: labels.map((title, index) => ({
+          id: `menu_${index + 1}`,
+          title,
+        })),
+      },
+    ],
+  };
 }
 
 /* =========================================================================
@@ -293,48 +392,74 @@ export async function handleConversationTurn(
 ): Promise<AgentResponse> {
   let userText = (input.text || "").trim();
   const choiceId = userText.toLowerCase();
-  if (/^(doctor|date|slot|sex)_\d+$/.test(choiceId)) userText = choiceId.split("_")[1];
-  const lower = userText.toLowerCase();
-  const normalizedText = lower.startsWith("lang_") ? lower.replace("lang_", "") : lower.startsWith("menu_") ? lower.replace("menu_", "") : lower;
 
-  // New chats start with an explicit language choice. Numbered replies work in
-  // every WhatsApp client; the same options can be rendered as reply buttons.
-  if (isGreetingText(userText) && context.currentStep !== "WELCOME" && context.currentStep !== "LANGUAGE_SELECT") {
-    return { text: mainMenu(context.language || "en"), interactive: menuList(context.language || "en"), nextStep: "IDLE" };
+  // Normalize interactive button / list clicks
+  if (/^(doctor|date|slot|sex)_\d+$/.test(choiceId)) {
+    userText = choiceId.split("_")[1];
   }
-  if (context.currentStep === "WELCOME" || context.currentStep === "LANGUAGE_SELECT") {
-    const choice = normalizedText.trim();
-    const language = choice === "1" || /^(english|en)$/i.test(choice) ? "en"
-      : choice === "2" || /^(हिन्दी|हिंदी|hindi|hi)$/i.test(choice) ? "hi"
-      : choice === "3" || /^(मराठी|marathi|mr)$/i.test(choice) ? "mr" : undefined;
-    if (!language) {
-      return { text: languagePrompt(), interactive: languageButtons(), nextStep: "LANGUAGE_SELECT" };
-    }
+  const lower = userText.toLowerCase();
+  const normalizedText = lower.startsWith("lang_")
+    ? lower.replace("lang_", "")
+    : lower.startsWith("menu_")
+    ? lower.replace("menu_", "")
+    : lower;
+
+  // 1. Language Change Request
+  if (isLanguageChangeQuery(userText)) {
     return {
-      text: mainMenu(language),
-      interactive: menuList(language),
-      nextStep: "IDLE",
-      updatedContext: { language, bookingDraft: undefined },
+      text: languagePrompt(),
+      interactive: languageButtons(),
+      nextStep: "LANGUAGE_SELECT",
+      updatedContext: { currentStep: "LANGUAGE_SELECT" },
     };
   }
 
-  // 1. Check if user sent a location pin
+  // 2. If Language is not yet chosen or currently in LANGUAGE_SELECT / WELCOME
+  if (!context.language || context.currentStep === "WELCOME" || context.currentStep === "LANGUAGE_SELECT") {
+    const choice = normalizedText.trim();
+    let selectedLang: "en" | "hi" | "mr" | undefined = undefined;
+
+    if (choice === "1" || /^(english|en|1\. english)$/i.test(choice) || choice === "lang_en") {
+      selectedLang = "en";
+    } else if (choice === "2" || /^(हिन्दी|हिंदी|hindi|2\. हिन्दी)$/i.test(choice) || choice === "lang_hi") {
+      selectedLang = "hi";
+    } else if (choice === "3" || /^(मराठी|marathi|mr|3\. मराठी)$/i.test(choice) || choice === "lang_mr") {
+      selectedLang = "mr";
+    }
+
+    if (!selectedLang) {
+      return {
+        text: languagePrompt(),
+        interactive: languageButtons(),
+        nextStep: "LANGUAGE_SELECT",
+        updatedContext: { currentStep: "LANGUAGE_SELECT" },
+      };
+    }
+
+    // Language confirmed!
+    return {
+      text: mainMenu(selectedLang),
+      interactive: menuList(selectedLang),
+      nextStep: "IDLE",
+      updatedContext: {
+        language: selectedLang,
+        currentStep: "IDLE",
+        bookingDraft: undefined,
+      },
+    };
+  }
+
+  const lang = context.language || "en";
+
+  // 3. User sent a location pin
   if (input.type === "location" || (input.latitude && input.longitude)) {
     return {
-      text: `📍 Thank you for sharing your location!
-      
-Cortex Hospital is located at:
-🏥 *Cortex Hospital*
-Aarti Chowk, Nagpur Road, Wardha - 442001, Maharashtra
-📞 Reception: 07152-255795 / +91 9373280505
-
-Google Maps Directions:
-https://maps.google.com/?q=${CORTEX_HOSPITAL_CONFIG.coordinates.latitude},${CORTEX_HOSPITAL_CONFIG.coordinates.longitude}
-
-How can I help you today?
-1️⃣ Book an Appointment
-2️⃣ Doctor Availability
-3️⃣ Talk to Reception`,
+      text: inLanguage(
+        lang,
+        `📍 Thank you for sharing your location!\n\n🏥 *Cortex Hospital, Wardha*\nAarti Chowk, Nagpur Road, Wardha - 442001, Maharashtra\n📞 Reception: 07152-255795 / +91 9373280505\n\nGoogle Maps Directions:\nhttps://maps.google.com/?q=${CORTEX_HOSPITAL_CONFIG.coordinates.latitude},${CORTEX_HOSPITAL_CONFIG.coordinates.longitude}\n\nHow can I help you today?\n1️⃣ Book an Appointment\n2️⃣ Doctor Availability\n3️⃣ Talk to Reception`,
+        `📍 अपनी लोकेशन साझा करने के लिए धन्यवाद!\n\n🏥 *Cortex Hospital, वर्धा*\nआरती चौक, नागपुर रोड, वर्धा - 442001, महाराष्ट्र\n📞 रिसेप्शन: 07152-255795 / +91 9373280505\n\nगूगल मैप्स दिशा-निर्देश:\nhttps://maps.google.com/?q=${CORTEX_HOSPITAL_CONFIG.coordinates.latitude},${CORTEX_HOSPITAL_CONFIG.coordinates.longitude}\n\nमैं आपकी क्या मदद करूँ?\n1️⃣ अपॉइंटमेंट बुक करें\n2️⃣ डॉक्टर का समय\n3️⃣ रिसेप्शन से बात करें`,
+        `📍 आपली लोकेशन पाठवल्याबद्दल धन्यवाद!\n\n🏥 *Cortex Hospital, वर्धा*\nआरती चौक, नागपूर रोड, वर्धा - 442001, महाराष्ट्र\n📞 रिसेप्शन: 07152-255795 / +91 9373280505\n\nगुगल मॅप्स दिशानिर्देश:\nhttps://maps.google.com/?q=${CORTEX_HOSPITAL_CONFIG.coordinates.latitude},${CORTEX_HOSPITAL_CONFIG.coordinates.longitude}\n\nमी आपली काय मदत करू शकतो?\n1️⃣ नवीन अपॉइंटमेंट बुक करा\n2️⃣ डॉक्टरांची वेळ\n3️⃣ रिसेप्शनशी बोला`
+      ),
       nativeLocation: {
         latitude: CORTEX_HOSPITAL_CONFIG.coordinates.latitude,
         longitude: CORTEX_HOSPITAL_CONFIG.coordinates.longitude,
@@ -344,13 +469,17 @@ How can I help you today?
     };
   }
 
-  // 2. Human Handover Management (Section 11)
+  // 4. Human Handover Management (Section 11)
   if (context.isHandedOver) {
-    if (isGreetingText(userText) || lower === "resume") {
+    if (isGreetingText(userText) || lower === "resume" || lower === "menu" || lower === "start") {
       return {
-        text: `🤖 Virtual Assistant Resumed!
-        
-${DEFAULT_WELCOME_MESSAGE}`,
+        text: inLanguage(
+          lang,
+          `🤖 Virtual Assistant Resumed!\n\n${mainMenu(lang)}`,
+          `🤖 वर्चुअल असिस्टेंट पुनः शुरू हो गया!\n\n${mainMenu(lang)}`,
+          `🤖 व्हर्च्युअल असिस्टंट पुन्हा सुरू झाला आहे!\n\n${mainMenu(lang)}`
+        ),
+        interactive: menuList(lang),
         nextStep: "IDLE",
         updatedContext: {
           isHandedOver: false,
@@ -359,15 +488,18 @@ ${DEFAULT_WELCOME_MESSAGE}`,
       };
     }
     return {
-      text: `Staff is currently managing this conversation. A hospital receptionist will reply to you soon.
-      
-If you would like to resume automated AI assistance anytime, simply type *Menu* or *Hi*.`,
+      text: inLanguage(
+        lang,
+        `Staff is currently managing this conversation. A hospital receptionist will reply to you soon.\n\nType *Menu* or *Hi* to resume AI assistance.`,
+        `अस्पताल के कर्मचारी इस बातचीत को संभाल रहे हैं। रिसेप्शनिस्ट आपसे जल्द ही संपर्क करेंगे।\n\nAI सहायक पुनः शुरू करने के लिए *Menu* या *Hi* लिखें।`,
+        `हॉस्पिटल कर्मचारी या संभाषणावर काम करत आहेत. रिसेप्शनिस्ट लवकरच आपल्याला उत्तर देतील.\n\nपुन्हा AI सहाय्यक सुरू करण्यासाठी *Menu* किंवा *Hi* पाठवा.`
+      ),
     };
   }
 
-  // 3. User explicitly requests Handover to Human Receptionist
+  // 5. User requests Reception Handover
   if (
-    lower === "9" ||
+    normalizedText === "9" ||
     lower.includes("reception") ||
     lower.includes("human") ||
     lower.includes("operator") ||
@@ -378,19 +510,12 @@ If you would like to resume automated AI assistance anytime, simply type *Menu* 
     lower.includes("connect to reception")
   ) {
     return {
-      text: `☎️ *Connecting to Cortex Hospital Reception*
-
-Our receptionist will be happy to assist you directly!
-
-🏥 *Reception Helplines:*
-📞 Landline: *07152-255795*
-📱 Mobile / WhatsApp: *+91 9373280505*
-⏰ Timings: 10:00 AM – 1:00 PM & 6:00 PM – 8:00 PM
-
-We have transferred your chat context to the front desk.
-Automated messages are now paused so staff can assist you.
-
-_(Type *Menu* or *Hi* whenever you wish to resume virtual assistance.)_`,
+      text: inLanguage(
+        lang,
+        `☎️ *Connecting to Cortex Hospital Reception*\n\nOur receptionist will be happy to assist you directly!\n\n🏥 *Reception Helplines:*\n📞 Landline: *07152-255795*\n📱 Mobile / WhatsApp: *+91 9373280505*\n⏰ Timings: 10:00 AM – 1:00 PM & 6:00 PM – 8:00 PM\n\nWe have transferred your chat context to the front desk.\nAutomated messages are now paused so staff can assist you.\n\n_(Type *Menu* or *Hi* whenever you wish to resume virtual assistance.)_`,
+        `☎️ *Cortex Hospital रिसेप्शन से संपर्क*\n\nहमारे रिसेप्शनिस्ट आपकी सीधी सहायता करेंगे!\n\n🏥 *हेल्पलाइन नंबर:*\n📞 लैंडलाइन: *07152-255795*\n📱 मोबाइल / WhatsApp: *+91 9373280505*\n⏰ समय: सुबह 10:00 – दोपहर 1:00 व शाम 6:00 – रात 8:00\n\nआपकी चैट रिसेप्शन को भेज दी गई है।\n\n_(वर्चुअल असिस्टेंट पुनः शुरू करने के लिए कभी भी *Menu* लिखें।)_`,
+        `☎️ *Cortex Hospital रिसेप्शनशी संपर्क*\n\nआमचे रिसेप्शनिस्ट आपल्याला थेट मदत करतील!\n\n🏥 *हेल्पलाइन क्रमांक:*\n📞 लँडलाइन: *07152-255795*\n📱 मोबाइल / WhatsApp: *+91 9373280505*\n⏰ वेळ: सकाळी 10:00 ते दुपारी 1:00 आणि संध्याकाळी 6:00 ते रात्री 8:00\n\nआपले संभाषण फ्रंट डेस्ककडे पाठवले आहे.\n\n_(पुन्हा व्हर्च्युअल असिस्टंट सुरू करण्यासाठी कधीही *Menu* लिहा.)_`
+      ),
       nextStep: "HANDED_OVER",
       updatedContext: {
         isHandedOver: true,
@@ -400,19 +525,15 @@ _(Type *Menu* or *Hi* whenever you wish to resume virtual assistance.)_`,
     };
   }
 
-  // 4. Medical Emergency Safety Rule (Section 12)
+  // 6. Medical Emergency Safety Rule (Section 12)
   if (isEmergencyQuery(userText)) {
     return {
-      text: `🚨 *EMERGENCY MEDICAL ADVICE* 🚨
-
-If you or the patient are experiencing severe symptoms such as acute chest pain, severe breathlessness, uncontrolled bleeding, convulsions, or serious injury:
-
-⚠️ *PLEASE SEEK IMMEDIATE EMERGENCY MEDICAL ATTENTION:*
-1. 🚑 *Call National Emergency: 112*
-2. 🏥 *Cortex Hospital Emergency Helpline: +91 9373280505*
-3. 📍 *Emergency Address:* Cortex Hospital, Aarti Chowk, Nagpur Road, Wardha
-
-Our medical casualty is prepared to assist emergency patients. Please do not wait for chat replies.`,
+      text: inLanguage(
+        lang,
+        `🚨 *EMERGENCY MEDICAL ADVICE* 🚨\n\nIf you or the patient are experiencing severe symptoms such as acute chest pain, severe breathlessness, uncontrolled bleeding, convulsions, or serious injury:\n\n⚠️ *PLEASE SEEK IMMEDIATE EMERGENCY MEDICAL ATTENTION:*\n1. 🚑 *Call National Emergency: 112*\n2. 🏥 *Cortex Hospital Emergency Helpline: +91 9373280505*\n3. 📍 *Emergency Address:* Cortex Hospital, Aarti Chowk, Nagpur Road, Wardha\n\nOur medical casualty is prepared to assist emergency patients. Please do not wait for chat replies.`,
+        `🚨 *आपातकालीन चिकित्सा सूचना* 🚨\n\nयदि मरीज को सीने में तेज दर्द, सांस लेने में अत्यधिक तकलीफ, भारी रक्तस्राव या गंभीर चोट जैसी आपात स्थिति है:\n\n⚠️ *कृपया तुरंत आपातकालीन सहायता लें:*\n1. 🚑 *राष्ट्रीय आपातकालीन नंबर: 112*\n2. 🏥 *Cortex Hospital आपातकालीन नंबर: +91 9373280505*\n3. 📍 *पता:* Cortex Hospital, आरती चौक, नागपुर रोड, वर्धा\n\nकृपया चैट के उत्तर का इंतजार न करें और सीधे अस्पताल पहुंचें।`,
+        `🚨 *तातडीची वैद्यकीय सूचना (इमर्जन्सी)* 🚨\n\nरुग्णास छातीत तीव्र वेदना, श्वास घेण्यास त्रास, तीव्र रक्तस्त्राव किंवा गंभीर इजा असल्यास:\n\n⚠️ *कृपया त्वरित वैद्यकीय मदत मिळवा:*\n1. 🚑 *राष्ट्रीय आपत्कालीन क्रमांक: 112*\n2. 🏥 *Cortex Hospital आपत्कालीन क्रमांक: +91 9373280505*\n3. 📍 *पत्ता:* Cortex Hospital, आरती चौक, नागपूर रोड, वर्धा\n\nकृपया चॅटच्या उत्तराची वाट न पाहता त्वरित हॉस्पिटलच्या कॅज्युअल्टी विभागात यावे.`
+      ),
       nativeLocation: {
         latitude: CORTEX_HOSPITAL_CONFIG.coordinates.latitude,
         longitude: CORTEX_HOSPITAL_CONFIG.coordinates.longitude,
@@ -422,27 +543,22 @@ Our medical casualty is prepared to assist emergency patients. Please do not wai
     };
   }
 
-  // 5. Medical Safety Guardrail: Never diagnose or prescribe medicines (Section 12)
+  // 7. Medical Safety Guardrail: Never diagnose or prescribe medicines (Section 12)
   if (isMedicalAdviceQuery(userText)) {
     return {
-      text: `⚠️ *Medical Safety Note:*
-
-I am an administrative hospital assistant, not a medical doctor. I cannot diagnose medical conditions, recommend specific medicines, or change dosages.
-
-For accurate clinical diagnosis and safe treatment, please consult our specialist doctors:
-👨‍⚕️ *Dr. Vipeen Raut* (Orthopaedics & Joint Replacement)
-👩‍⚕️ *Dr. Shillpa Raut* (Gynecology & Obstetrics)
-
-Would you like me to book a consultation appointment for you?
-Reply *1* to Book an Appointment or *6* to check Doctor Timings.`,
+      text: inLanguage(
+        lang,
+        `⚠️ *Medical Safety Note:*\n\nI am an administrative hospital assistant, not a doctor. I cannot diagnose conditions, recommend medicines, or alter dosages.\n\nFor accurate clinical diagnosis, please consult our specialists:\n👨‍⚕️ *Dr. Vipeen Raut* (Orthopaedics & Joint Replacement)\n👩‍⚕️ *Dr. Shillpa Raut* (Gynecology & Obstetrics)\n\nReply *1* to book an appointment.`,
+        `⚠️ *चिकित्सा सुरक्षा सूचना:*\n\nमैं एक प्रशासनिक अस्पताल सहायक हूँ, डॉक्टर नहीं। मैं बीमारियों का निदान या दवाइयां नहीं बता सकता।\n\nसुरक्षित और सही इलाज के लिए कृपया हमारे विशेषज्ञ डॉक्टरों से परामर्श लें:\n👨‍⚕️ *Dr. Vipeen Raut* (हड्डी एवं जोड़ रोग विशेषज्ञ)\n👩‍⚕️ *Dr. Shillpa Raut* (स्त्री रोग व प्रसूति विशेषज्ञ)\n\nअपॉइंटमेंट बुक करने के लिए *1* भेजें।`,
+        `⚠️ *वैद्यकीय सुरक्षा सूचना:*\n\nमी एक प्रशासकीय हॉस्पिटल सहाय्यक आहे, डॉक्टर नाही. मी आजाराचे निदान किंवा औषधांची शिफारस करू शकत नाही.\n\nयोग्य तपासणी व सल्ल्यासाठी कृपया आमच्या तज्ज्ञ डॉक्टरांना भेटा:\n👨‍⚕️ *Dr. Vipeen Raut* (हाडे व सांधे तज्ज्ञ)\n👩‍⚕️ *Dr. Shillpa Raut* (स्त्रीरोग व प्रसूती तज्ज्ञ)\n\nअपॉइंटमेंट बुक करण्यासाठी *1* पाठवा.`
+      ),
     };
   }
 
-  // 6. Handle OTP Verification state for Sensitive Records (Section 3 & 14)
+  // 8. Handle OTP Verification state for Sensitive Records
   if (context.currentStep === "OTP_VERIFICATION") {
     const cleanOtp = userText.replace(/\D/g, "");
     if (cleanOtp === context.verificationOtp || cleanOtp === "1234") {
-      // Verified!
       const pendingAction = context.pendingAction;
       const updatedCtx: AgentContext = {
         ...context,
@@ -476,24 +592,28 @@ Reply *1* to Book an Appointment or *6* to check Doctor Timings.`,
       }
 
       return {
-        text: `✅ Identity verified successfully! How can I assist you with your hospital records?
-        
-💊 Reply *3* for Prescriptions
-🧾 Reply *4* for Bills & Payments
-🔔 Reply *5* for Follow-ups`,
+        text: inLanguage(
+          lang,
+          `✅ Identity verified successfully! How can I assist you with your records?\n\n💊 Reply *3* for Prescriptions\n🧾 Reply *4* for Bills & Payments\n🔔 Reply *5* for Follow-ups`,
+          `✅ पहचान सफलतापूर्वक सत्यापित हो गई! आप अपने रिकॉर्ड में क्या देखना चाहते हैं?\n\n💊 प्रिस्क्रिप्शन के लिए *3* भेजें\n🧾 बिल और भुगतान के लिए *4* भेजें\n🔔 फ़ॉलो-अप के लिए *5* भेजें`,
+          `✅ ओळख पडताळणी यशस्वी झाली! आपण आपले कोणते रेकॉर्ड पाहू इच्छिता?\n\n💊 प्रिस्क्रिप्शनसाठी *3* पाठवा\n🧾 बिल व पेमेंटसाठी *4* पाठवा\n🔔 फॉलो-अपसाठी *5* पाठवा`
+        ),
         nextStep: "IDLE",
         updatedContext: updatedCtx,
       };
     } else {
       return {
-        text: `❌ Incorrect verification code.
-        
-Please enter the 4-digit verification code sent to your WhatsApp number (*${context.verificationOtp}*), or type *Menu* to return to the main menu.`,
+        text: inLanguage(
+          lang,
+          `❌ Incorrect verification code.\n\nPlease enter the 4-digit code sent to your number (*${context.verificationOtp}*), or type *Menu* to return.`,
+          `❌ गलत सत्यापन कोड।\n\nकृपया अपने नंबर पर भेजा गया 4 अंकों का कोड (*${context.verificationOtp}*) दर्ज करें, या *Menu* लिखें।`,
+          `❌ चुकीचा पडताळणी कोड.\n\nकृपया आपल्या नंबरवर आलेला 4 अंकी कोड (*${context.verificationOtp}*) प्रविष्ट करा, किंवा *Menu* लिहा.`
+        ),
       };
     }
   }
 
-  // 7. Multi-step Appointment Booking State Machine (allow user to interrupt with new request)
+  // 9. Multi-step Appointment Booking Interrupt check
   if (
     context.currentStep.startsWith("BOOKING_") ||
     context.currentStep.startsWith("REGISTER_")
@@ -526,11 +646,20 @@ Please enter the 4-digit verification code sent to your WhatsApp number (*${cont
     return await handleRegisterAddress(userText, context);
   }
 
-  // 9. Top-Level Intent Routing based on Number or Natural Language
+  // 10. Greetings when language is already set
+  if (isGreetingText(userText)) {
+    return {
+      text: mainMenu(lang),
+      interactive: menuList(lang),
+      nextStep: "IDLE",
+    };
+  }
+
+  // 11. Top-Level Intent Routing
   const matchedDoc = matchDoctorByName(normalizedText);
   const parsedDate = parseDateInput(userText);
 
-  // 1: Book Appointment / See Doctor
+  // 1: Book Appointment
   if (
     normalizedText === "1" ||
     lower.includes("book") ||
@@ -593,7 +722,7 @@ Please enter the 4-digit verification code sent to your WhatsApp number (*${cont
     lower.includes("medicine list") ||
     lower.includes("aushadh")
   ) {
-    return await handlePrescriptionQuery(input.phoneNumber, context);
+    return await initiateSecureAccess(input.phoneNumber, context, "VIEW_PRESCRIPTION");
   }
 
   // 4: Bills & Payments
@@ -641,7 +770,7 @@ Please enter the 4-digit verification code sent to your WhatsApp number (*${cont
     lower.includes("gynecologist") ||
     lower.includes("kadhi ahet")
   ) {
-    return await handleDoctorAvailabilityQuery(userText);
+    return await handleDoctorAvailabilityQuery(userText, context);
   }
 
   // 7: Laboratory Reports
@@ -674,29 +803,13 @@ Please enter the 4-digit verification code sent to your WhatsApp number (*${cont
     lower.includes("kothe aahe") ||
     lower.includes("wardha")
   ) {
-    return await handleHospitalInfoQuery(userText);
+    return await handleHospitalInfoQuery(userText, context);
   }
 
-  // Default fallback: Friendly reception response with guided menu
+  // Default fallback in user's selected language
   return {
-    text: `Hello! How can I help you? 😊
-(कशी मदत करू शकतो?)
-
-👇 *Please reply with any number (1 to 9):*
-(फक्त 1 ते 9 मधील कोणताही एक नंबर पाठवा):
-
-1️⃣ 🏥 Book an Appointment (नवीन अपॉइंटमेंट)
-2️⃣ 📅 My Appointments (माझी अपॉइंटमेंट)
-3️⃣ 💊 My Prescriptions (औषधांचा पर्चा / दवाई)
-4️⃣ 🧾 Bills & Payments (हॉस्पिटल बिल)
-5️⃣ 🔔 Next Follow-up (पुढची भेट तारीख)
-6️⃣ 👨‍⚕️ Doctor Availability (डॉक्टरांची वेळ)
-7️⃣ 🧪 Laboratory Reports (लॅब टेस्ट रिपोर्ट)
-8️⃣ 📍 Hospital Location & Address (पत्ता)
-9️⃣ ☎️ Talk to Reception (फोनवर बोला / रिसेप्शन)
-
-👉 Just send a number: *1*, *2*, *3*, *4*, *5*, *6*, *7*, *8*, or *9*
-(उदा. 1 किंवा 2 असा नंबर पाठवा.)`,
+    text: mainMenu(lang),
+    interactive: menuList(lang),
     nextStep: "IDLE",
   };
 }
@@ -709,7 +822,7 @@ async function initiateAppointmentBooking(
   userText: string,
   context: AgentContext
 ): Promise<AgentResponse> {
-  // Check if patient specifically mentioned a doctor in their prompt
+  const lang = context.language || "en";
   const matchedDoc = matchDoctorByName(userText);
   const parsedDate = parseDateInput(userText);
 
@@ -720,33 +833,37 @@ async function initiateAppointmentBooking(
     date: parsedDate || undefined,
   };
 
+  // Step 1: If doctor not specified, ask doctor
   if (!draft.doctorName) {
     const docs = await fetchDoctors();
     const docOptions = docs
       .map(
         (d, idx) =>
-          `*${idx + 1}️⃣ ${d.name}*\n   👨‍⚕️ _${d.specialty}_\n   💰 Fee: ₹${d.consultationFee.firstVisit} (First visit) / ₹${d.consultationFee.followupVisit} (Follow-up)`
+          `*${idx + 1}️⃣ ${d.name}*\n   👨‍⚕️ _${d.specialty}_\n   💰 ${inLanguage(lang, "Fee", "शुल्क", "फी")}: ₹${d.consultationFee.firstVisit} (${inLanguage(lang, "First", "पहला", "पहिली भेट")}) / ₹${d.consultationFee.followupVisit} (${inLanguage(lang, "Follow-up", "फ़ॉलो-अप", "फॉलो-अप")})`
       )
       .join("\n\n");
 
     return {
-      text: `🏥 *Book an Appointment at Cortex Hospital*
-(अपॉइंटमेंट बुक करा)
-
-Which specialist would you like to consult?
-(कोणत्या डॉक्टरांना दाखवायचे आहे?):
-
-${docOptions}
-
-👉 Please reply *1* or *2*
-(फक्त 1 किंवा 2 नंबर पाठवा.)`,
+      text: `${inLanguage(
+        lang,
+        "🏥 *Book an Appointment at Cortex Hospital*\n\nWhich specialist doctor would you like to consult?",
+        "🏥 *Cortex Hospital में अपॉइंटमेंट बुक करें*\n\nआप किस विशेषज्ञ डॉक्टर से परामर्श लेना चाहते हैं?",
+        "🏥 *Cortex Hospital मध्ये अपॉइंटमेंट बुक करा*\n\nआपल्याला कोणत्या तज्ज्ञ डॉक्टरांचा सल्ला घ्यायचा आहे?"
+      )}\n\n${docOptions}\n\n👉 ${inLanguage(lang, "Please reply *1* or *2* (or tap a doctor below).", "कृपया *1* या *2* भेजें (या नीचे दिए गए डॉक्टर पर टैप करें)।", "कृपया *1* किंवा *2* पाठवा (किंवा खालील डॉक्टरांवर टॅप करा).")}`,
       nextStep: "BOOKING_SELECT_DOCTOR",
       updatedContext: { bookingDraft: draft },
-      interactive: { kind: "list", body: "Choose a specialist", buttonText: "Doctors", sections: [{ title: "Available doctors", rows: docs.slice(0, 10).map((d, index) => ({ id: `doctor_${index + 1}`, title: d.name, description: d.specialty })) }] },
+      interactive: {
+        kind: "buttons",
+        body: inLanguage(lang, "Choose a specialist doctor:", "डॉक्टर चुनें:", "डॉक्टर निवडा:"),
+        buttons: [
+          { id: "doctor_1", title: docs[0]?.name || "Dr. Vipeen Raut" },
+          { id: "doctor_2", title: docs[1]?.name || "Dr. Shillpa Raut" },
+        ],
+      },
     };
   }
 
-  // Doctor is already known, ask for Date if not provided
+  // Step 2: If date not specified, ask date
   if (!draft.date) {
     const today = new Date();
     const tmrw = new Date(today);
@@ -754,41 +871,47 @@ ${docOptions}
     const dayAfter = new Date(today);
     dayAfter.setDate(today.getDate() + 2);
 
+    const todayDmy = formatDisplayDate(formatDate(today));
+    const tmrwDmy = formatDisplayDate(formatDate(tmrw));
+    const dayAfterDmy = formatDisplayDate(formatDate(dayAfter));
+
     return {
-      text: `Great! Let's book your appointment with:
-👨‍⚕️ *${draft.doctorName}* (${draft.specialty})
-
-📅 *Select Date / तारीख निवडा:*
-1️⃣ Today (आज - ${formatDisplayDate(formatDate(today))})
-2️⃣ Tomorrow (उद्या / कल - ${formatDisplayDate(formatDate(tmrw))})
-3️⃣ Day after tomorrow (परवा / परसों - ${formatDisplayDate(formatDate(dayAfter))})
-4️⃣ Or type another date (e.g. 10 November)
-
-👉 Please reply with *1*, *2*, or *3*.
-(फक्त 1, 2 किंवा 3 नंबर पाठवा.)
-
-_(Note: Cortex Hospital OPD is closed on Sundays.)_`,
+      text: `${inLanguage(
+        lang,
+        `Great! Let's book your appointment with:\n👨‍⚕️ *${draft.doctorName}* (${draft.specialty})\n\n📅 *Select Appointment Date:*\n1️⃣ Today (${todayDmy})\n2️⃣ Tomorrow (${tmrwDmy})\n3️⃣ Day after tomorrow (${dayAfterDmy})\n4️⃣ Or reply with any date in DD/MM/YY format\n\n_(Note: OPD is closed on Sundays)_`,
+        `बहुत बढ़िया! आइए अपॉइंटमेंट बुक करते हैं:\n👨‍⚕️ *${draft.doctorName}* (${draft.specialty})\n\n📅 *अपॉइंटमेंट की तारीख चुनें:*\n1️⃣ आज (${todayDmy})\n2️⃣ कल (${tmrwDmy})\n3️⃣ परसों (${dayAfterDmy})\n4️⃣ या DD/MM/YY प्रारूप में तारीख लिखें\n\n_(ध्यान दें: रविवार को OPD बंद रहता है)_`,
+        `उत्तम! चला अपॉइंटमेंट बुक करूया:\n👨‍⚕️ *${draft.doctorName}* (${draft.specialty})\n\n📅 *अपॉइंटमेंटची तारीख निवडा:*\n1️⃣ आज (${todayDmy})\n2️⃣ उद्या (${tmrwDmy})\n3️⃣ परवा (${dayAfterDmy})\n4️⃣ किंवा DD/MM/YY स्वरूपात तारीख लिहा\n\n_(टीप: रविवारी OPD बंद असते)_`
+      )}\n\n👉 ${inLanguage(lang, "Tap an option below or reply with 1, 2, or 3.", "नीचे टैप करें या 1, 2, 3 भेजें।", "खाली टॅप करा किंवा 1, 2, 3 पाठवा.")}`,
       nextStep: "BOOKING_SELECT_DATE",
       updatedContext: { bookingDraft: draft },
-      interactive: dateChoices([`Today · ${formatDisplayDate(formatDate(today))}`, `Tomorrow · ${formatDisplayDate(formatDate(tmrw))}`, `Day after · ${formatDisplayDate(formatDate(dayAfter))}`, "Type another date"]),
+      interactive: {
+        kind: "buttons",
+        body: inLanguage(lang, "Select date (DD/MM/YY):", "तारीख चुनें (DD/MM/YY):", "तारीख निवडा (DD/MM/YY):"),
+        buttons: [
+          { id: "date_1", title: inLanguage(lang, `1. Today (${todayDmy})`, `1. आज (${todayDmy})`, `1. आज (${todayDmy})`) },
+          { id: "date_2", title: inLanguage(lang, `2. Tomorrow (${tmrwDmy})`, `2. कल (${tmrwDmy})`, `2. उद्या (${tmrwDmy})`) },
+          { id: "date_3", title: inLanguage(lang, `3. Day After (${dayAfterDmy})`, `3. परसों (${dayAfterDmy})`, `3. परवा (${dayAfterDmy})`) },
+        ],
+      },
     };
   }
 
-  // Both Doctor and Date known, show available slots
-  return await presentSlotsForDate(draft.date, draft.doctorName, draft, context);
+  // Doctor and Date are both known: fetch available slots directly
+  return await showAvailableSlotsForDate(draft.date, draft.doctorName, draft, context);
 }
 
 async function handleBookingSelectDoctor(
   userText: string,
   context: AgentContext
 ): Promise<AgentResponse> {
-  const clean = userText.trim();
+  const lang = context.language || "en";
   const docs = await fetchDoctors();
-  let selectedDoc: DoctorInfo | undefined;
+  const clean = userText.toLowerCase().trim();
 
-  if (clean === "1" && docs[0]) {
+  let selectedDoc: DoctorInfo | undefined;
+  if (clean === "1" || clean === "doctor_1") {
     selectedDoc = docs[0];
-  } else if (clean === "2" && docs[1]) {
+  } else if (clean === "2" || clean === "doctor_2") {
     selectedDoc = docs[1];
   } else {
     selectedDoc = matchDoctorByName(userText);
@@ -796,13 +919,21 @@ async function handleBookingSelectDoctor(
 
   if (!selectedDoc) {
     return {
-      text: `Please reply with a number:
-1️⃣ ${docs[0]?.name || "Dr. Vipeen Raut"} (हाडे व सांधे तज्ज्ञ)
-2️⃣ ${docs[1]?.name || "Dr. Shillpa Raut"} (स्त्रीरोग व प्रसूती तज्ज्ञ)
-
-👉 Reply *1* or *2*
-(फक्त 1 किंवा 2 पाठवा.)`,
+      text: inLanguage(
+        lang,
+        `Please select a doctor:\n1️⃣ ${docs[0]?.name || "Dr. Vipeen Raut"} (Orthopaedics)\n2️⃣ ${docs[1]?.name || "Dr. Shillpa Raut"} (Gynecology)\n\n👉 Reply *1* or *2* (or tap below).`,
+        `कृपया डॉक्टर चुनें:\n1️⃣ ${docs[0]?.name || "Dr. Vipeen Raut"} (हड्डी रोग)\n2️⃣ ${docs[1]?.name || "Dr. Shillpa Raut"} (स्त्री रोग)\n\n👉 *1* या *2* भेजें (या नीचे टैप करें)।`,
+        `कृपया डॉक्टर निवडा:\n1️⃣ ${docs[0]?.name || "Dr. Vipeen Raut"} (हाडे व सांधे)\n2️⃣ ${docs[1]?.name || "Dr. Shillpa Raut"} (स्त्रीरोग)\n\n👉 *1* किंवा *2* पाठवा (किंवा खाली टॅप करा).`
+      ),
       nextStep: "BOOKING_SELECT_DOCTOR",
+      interactive: {
+        kind: "buttons",
+        body: inLanguage(lang, "Choose doctor:", "डॉक्टर चुनें:", "डॉक्टर निवडा:"),
+        buttons: [
+          { id: "doctor_1", title: docs[0]?.name || "Dr. Vipeen Raut" },
+          { id: "doctor_2", title: docs[1]?.name || "Dr. Shillpa Raut" },
+        ],
+      },
     };
   }
 
@@ -818,21 +949,28 @@ async function handleBookingSelectDoctor(
   const dayAfter = new Date(today);
   dayAfter.setDate(today.getDate() + 2);
 
+  const todayDmy = formatDisplayDate(formatDate(today));
+  const tmrwDmy = formatDisplayDate(formatDate(tmrw));
+  const dayAfterDmy = formatDisplayDate(formatDate(dayAfter));
+
   return {
-    text: `Selected: *${selectedDoc.name}*
-_${selectedDoc.designation}_
-
-📅 *Select Date / तारीख निवडा:*
-1️⃣ Today (आज - ${formatDisplayDate(formatDate(today))})
-2️⃣ Tomorrow (उद्या / कल - ${formatDisplayDate(formatDate(tmrw))})
-3️⃣ Day after tomorrow (परवा / परसों - ${formatDisplayDate(formatDate(dayAfter))})
-4️⃣ Or type another date (e.g. 10 Nov)
-
-👉 Please reply *1*, *2*, or *3*.
-(फक्त 1, 2 किंवा 3 नंबर पाठवा.)`,
+    text: `${inLanguage(
+      lang,
+      `Selected: 👨‍⚕️ *${selectedDoc.name}* (${selectedDoc.specialty})\n\n📅 *Select Appointment Date:*\n1️⃣ Today (${todayDmy})\n2️⃣ Tomorrow (${tmrwDmy})\n3️⃣ Day after tomorrow (${dayAfterDmy})\n4️⃣ Or reply with any date in DD/MM/YY format\n\n_(Note: OPD is closed on Sundays)_`,
+      `चुना गया: 👨‍⚕️ *${selectedDoc.name}* (${selectedDoc.specialty})\n\n📅 *तारीख चुनें:*\n1️⃣ आज (${todayDmy})\n2️⃣ कल (${tmrwDmy})\n3️⃣ परसों (${dayAfterDmy})\n4️⃣ या DD/MM/YY प्रारूप में लिखें\n\n_(रविवार को OPD बंद रहता है)_`,
+      `निवडले: 👨‍⚕️ *${selectedDoc.name}* (${selectedDoc.specialty})\n\n📅 *तारीख निवडा:*\n1️⃣ आज (${todayDmy})\n2️⃣ उद्या (${tmrwDmy})\n3️⃣ परवा (${dayAfterDmy})\n4️⃣ किंवा DD/MM/YY स्वरूपात लिहा\n\n_(रविवारी OPD बंद असते)_`
+    )}\n\n👉 ${inLanguage(lang, "Tap an option below or reply with 1, 2, or 3.", "नीचे टैप करें या 1, 2, 3 भेजें।", "खाली टॅप करा किंवा 1, 2, 3 पाठवा.")}`,
     nextStep: "BOOKING_SELECT_DATE",
     updatedContext: { bookingDraft: updatedDraft },
-    interactive: dateChoices([`Today · ${formatDisplayDate(formatDate(today))}`, `Tomorrow · ${formatDisplayDate(formatDate(tmrw))}`, `Day after · ${formatDisplayDate(formatDate(dayAfter))}`, "Type another date"]),
+    interactive: {
+      kind: "buttons",
+      body: inLanguage(lang, "Select date (DD/MM/YY):", "तारीख चुनें (DD/MM/YY):", "तारीख निवडा (DD/MM/YY):"),
+      buttons: [
+        { id: "date_1", title: inLanguage(lang, `1. Today (${todayDmy})`, `1. आज (${todayDmy})`, `1. आज (${todayDmy})`) },
+        { id: "date_2", title: inLanguage(lang, `2. Tomorrow (${tmrwDmy})`, `2. कल (${tmrwDmy})`, `2. उद्या (${tmrwDmy})`) },
+        { id: "date_3", title: inLanguage(lang, `3. Day After (${dayAfterDmy})`, `3. परसों (${dayAfterDmy})`, `3. परवा (${dayAfterDmy})`) },
+      ],
+    },
   };
 }
 
@@ -840,64 +978,67 @@ async function handleBookingSelectDate(
   userText: string,
   context: AgentContext
 ): Promise<AgentResponse> {
-  const clean = userText.trim().toLowerCase();
-  const today = new Date();
-  let dateStr: string | null = null;
+  const lang = context.language || "en";
+  const parsedDate = parseDateInput(userText);
 
-  if (clean === "1" || clean === "today" || clean === "आज") {
-    dateStr = formatDate(today);
-  } else if (clean === "2" || clean === "tomorrow" || clean === "उद्या" || clean === "कल") {
+  if (!parsedDate) {
+    const today = new Date();
     const tmrw = new Date(today);
     tmrw.setDate(today.getDate() + 1);
-    dateStr = formatDate(tmrw);
-  } else if (clean === "3" || clean === "day after tomorrow" || clean === "परवा" || clean === "परसों") {
     const dayAfter = new Date(today);
     dayAfter.setDate(today.getDate() + 2);
-    dateStr = formatDate(dayAfter);
-  } else {
-    dateStr = parseDateInput(userText);
-  }
 
-  if (!dateStr) {
+    const todayDmy = formatDisplayDate(formatDate(today));
+    const tmrwDmy = formatDisplayDate(formatDate(tmrw));
+    const dayAfterDmy = formatDisplayDate(formatDate(dayAfter));
+
     return {
-      text: `Please reply with a number:
-1️⃣ Today (आज)
-2️⃣ Tomorrow (उद्या / कल)
-3️⃣ Day after tomorrow (परवा)
-4️⃣ Or type a specific date (e.g. 2026-11-05)
-
-👉 Reply *1*, *2*, or *3*.
-(फक्त 1, 2 किंवा 3 पाठवा.)`,
+      text: inLanguage(
+        lang,
+        `Please select a valid date:\n1️⃣ Today (${todayDmy})\n2️⃣ Tomorrow (${tmrwDmy})\n3️⃣ Day after tomorrow (${dayAfterDmy})\n4️⃣ Or write a date in DD/MM/YY format`,
+        `कृपया सही तारीख चुनें:\n1️⃣ आज (${todayDmy})\n2️⃣ कल (${tmrwDmy})\n3️⃣ परसों (${dayAfterDmy})\n4️⃣ या DD/MM/YY प्रारूप में लिखें`,
+        `कृपया योग्य तारीख निवडा:\n1️⃣ आज (${todayDmy})\n2️⃣ उद्या (${tmrwDmy})\n3️⃣ परवा (${dayAfterDmy})\n4️⃣ किंवा DD/MM/YY स्वरूपात लिहा`
+      ),
       nextStep: "BOOKING_SELECT_DATE",
+      interactive: {
+        kind: "buttons",
+        body: inLanguage(lang, "Select date:", "तारीख चुनें:", "तारीख निवडा:"),
+        buttons: [
+          { id: "date_1", title: inLanguage(lang, `1. Today (${todayDmy})`, `1. आज (${todayDmy})`, `1. आज (${todayDmy})`) },
+          { id: "date_2", title: inLanguage(lang, `2. Tomorrow (${tmrwDmy})`, `2. कल (${tmrwDmy})`, `2. उद्या (${tmrwDmy})`) },
+          { id: "date_3", title: inLanguage(lang, `3. Day After (${dayAfterDmy})`, `3. परसों (${dayAfterDmy})`, `3. परवा (${dayAfterDmy})`) },
+        ],
+      },
     };
   }
 
   const docName = context.bookingDraft?.doctorName || "Dr. Vipeen Raut";
   const updatedDraft = {
     ...(context.bookingDraft || {}),
-    date: dateStr,
+    date: parsedDate,
   };
 
-  return await presentSlotsForDate(dateStr, docName, updatedDraft, context);
+  return await showAvailableSlotsForDate(parsedDate, docName, updatedDraft, context);
 }
 
-async function presentSlotsForDate(
+async function showAvailableSlotsForDate(
   dateStr: string,
   docName: string,
   draft: Record<string, any>,
   context: AgentContext
 ): Promise<AgentResponse> {
+  const lang = context.language || "en";
   const slotData = await getAvailableSlots(dateStr, docName);
+  const dateDmy = formatDisplayDate(dateStr);
 
   if (slotData.isSunday) {
     return {
-      text: `⚠️ *Sunday OPD Closed*
-
-Cortex Hospital OPD is closed on Sundays (*${formatDisplayDate(dateStr)}*).
-
-Please choose another date:
-• *Tomorrow*
-• Or another weekday (Mon–Sat)`,
+      text: inLanguage(
+        lang,
+        `⚠️ Cortex Hospital OPD is closed on Sundays (*${dateDmy}*).\n\nPlease choose another date:\n• Reply *Tomorrow*\n• Or specify another weekday (Mon–Sat) in DD/MM/YY.`,
+        `⚠️ Cortex Hospital OPD रविवार (*${dateDmy}*) को बंद रहता है।\n\nकृपया दूसरी तारीख चुनें:\n• *कल* भेजें\n• या सोमवार से शनिवार के बीच की कोई तारीख DD/MM/YY में लिखें।`,
+        `⚠️ Cortex Hospital OPD रविवारी (*${dateDmy}*) बंद असते.\n\nकृपया दुसरी तारीख निवडा:\n• *उद्या* पाठवा\n• किंवा सोमवार ते शनिवार मधील कोणतीही तारीख DD/MM/YY मध्ये लिहा.`
+      ),
       nextStep: "BOOKING_SELECT_DATE",
       updatedContext: { bookingDraft: draft },
     };
@@ -905,41 +1046,70 @@ Please choose another date:
 
   if (slotData.availableSlots.length === 0) {
     return {
-      text: `⚠️ All appointment slots with *${docName}* on *${formatDisplayDate(dateStr)}* are currently fully booked.
-
-Would you like to check availability for the next day?
-Reply *Tomorrow* or specify another date.`,
+      text: inLanguage(
+        lang,
+        `⚠️ All appointment slots with *${docName}* on *${dateDmy}* are fully booked.\n\nWould you like to check availability for the next day? Reply *Tomorrow* or specify another date.`,
+        `⚠️ *${docName}* के साथ *${dateDmy}* के सभी स्लॉट भर चुके हैं।\n\nक्या आप अगले दिन का समय देखना चाहते हैं? *कल* भेजें या कोई अन्य तारीख लिखें।`,
+        `⚠️ *${docName}* यांच्याकडे *${dateDmy}* रोजी सर्व वेळा आरक्षित झाल्या आहेत.\n\nआपण पुढच्या दिवसाची वेळ पाहू इच्छिता का? *उद्या* पाठवा किंवा दुसरी तारीख लिहा.`
+      ),
       nextStep: "BOOKING_SELECT_DATE",
       updatedContext: { bookingDraft: draft },
     };
   }
 
-  // Display available slots in clean groups
-  const morning = slotData.availableSlots.filter((s) => parseInt(s.split(":")[0], 10) < 14);
-  const evening = slotData.availableSlots.filter((s) => parseInt(s.split(":")[0], 10) >= 14);
+  let slotText = inLanguage(
+    lang,
+    `📅 *Available Slots on ${dateDmy}*\n👨‍⚕️ Doctor: *${docName}*\n\n👇 *Please reply with the slot number (1, 2, 3...) or tap below:*\n\n`,
+    `📅 *उपलब्ध स्लॉट: ${dateDmy}*\n👨‍⚕️ डॉक्टर: *${docName}*\n\n👇 *कृपया स्लॉट नंबर (1, 2, 3...) भेजें या नीचे टैप करें:*\n\n`,
+    `📅 *उपलब्ध वेळा: ${dateDmy}*\n👨‍⚕️ डॉक्टर: *${docName}*\n\n👇 *कृपया वेळेचा नंबर (1, 2, 3...) पाठवा किंवा खाली टॅप करा:*\n\n`
+  );
 
-  let slotText = `Certainly! Let me check *${docName}'s* availability for *${formatDisplayDate(dateStr)}*.\n\n📅 *Available Slots on ${formatDisplayDate(dateStr)}*\nDoctor: *${docName}*\n\n`;
-
-  slotText += `👇 *Please reply with the slot number (1, 2, 3...)*\n(फक्त वेळेचा नंबर पाठवा):\n\n`;
-
-  slotData.availableSlots.forEach((slot, index) => {
-    const num = index + 1;
+  slotData.availableSlots.forEach((slot, idx) => {
     const [h, m] = slot.split(":").map(Number);
-    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    const hour12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
     const ampm = h >= 12 ? "PM" : "AM";
-    const formattedTime = `${String(hour12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
-    const period = h < 14 ? "☀️ Morning" : "🌙 Evening";
-
-    slotText += `*${num}.* ⏰ ${formattedTime} _(${period})_\n`;
+    const formatted12 = `${String(hour12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
+    const period = h < 14 ? "☀️" : "🌙";
+    slotText += `*${idx + 1}.* ⏰ ${formatted12} _(${period})_\n`;
   });
 
-  slotText += `\n👉 Reply with any number (*1*, *2*, *3*...) or time (*${slotData.availableSlots[0]}*).\n(उदा. 1 किंवा 2 असा नंबर पाठवा.)`;
+  slotText += inLanguage(
+    lang,
+    `\n👉 Reply with any number (*1*, *2*, *3*...) or tap a time slot.`,
+    `\n👉 कोई भी नंबर (*1*, *2*, *3*...) भेजें या समय पर टैप करें।`,
+    `\n👉 कोणताही एक नंबर (*1*, *2*, *3*...) पाठवा किंवा वेळेवर टॅप करा.`
+  );
 
   return {
     text: slotText,
     nextStep: "BOOKING_SELECT_SLOT",
     updatedContext: { bookingDraft: draft },
-    interactive: { kind: "list", body: `Available slots with ${docName} · ${formatDisplayDate(dateStr)}`, buttonText: "Time slots", sections: [{ title: "Select a time", rows: slotData.availableSlots.slice(0, 10).map((slot, index) => ({ id: `slot_${index + 1}`, title: slot })) }] },
+    interactive: {
+      kind: "list",
+      body: inLanguage(
+        lang,
+        `Available slots on ${dateDmy} with ${docName}:`,
+        `${dateDmy} को ${docName} के उपलब्ध स्लॉट:`,
+        `${dateDmy} रोजी ${docName} यांच्या उपलब्ध वेळा:`
+      ),
+      buttonText: inLanguage(lang, "Choose Slot", "समय चुनें", "वेळ निवडा"),
+      sections: [
+        {
+          title: inLanguage(lang, "Available Time Slots", "उपलब्ध स्लॉट", "उपलब्ध वेळा"),
+          rows: slotData.availableSlots.slice(0, 10).map((slot, index) => {
+            const [h, m] = slot.split(":").map(Number);
+            const hour12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
+            const ampm = h >= 12 ? "PM" : "AM";
+            const formatted12 = `${String(hour12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
+            return {
+              id: `slot_${index + 1}`,
+              title: `${index + 1}. ${formatted12}`,
+              description: slot,
+            };
+          }),
+        },
+      ],
+    },
   };
 }
 
@@ -947,126 +1117,190 @@ async function handleBookingSelectSlot(
   userText: string,
   context: AgentContext
 ): Promise<AgentResponse> {
-  const draft = context.bookingDraft || {};
-  const dateStr = draft.date || formatDate(new Date());
+  const lang = context.language || "en";
+  const draft = context.bookingDraft;
+  if (!draft || !draft.date) {
+    return await initiateAppointmentBooking(userText, context);
+  }
+
+  const dateStr = draft.date;
   const docName = draft.doctorName || "Dr. Vipeen Raut";
-
-  let cleanInput = userText.trim();
-  let cleanSlot = cleanInput;
-
   const slotData = await getAvailableSlots(dateStr, docName);
+  const cleanInput = userText.trim().toLowerCase();
 
-  // 1. Check if user selected by slot index number (e.g. "1", "2", "3"...)
-  const slotNum = parseInt(cleanInput, 10);
-  if (!isNaN(slotNum) && slotNum >= 1 && slotNum <= slotData.availableSlots.length && !cleanInput.includes(":")) {
-    cleanSlot = slotData.availableSlots[slotNum - 1];
-  } else {
-    // 2. Check if user typed time e.g. "10:15" or "10:15 AM"
-    const timeMatch = cleanInput.match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i);
+  let cleanSlot: string | null = null;
+
+  // Check if user selected by single-digit number (1, 2, 3...)
+  const numIndex = parseInt(cleanInput, 10);
+  if (!isNaN(numIndex) && numIndex >= 1 && numIndex <= slotData.availableSlots.length) {
+    cleanSlot = slotData.availableSlots[numIndex - 1];
+  }
+
+  // Fallback: Check if user typed formatted time e.g. "10:00" or "10:00 AM"
+  if (!cleanSlot) {
+    const timeMatch = cleanInput.match(/(\d{1,2})[:.](\d{2})\s*(am|pm)?/i);
     if (timeMatch) {
-      let hours = parseInt(timeMatch[1], 10);
-      const minutes = timeMatch[2];
-      const modifier = (timeMatch[3] || "").toLowerCase();
-
-      if (modifier === "pm" && hours < 12) hours += 12;
-      if (modifier === "am" && hours === 12) hours = 0;
-      cleanSlot = `${String(hours).padStart(2, "0")}:${minutes}`;
+      let h = parseInt(timeMatch[1], 10);
+      const m = timeMatch[2];
+      const meridiem = timeMatch[3]?.toLowerCase();
+      if (meridiem === "pm" && h < 12) h += 12;
+      if (meridiem === "am" && h === 12) h = 0;
+      const targetTime = `${String(h).padStart(2, "0")}:${m}`;
+      if (slotData.availableSlots.includes(targetTime)) {
+        cleanSlot = targetTime;
+      }
     }
   }
 
-  if (!slotData.availableSlots.includes(cleanSlot)) {
-    let errText = `Please reply with the number of your preferred slot (1 to ${slotData.availableSlots.length}):\n\n`;
-    slotData.availableSlots.slice(0, 8).forEach((s, i) => {
-      errText += `*${i + 1}.* ⏰ ${s}\n`;
-    });
-    errText += `\n👉 Reply with a number like *1* or *2*.\n(कृपया 1 किंवा 2 असा नंबर पाठवा.)`;
+  if (!cleanSlot) {
     return {
-      text: errText,
+      text: inLanguage(
+        lang,
+        `Please select a valid slot number from the list (e.g. *1*, *2*...):`,
+        `कृपया सूची में से सही स्लॉट नंबर चुनें (जैसे *1*, *2*...):`,
+        `कृपया यादीतील वेळेचा योग्य नंबर निवडा (उदा. *1*, *2*...):`
+      ),
       nextStep: "BOOKING_SELECT_SLOT",
     };
   }
 
   draft.slot = cleanSlot;
 
-  // Step: Identify whether patient is already registered in Cortex PMS (Section 2 Rule 1)
+  // Check if patient is already registered in Cortex PMS by phone
   const existingPatient = await findPatient(context.phoneNumber);
 
   if (existingPatient) {
     draft.patientName = existingPatient.name;
-    draft.patientAge = existingPatient.age;
     draft.patientPhone = existingPatient.phone_number;
     draft.patientAddress = existingPatient.address;
+    draft.sex = existingPatient.sex;
 
-    // Proceed straight to booking creation in Cortex PMS!
-    return await executeBookingCreation(draft, context, existingPatient);
+    // Ask Age to confirm
+    return {
+      text: inLanguage(
+        lang,
+        `Slot selected: *${cleanSlot}* on *${formatDisplayDate(dateStr)}* with *${docName}*.\n\n👤 Registered Patient: *${existingPatient.name}*\n📱 Registered Mobile: *${existingPatient.phone_number}*\n\n👉 *Please enter the patient's age in years (e.g. 35):*`,
+        `स्लॉट चुना गया: *${cleanSlot}* | तारीख: *${formatDisplayDate(dateStr)}* | डॉक्टर: *${docName}*।\n\n👤 मरीज: *${existingPatient.name}*\n📱 मोबाइल: *${existingPatient.phone_number}*\n\n👉 *कृपया मरीज की आयु (उम्र) वर्षों में बताएं (जैसे 35):*`,
+        `वेळ निवडली: *${cleanSlot}* | तारीख: *${formatDisplayDate(dateStr)}* | डॉक्टर: *${docName}*.\n\n👤 रुग्ण: *${existingPatient.name}*\n📱 मोबाइल: *${existingPatient.phone_number}*\n\n👉 *कृपया रुग्णाचे वय वर्षांमध्ये सांगा (उदा. 35):*`
+      ),
+      nextStep: "REGISTER_AGE",
+      updatedContext: {
+        bookingDraft: draft,
+        patientId: existingPatient._id,
+        patientReference: existingPatient.reference_number,
+        patientName: existingPatient.name,
+      },
+    };
   }
 
-  // Patient not registered yet: Collect registration details seamlessly (Section 2 & 3)
+  // New patient: Prompt for Full Name
   return {
-    text: `Slot selected: *${cleanSlot}* on *${formatDisplayDate(dateStr)}* with *${docName}*.
-
-To register your appointment in Cortex Hospital PMS, please provide the patient's full name:
-_(Example: Ramesh Patil)_`,
+    text: inLanguage(
+      lang,
+      `Slot selected: *${cleanSlot}* on *${formatDisplayDate(dateStr)}* with *${docName}*.\n\n👉 *Please enter the patient's full name (e.g. Ramesh Patil):*`,
+      `स्लॉट चुना गया: *${cleanSlot}* | तारीख: *${formatDisplayDate(dateStr)}* | डॉक्टर: *${docName}*।\n\n👉 *कृपया मरीज का पूरा नाम लिखें (जैसे रमेश पाटिल):*`,
+      `वेळ निवडली: *${cleanSlot}* | तारीख: *${formatDisplayDate(dateStr)}* | डॉक्टर: *${docName}*.\n\n👉 *कृपया रुग्णाचे पूर्ण नाव लिहा (उदा. रमेश पाटील):*`
+    ),
     nextStep: "REGISTER_NAME",
     updatedContext: { bookingDraft: draft },
   };
 }
 
 async function handleRegisterName(userText: string, context: AgentContext): Promise<AgentResponse> {
+  const lang = context.language || "en";
   const name = userText.trim();
   if (name.length < 2) {
     return {
-      text: "Please provide a valid patient name:",
+      text: inLanguage(
+        lang,
+        "Please provide a valid patient name (at least 2 letters):",
+        "कृपया मरीज का सही नाम लिखें (कम से कम 2 अक्षर):",
+        "कृपया रुग्णाचे योग्य नाव लिहा (किमान 2 अक्षरे):"
+      ),
       nextStep: "REGISTER_NAME",
     };
   }
+
   const draft = { ...(context.bookingDraft || {}), patientName: name };
   return {
-    text: `Thank you, *${name}*.
-What is the patient's age? (e.g. *35*)`,
+    text: inLanguage(
+      lang,
+      `Thank you, *${name}*.\n\n👉 *What is the patient's age in years? (e.g. 28):*`,
+      `धन्यवाद, *${name}*।\n\n👉 *मरीज की आयु (उम्र) कितने वर्ष है? (जैसे 28):*`,
+      `धन्यवाद, *${name}*.\n\n👉 *रुग्णाचे वय किती वर्षे आहे? (उदा. 28):*`
+    ),
     nextStep: "REGISTER_AGE",
     updatedContext: { bookingDraft: draft },
   };
 }
 
 async function handleRegisterAge(userText: string, context: AgentContext): Promise<AgentResponse> {
+  const lang = context.language || "en";
   const ageMatch = userText.match(/\d+/);
   if (!ageMatch) {
     return {
-      text: "Please enter the age in numbers (e.g. 28):",
+      text: inLanguage(
+        lang,
+        "Please enter the patient's age in numbers (e.g. 28):",
+        "कृपया मरीज की आयु केवल अंकों में लिखें (जैसे 28):",
+        "कृपया रुग्णाचे वय आकड्यांमध्ये सांगा (उदा. 28):"
+      ),
       nextStep: "REGISTER_AGE",
     };
   }
-  const draft = { ...(context.bookingDraft || {}), patientAge: ageMatch[0] };
+
+  const ageStr = ageMatch[0];
+  const draft = { ...(context.bookingDraft || {}), patientAge: ageStr };
+
+  // If already registered patient, we have all details -> execute booking!
+  if (context.patientId) {
+    return await executeBookingCreation(draft, context, {
+      name: draft.patientName,
+      reference_number: context.patientReference,
+    });
+  }
+
+  // New patient: Ask gender next
   return {
-    text: `Got it (${ageMatch[0]} yrs).
-What is the patient's gender? / लिंग निवडा:
-
-1️⃣ Male (पुरुष)
-2️⃣ Female (महिला / स्त्री)
-3️⃣ Other
-
-👉 Please reply *1* or *2*.
-(फक्त 1 किंवा 2 नंबर पाठवा.)`,
+    text: inLanguage(
+      lang,
+      `Age recorded: *${ageStr} years*.\n\n👉 *Please select the patient's gender:*`,
+      `आयु दर्ज की गई: *${ageStr} वर्ष*।\n\n👉 *कृपया मरीज का लिंग चुनें:*`,
+      `वय नोंदवले: *${ageStr} वर्षे*.\n\n👉 *कृपया रुग्णाचे लिंग निवडा:*`
+    ),
     nextStep: "REGISTER_SEX",
     updatedContext: { bookingDraft: draft },
-    interactive: { kind: "buttons", body: "Choose the patient's gender", buttons: [{ id: "sex_1", title: "Male" }, { id: "sex_2", title: "Female" }, { id: "sex_3", title: "Other" }] },
+    interactive: {
+      kind: "buttons",
+      body: inLanguage(lang, "Select Gender:", "लिंग चुनें:", "लिंग निवडा:"),
+      buttons: [
+        { id: "sex_1", title: inLanguage(lang, "1. Male", "1. पुरुष", "1. पुरुष") },
+        { id: "sex_2", title: inLanguage(lang, "2. Female", "2. महिला", "2. महिला") },
+        { id: "sex_3", title: inLanguage(lang, "3. Other", "3. अन्य", "3. इतर") },
+      ],
+    },
   };
 }
 
 async function handleRegisterSex(userText: string, context: AgentContext): Promise<AgentResponse> {
+  const lang = context.language || "en";
   let sex: "Male" | "Female" | "Other" = "Male";
   const clean = userText.toLowerCase().trim();
-  if (clean === "2" || clean.startsWith("f") || clean.includes("female") || clean.includes("स्त्री") || clean.includes("महिला")) {
+
+  if (clean === "2" || clean === "sex_2" || clean.startsWith("f") || clean.includes("female") || clean.includes("स्त्री") || clean.includes("महिला")) {
     sex = "Female";
-  } else if (clean === "3" || clean.startsWith("o")) {
+  } else if (clean === "3" || clean === "sex_3" || clean.startsWith("o") || clean.includes("other") || clean.includes("इतर") || clean.includes("अन्य")) {
     sex = "Other";
   }
 
   const draft = { ...(context.bookingDraft || {}), sex };
   return {
-    text: `Almost done! Please share the patient's residential city or village:
-(कृपया गाव किंवा शहराचे नाव पाठवा, उदा. *Wardha* किंवा *Nagpur*):`,
+    text: inLanguage(
+      lang,
+      `Gender: *${sex}*.\n\n👉 *Please enter the patient's residential city or village (e.g. Wardha):*`,
+      `लिंग: *${sex === "Female" ? "महिला" : sex === "Other" ? "अन्य" : "पुरुष"}*।\n\n👉 *कृपया मरीज का शहर या गांव लिखें (जैसे वर्धा):*`,
+      `लिंग: *${sex === "Female" ? "महिला" : sex === "Other" ? "इतर" : "पुरुष"}*.\n\n👉 *कृपया रुग्णाचे शहर किंवा गाव लिहा (उदा. वर्धा):*`
+    ),
     nextStep: "REGISTER_ADDRESS",
     updatedContext: { bookingDraft: draft },
   };
@@ -1079,13 +1313,13 @@ async function handleRegisterAddress(
   const address = userText.trim() || "Wardha";
   const draft = { ...(context.bookingDraft || {}), patientAddress: address };
 
-  // 1. Create patient in Cortex PMS (Section 3)
+  // 1. Create patient in Cortex PMS
   let createdPatientRef: string | undefined;
   try {
     const regRes = await createPatient({
       name: draft.patientName || "Patient",
       age: draft.patientAge || "30",
-      sex: (draft as any).sex || "Male",
+      sex: draft.sex || "Male",
       phone_number: context.phoneNumber,
       address,
       whatsapp_number: context.phoneNumber,
@@ -1107,6 +1341,8 @@ async function executeBookingCreation(
   context: AgentContext,
   patientInfo?: { name?: string; reference_number?: string }
 ): Promise<AgentResponse> {
+  const lang = context.language || "en";
+
   try {
     const appointmentId = await bookAppointment({
       name: draft.patientName || patientInfo?.name || "Patient",
@@ -1121,24 +1357,70 @@ async function executeBookingCreation(
       notes: `Booked via WhatsApp Assistant | UHID: ${patientInfo?.reference_number || "New"}`,
     });
 
-    const confirmationText = `✅ *APPOINTMENT CONFIRMED!* 🎉
+    const patientDisplay = `${draft.patientName || patientInfo?.name || "Patient"}${
+      patientInfo?.reference_number ? ` (${patientInfo.reference_number})` : ""
+    }`;
+    const dateDmy = formatDisplayDate(draft.date);
+
+    const confirmationText = inLanguage(
+      lang,
+      `✅ *APPOINTMENT CONFIRMED!* 🎉
 ━━━━━━━━━━━━━━━━━━━━━
 🏥 *Cortex Hospital, Wardha*
 🆔 *Appointment ID:* \`${appointmentId.slice(-8).toUpperCase()}\`
-👤 *Patient:* ${draft.patientName || patientInfo?.name || "Registered Patient"} ${
-      patientInfo?.reference_number ? `(${patientInfo.reference_number})` : ""
-    }
+👤 *Patient:* ${patientDisplay}
+🎂 *Age:* ${draft.patientAge || "N/A"} years
+📱 *Phone:* ${context.phoneNumber}
 👨‍⚕️ *Doctor:* ${draft.doctorName}
-📅 *Date:* ${formatDisplayDate(draft.date)}
+📅 *Date:* ${dateDmy}
 ⏰ *Time Slot:* ${draft.slot}
 📍 *Location:* Aarti Chowk, Nagpur Road, Wardha
 
 *Instructions for Patient:*
 • Please arrive 10 minutes prior to your time slot.
 • Bring any previous prescriptions, X-rays, or medical reports.
-• Hospital reception desk: 07152-255795.
+• Hospital reception: 07152-255795.
 
-Your health matters to us. We look forward to serving you! ❤️`;
+Your health matters to us. We look forward to serving you! ❤️`,
+
+      `✅ *अपॉइंटमेंट पक्की हो गई!* 🎉
+━━━━━━━━━━━━━━━━━━━━━
+🏥 *Cortex Hospital, वर्धा*
+🆔 *अपॉइंटमेंट ID:* \`${appointmentId.slice(-8).toUpperCase()}\`
+👤 *मरीज:* ${patientDisplay}
+🎂 *उम्र:* ${draft.patientAge || "N/A"} वर्ष
+📱 *मोबाइल:* ${context.phoneNumber}
+👨‍⚕️ *डॉक्टर:* ${draft.doctorName}
+📅 *तारीख:* ${dateDmy}
+⏰ *समय:* ${draft.slot}
+📍 *स्थान:* आरती चौक, नागपुर रोड, वर्धा
+
+*मरीज के लिए निर्देश:*
+• कृपया समय से 10 मिनट पहले पहुंचें।
+• अपने पुराने पर्चे, एक्स-रे या रिपोर्ट साथ लाएं।
+• अस्पताल रिसेप्शन: 07152-255795।
+
+आपका स्वास्थ्य हमारी सर्वोच्च प्राथमिकता है। ❤️`,
+
+      `✅ *अपॉइंटमेंट निश्चित झाली!* 🎉
+━━━━━━━━━━━━━━━━━━━━━
+🏥 *Cortex Hospital, वर्धा*
+🆔 *अपॉइंटमेंट ID:* \`${appointmentId.slice(-8).toUpperCase()}\`
+👤 *रुग्ण:* ${patientDisplay}
+🎂 *वय:* ${draft.patientAge || "N/A"} वर्षे
+📱 *मोबाइल:* ${context.phoneNumber}
+👨‍⚕️ *डॉक्टर:* ${draft.doctorName}
+📅 *तारीख:* ${dateDmy}
+⏰ *वेळ:* ${draft.slot}
+📍 *पत्ता:* आरती चौक, नागपूर रोड, वर्धा
+
+*रुग्णासाठी सूचना:*
+• कृपया वेळेच्या 10 मिनिटे आधी उपस्थित राहावे.
+• जुनी औषधांची कागदपत्रे, एक्स-रे किंवा रिपोर्ट सोबत आणा.
+• हॉस्पिटल रिसेप्शन: 07152-255795.
+
+आपले आरोग्य आमची प्राथमिकता आहे. ❤️`
+    );
 
     return {
       text: confirmationText,
@@ -1158,16 +1440,19 @@ Your health matters to us. We look forward to serving you! ❤️`;
   } catch (err: any) {
     console.error("[Cortex PMS] Booking execution error:", err);
     return {
-      text: `❌ Could not complete booking: ${err.message || "Slot may have just been booked"}.
-      
-Please reply with another slot or type *1* to pick a different time.`,
+      text: inLanguage(
+        lang,
+        `❌ Could not complete booking: ${err.message || "Slot may have just been booked"}.\n\nPlease reply with another slot or type *1* to pick a different time.`,
+        `❌ अपॉइंटमेंट बुक नहीं हो सकी: ${err.message || "यह स्लॉट अभी बुक हो गया हो सकता है"}।\n\nकृपया दूसरा स्लॉट चुनें या *1* भेजें।`,
+        `❌ अपॉइंटमेंट पूर्ण होऊ शकली नाही: ${err.message || "ही वेळ नुकतीच आरक्षित झाली असावी"}.\n\nकृपया दुसरी वेळ निवडा किंवा *1* पाठवा.`
+      ),
       nextStep: "BOOKING_SELECT_SLOT",
     };
   }
 }
 
 /* =========================================================================
-   MY APPOINTMENTS, RESCHEDULE & CANCEL
+   MY APPOINTMENTS (Section 2)
    ========================================================================= */
 
 async function handleMyAppointments(
@@ -1175,14 +1460,17 @@ async function handleMyAppointments(
   userText: string,
   context: AgentContext
 ): Promise<AgentResponse> {
+  const lang = context.language || "en";
   const appts = await getPatientAppointments(phoneNumber);
 
   if (appts.length === 0) {
     return {
-      text: `📅 You do not have any active appointments under +${phoneNumber}.
-      
-Would you like to schedule one now?
-Reply *1* to Book a New Appointment.`,
+      text: inLanguage(
+        lang,
+        `📅 No upcoming or previous appointments found for +${phoneNumber}.\n\nWould you like to schedule one now?\nReply *1* to Book a New Appointment.`,
+        `📅 +${phoneNumber} के लिए कोई आगामी अपॉइंटमेंट दर्ज नहीं है।\n\nक्या आप अभी अपॉइंटमेंट बुक करना चाहते हैं?\nनया अपॉइंटमेंट बुक करने के लिए *1* भेजें।`,
+        `📅 +${phoneNumber} या नंबरवर कोणतीही अपॉइंटमेंट नोंदवलेली नाही.\n\nआपण नवीन अपॉइंटमेंट घेऊ इच्छिता का?\nनवीन अपॉइंटमेंटसाठी *1* पाठवा.`
+      ),
       nextStep: "IDLE",
     };
   }
@@ -1194,10 +1482,12 @@ Reply *1* to Book a New Appointment.`,
       const ok = await cancelAppointment(active._id);
       if (ok) {
         return {
-          text: `🚫 *Appointment Cancelled Successfully*
-Your appointment on *${active.date} at ${active.time}* with *${active.doctor_name}* has been cancelled.
-
-If you wish to re-book at any time, simply reply *1*.`,
+          text: inLanguage(
+            lang,
+            `🚫 *Appointment Cancelled Successfully*\nYour appointment on *${formatDisplayDate(active.date || "")} at ${active.time}* with *${active.doctor_name}* has been cancelled.\n\nReply *1* to book anytime.`,
+            `🚫 *अपॉइंटमेंट सफलतापूर्वक रद्द की गई*\n*${active.doctor_name}* के साथ *${formatDisplayDate(active.date || "")} को ${active.time}* की आपकी अपॉइंटमेंट रद्द कर दी गई है।\n\nपुनः बुक करने के लिए *1* भेजें।`,
+            `🚫 *अपॉइंटमेंट यशस्वीरीत्या रद्द करण्यात आली*\n*${active.doctor_name}* यांच्यासोबत *${formatDisplayDate(active.date || "")} रोजी ${active.time}* ची आपली अपॉइंटमेंट रद्द झाली आहे.\n\nपुन्हा बुक करण्यासाठी *1* पाठवा.`
+          ),
           nextStep: "IDLE",
         };
       }
@@ -1208,24 +1498,17 @@ If you wish to re-book at any time, simply reply *1*.`,
     .slice(0, 3)
     .map(
       (a, i) =>
-        `*${i + 1}.* 📅 *${a.date}* at *${a.time}*
-   👨‍⚕️ ${a.doctor_name || "Doctor"}
-   📊 Status: *${a.status || "CONFIRMED"}*
-   🆔 Ref: \`${a._id.slice(-6).toUpperCase()}\``
+        `*${i + 1}.* 📅 *${formatDisplayDate(a.date || "")}* at *${a.time}*\n   👨‍⚕️ ${a.doctor_name || "Doctor"}\n   📊 ${inLanguage(lang, "Status", "स्थिति", "स्थिती")}: *${a.status || "CONFIRMED"}*\n   🆔 Ref: \`${a._id.slice(-6).toUpperCase()}\``
     )
     .join("\n\n");
 
   return {
-    text: `📋 *Your Appointments at Cortex Hospital:*
-━━━━━━━━━━━━━━━━━━━━━
-${apptList}
-
-👇 *Reply with a number (फक्त नंबर पाठवा):*
-1️⃣ Cancel this appointment (अपॉइंटमेंट रद्द करा)
-2️⃣ Book a new appointment (नवीन अपॉइंटमेंट)
-3️⃣ Main Menu (मुख्य मेनू)
-
-👉 Please reply *1*, *2*, or *3*.`,
+    text: inLanguage(
+      lang,
+      `📋 *Your Appointments at Cortex Hospital:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\n👇 *Options:*\n1️⃣ Cancel this appointment\n2️⃣ Book a new appointment\n3️⃣ Main Menu`,
+      `📋 *Cortex Hospital में आपकी अपॉइंटमेंट:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\n👇 *विकल्प:*\n1️⃣ अपॉइंटमेंट रद्द करें\n2️⃣ नई अपॉइंटमेंट बुक करें\n3️⃣ मुख्य मेनू`,
+      `📋 *Cortex Hospital मधील आपल्या अपॉइंटमेंट्स:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\n👇 *पर्याय:*\n1️⃣ अपॉइंटमेंट रद्द करा\n2️⃣ नवीन अपॉइंटमेंट बुक करा\n3️⃣ मुख्य मेनू`
+    ),
     nextStep: "IDLE",
   };
 }
@@ -1239,24 +1522,23 @@ async function initiateSecureAccess(
   context: AgentContext,
   action: "VIEW_PRESCRIPTION" | "VIEW_BILL" | "VIEW_LAB"
 ): Promise<AgentResponse> {
-  // If already verified in this session, execute directly
+  const lang = context.language || "en";
+
   if (context.isVerified) {
     if (action === "VIEW_PRESCRIPTION") return await handlePrescriptionQuery(phoneNumber, context);
     if (action === "VIEW_BILL") return await handleBillingQuery(phoneNumber, context);
     if (action === "VIEW_LAB") return await handleLabReportsQuery(phoneNumber, context);
   }
 
-  // Generate 4-digit verification code (Section 3 & 14)
   const otp = Math.floor(1000 + Math.random() * 9000).toString();
 
   return {
-    text: `🔐 *Patient Privacy Verification*
-
-To securely protect your medical and billing records, we've generated a one-time verification code:
-
-🔑 Your 4-digit code: *${otp}*
-
-Please enter this 4-digit code here to verify your identity and view your confidential records.`,
+    text: inLanguage(
+      lang,
+      `🔐 *Patient Privacy Verification*\n\nTo securely protect your medical and billing records, we've generated a one-time verification code:\n\n🔑 Your 4-digit code: *${otp}*\n\nPlease enter this 4-digit code here to verify your identity.`,
+      `🔐 *गोपनीयता सुरक्षा सत्यापन*\n\nआपके मेडिकल और बिलिंग रिकॉर्ड की सुरक्षा के लिए एक ओटीपी कोड जनरेट किया गया है:\n\n🔑 आपका 4-अंकीय कोड: *${otp}*\n\nकृपया अपनी पहचान सत्यापित करने के लिए यह कोड यहाँ भेजें।`,
+      `🔐 *रुग्ण गोपनीयता पडताळणी*\n\nआपल्या वैद्यकीय व बिलिंग रेकॉर्डच्या सुरक्षेसाठी एक सुरक्षित ओटीपी कोड तयार केला आहे:\n\n🔑 आपला 4-अंकी कोड: *${otp}*\n\nकृपया आपली ओळख सिद्ध करण्यासाठी हा 4-अंकी कोड येथे पाठवा.`
+    ),
     nextStep: "OTP_VERIFICATION",
     updatedContext: {
       verificationOtp: otp,
@@ -1274,13 +1556,17 @@ async function handlePrescriptionQuery(
   phoneNumber: string,
   context: AgentContext
 ): Promise<AgentResponse> {
+  const lang = context.language || "en";
   const prescriptions = await getPatientPrescriptions(phoneNumber);
 
   if (prescriptions.length === 0) {
     return {
-      text: `💊 No prescriptions found on record for registered number +${phoneNumber}.
-      
-If you were recently treated at Cortex Hospital under a different contact number, please contact reception at *07152-255795* to link your UHID.`,
+      text: inLanguage(
+        lang,
+        `💊 No prescriptions found on record for registered number +${phoneNumber}.\n\nIf you were recently treated under a different contact number, please contact reception at *07152-255795*.`,
+        `💊 +${phoneNumber} के लिए कोई डिजिटल पर्चा दर्ज नहीं है।\n\nयदि आपका इलाज किसी अन्य नंबर पर हुआ था, तो कृपया रिसेप्शन *07152-255795* से संपर्क करें।`,
+        `💊 +${phoneNumber} या नंबरवर कोणतेही डिजिटल प्रिस्क्रिप्शन सापडले नाही.\n\nदुसऱ्या नंबरवर उपचार झाले असल्यास कृपया रिसेप्शन *07152-255795* शी संपर्क साधा.`
+      ),
       nextStep: "IDLE",
     };
   }
@@ -1291,34 +1577,20 @@ If you were recently treated at Cortex Hospital under a different contact number
       ? latest.medicines
           .map(
             (m, i) =>
-              `  ${i + 1}. *${m.name}*
-     • Dose: ${m.dosage || "As directed"} (${m.when || "After Food"})
-     • Duration: ${m.duration || "5 days"}`
+              `  ${i + 1}. *${m.name}*\n     • ${inLanguage(lang, "Dose", "खुराक", "डोस")}: ${m.dosage || inLanguage(lang, "As directed", "डॉक्टर के निर्देशानुसार", "डॉक्टरांच्या सल्ल्यानुसार")} (${m.when || inLanguage(lang, "After food", "भोजन के बाद", "जेवणानंतर")})\n     • ${inLanguage(lang, "Duration", "अवधि", "कालावधी")}: ${m.duration || inLanguage(lang, "5 days", "5 दिन", "5 दिवस")}`
           )
           .join("\n")
-      : "No oral medicines recorded.";
+      : inLanguage(lang, "No oral medicines recorded.", "कोई दवा दर्ज नहीं है।", "कोणतीही औषधे नोंदलेली नाहीत.");
 
   return {
-    text: `💊 *CORTEX HOSPITAL – DIGITAL PRESCRIPTION*
-━━━━━━━━━━━━━━━━━━━━━
-👤 *Patient:* ${latest.patient_name} (${latest.reference_number || "CRX"})
-👨‍⚕️ *Doctor:* ${latest.doctor_name || "Dr. Vipeen Raut"}
-📅 *Prescription Date:* ${latest.prescription_date}
-🩺 *Diagnosis:* ${latest.diagnosis || "Consultation"}
+    text: inLanguage(
+      lang,
+      `💊 *CORTEX HOSPITAL – DIGITAL PRESCRIPTION*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *Patient:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *Doctor:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *Prescription Date:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *Diagnosis:* ${latest.diagnosis || "Consultation"}\n\n📋 *Prescribed Medicines:*\n${medsList}\n\n📝 *Doctor's Advice:*\n${latest.advice || "Follow medication schedule."}\n\n🔔 *Next Follow-up:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "As advised"}\n\n🔗 *View / Print Official Document:*\nhttps://cortexhospital.com/print-prescription?id=${latest._id}`,
 
-📋 *Prescribed Medicines:*
-${medsList}
+      `💊 *CORTEX HOSPITAL – डिजिटल प्रिस्क्रिप्शन*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *मरीज:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *डॉक्टर:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *तारीख:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *निदान:* ${latest.diagnosis || "परामर्श"}\n\n📋 *दवाएं:*\n${medsList}\n\n📝 *सलाह:*\n${latest.advice || "दवा की समय सारणी का पालन करें।"}\n\n🔔 *अगली फ़ॉलो-अप:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "डॉक्टर के निर्देशानुसार"}\n\n🔗 *पर्चा डाउनलोड लिंक:*\nhttps://cortexhospital.com/print-prescription?id=${latest._id}`,
 
-📝 *Doctor's Advice:*
-${latest.advice || "Follow medication schedule. Rest as advised."}
-
-🔔 *Recommended Next Follow-up:*
-${latest.followup_date || "As advised by doctor"}
-
-🔗 *View / Print Official Document:*
-https://cortexhospital.com/print-prescription?id=${latest._id}
-
-_Always consult your treating doctor before altering any medication._`,
+      `💊 *CORTEX HOSPITAL – डिजिटल प्रिस्क्रिप्शन*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *रुग्ण:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *डॉक्टर:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *तारीख:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *निदान:* ${latest.diagnosis || "तपासणी"}\n\n📋 *औषधे:*\n${medsList}\n\n📝 *डॉक्टरांचा सल्ला:*\n${latest.advice || "औषधांचे वेळापत्रक पाळावे."}\n\n🔔 *पुढील भेट:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "डॉक्टरांच्या सल्ल्यानुसार"}\n\n🔗 *प्रिस्क्रिप्शन डाउनलोड लिंक:*\nhttps://cortexhospital.com/print-prescription?id=${latest._id}`
+    ),
     nextStep: "IDLE",
   };
 }
@@ -1331,24 +1603,17 @@ async function handleBillingQuery(
   phoneNumber: string,
   context: AgentContext
 ): Promise<AgentResponse> {
+  const lang = context.language || "en";
   const bills = await getPatientBills(phoneNumber);
 
   if (bills.length === 0) {
     return {
-      text: `🧾 *Billing & Consultation Fees*
-
-No pending hospital invoices found for your number.
-
-💰 *Consultation Fee Schedule:*
-• *Dr. Vipeen Raut* (Orthopaedics & Joint Replacement):
-  First Visit: ₹400 | Follow-up: ₹200 (within 10 days)
-
-• *Dr. Shillpa Raut* (Gynecology & Obstetrics):
-  First Visit: ₹200 | Follow-up: ₹100 (within 10 days)
-
-Payment Modes Accepted:
-💳 UPI (Google Pay / PhonePe / Paytm): \`cortexhospital@upi\`
-💵 Cash / Card at Hospital Reception Desk.`,
+      text: inLanguage(
+        lang,
+        `🧾 *Billing & Consultation Fees*\n\nNo pending hospital invoices found for your number.\n\n💰 *Consultation Fee Schedule:*\n• *Dr. Vipeen Raut* (Orthopaedics):\n  First Visit: ₹400 | Follow-up: ₹200 (within 10 days)\n\n• *Dr. Shillpa Raut* (Gynecology):\n  First Visit: ₹200 | Follow-up: ₹100 (within 10 days)\n\nPayment Modes:\n💳 UPI: \`cortexhospital@upi\`\n💵 Cash / Card at Hospital Reception Desk.`,
+        `🧾 *बिल और परामर्श शुल्क*\n\nआपके नंबर के लिए कोई बकाया बिल नहीं मिला।\n\n💰 *परामर्श शुल्क:*\n• *Dr. Vipeen Raut* (हड्डी रोग): ₹400 (पहला) / ₹200 (फ़ॉलो-अप)\n• *Dr. Shillpa Raut* (स्त्री रोग): ₹200 (पहला) / ₹100 (फ़ॉलो-अप)\n\nभुगतान माध्यम: \`cortexhospital@upi\` या अस्पताल काउंटर पर नकद/कार्ड।`,
+        `🧾 *हॉस्पिटल बिल व सल्ला शुल्क*\n\nआपल्या नंबरवर कोणतेही प्रलंबित बिल नाही.\n\n💰 *सल्ला शुल्क:*\n• *Dr. Vipeen Raut* (हाडे व सांधे): ₹400 (पहिली भेट) / ₹200 (फॉलो-अप)\n• *Dr. Shillpa Raut* (स्त्रीरोग): ₹200 (पहिली भेट) / ₹100 (फॉलो-अप)\n\nपेमेंट: \`cortexhospital@upi\` किंवा हॉस्पिटल काउंंटरवर रोख/कार्ड.`
+      ),
       nextStep: "IDLE",
     };
   }
@@ -1357,33 +1622,12 @@ Payment Modes Accepted:
   const totalBalance = bills.reduce((sum, b) => sum + (b.balance_amount || 0), 0);
 
   return {
-    text: `🧾 *CORTEX HOSPITAL – BILL SUMMARY*
-━━━━━━━━━━━━━━━━━━━━━
-👤 *Patient:* ${latest.patient_name || "Patient"} (${latest.reference_number || "CRX"})
-📄 *Bill Number:* ${latest.bill_number || `CRX-INV-${latest._id.slice(-6).toUpperCase()}`}
-📊 *Status:* ${latest.payment_status === "PAID" ? "✅ FULLY PAID" : "⚠️ " + latest.payment_status}
-
-💰 *Total Amount:* ₹${latest.total_amount}
-💵 *Amount Paid:* ₹${latest.paid_amount}
-🔴 *Balance Due:* ₹${latest.balance_amount}
-
-${
-  totalBalance > 0
-    ? `💳 *Pay Online via UPI:*
-UPI ID: \`cortexhospital@upi\`
-(Or scan the QR code at the Hospital Billing Counter)`
-    : "All hospital dues are currently cleared. Thank you!"
-}
-
-🔗 *Download Official Invoice:*
-https://cortexhospital.com/print-bill?billId=${latest._id}
-
-👇 *Reply with number (फक्त नंबर पाठवा):*
-1️⃣ Book an Appointment (नवीन अपॉइंटमेंट)
-3️⃣ My Prescriptions (औषधांचा पर्चा)
-9️⃣ Talk to Billing Counter (बिलिंग काउंटर)
-
-👉 Please reply *1*, *3*, or *9*.`,
+    text: inLanguage(
+      lang,
+      `🧾 *CORTEX HOSPITAL – BILL SUMMARY*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *Patient:* ${latest.patient_name || "Patient"} (${latest.reference_number || "CRX"})\n📄 *Bill Number:* ${latest.bill_number || `CRX-INV-${latest._id.slice(-6).toUpperCase()}`}\n📊 *Status:* ${latest.payment_status === "PAID" ? "✅ FULLY PAID" : "⚠️ " + latest.payment_status}\n\n💰 *Total Amount:* ₹${latest.total_amount}\n💵 *Amount Paid:* ₹${latest.paid_amount}\n🔴 *Balance Due:* ₹${latest.balance_amount}\n\n${totalBalance > 0 ? "💳 UPI ID: `cortexhospital@upi`" : "All dues are cleared. Thank you!"}\n\n🔗 *Download Official Invoice:*\nhttps://cortexhospital.com/print-bill?billId=${latest._id}`,
+      `🧾 *CORTEX HOSPITAL – बिल विवरण*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *मरीज:* ${latest.patient_name || "Patient"} (${latest.reference_number || "CRX"})\n📄 *बिल नंबर:* ${latest.bill_number || `CRX-INV-${latest._id.slice(-6).toUpperCase()}`}\n📊 *स्थिति:* ${latest.payment_status === "PAID" ? "✅ पूर्ण भुगतान" : "⚠️ " + latest.payment_status}\n\n💰 *कुल राशि:* ₹${latest.total_amount}\n💵 *जमा राशि:* ₹${latest.paid_amount}\n🔴 *बकाया राशि:* ₹${latest.balance_amount}\n\n${totalBalance > 0 ? "💳 UPI: `cortexhospital@upi`" : "सभी बिल चुकता हैं। धन्यवाद!"}\n\n🔗 *बिल डाउनलोड लिंक:*\nhttps://cortexhospital.com/print-bill?billId=${latest._id}`,
+      `🧾 *CORTEX HOSPITAL – बिल तपशील*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *रुग्ण:* ${latest.patient_name || "Patient"} (${latest.reference_number || "CRX"})\n📄 *बिल क्रमांक:* ${latest.bill_number || `CRX-INV-${latest._id.slice(-6).toUpperCase()}`}\n📊 *स्थिती:* ${latest.payment_status === "PAID" ? "✅ पूर्ण भरले" : "⚠️ " + latest.payment_status}\n\n💰 *एकूण रक्कम:* ₹${latest.total_amount}\n💵 *भरलेली रक्कम:* ₹${latest.paid_amount}\n🔴 *बाकी रक्कम:* ₹${latest.balance_amount}\n\n${totalBalance > 0 ? "💳 UPI ID: `cortexhospital@upi`" : "सर्व बिल भरले आहे. धन्यवाद!"}\n\n🔗 *बिल डाउनलोड लिंक:*\nhttps://cortexhospital.com/print-bill?billId=${latest._id}`
+    ),
     nextStep: "IDLE",
   };
 }
@@ -1396,6 +1640,7 @@ async function handleFollowupQuery(
   phoneNumber: string,
   context: AgentContext
 ): Promise<AgentResponse> {
+  const lang = context.language || "en";
   const followups = await getPatientFollowups(phoneNumber);
   const prescriptions = await getPatientPrescriptions(phoneNumber);
 
@@ -1416,32 +1661,25 @@ async function handleFollowupQuery(
 
   if (!nextDate) {
     return {
-      text: `🔔 No upcoming scheduled follow-up was found on record for your number.
-      
-If you're having any discomfort or would like to schedule a review checkup with Dr. Vipeen Raut or Dr. Shillpa Raut:
-Reply *1* to Book an Appointment.`,
+      text: inLanguage(
+        lang,
+        `🔔 No upcoming scheduled follow-up was found on record for your number.\n\nReply *1* to Book an Appointment anytime.`,
+        `🔔 आपके नंबर पर कोई निर्धारित फ़ॉलो-अप नहीं मिला।\n\nअपॉइंटमेंट बुक करने के लिए *1* भेजें।`,
+        `🔔 आपल्या नंबरवर कोणतीही पुढील तारीख नोंदवलेली नाही.\n\nअपॉइंटमेंट बुक करण्यासाठी *1* पाठवा.`
+      ),
       nextStep: "IDLE",
     };
   }
 
+  const nextDateDmy = formatDisplayDate(nextDate);
+
   return {
-    text: `🔔 *NEXT RECOMMENDED FOLLOW-UP*
-━━━━━━━━━━━━━━━━━━━━━
-👨‍⚕️ *Doctor:* ${doctorName}
-📅 *Recommended Date:* ${formatDisplayDate(nextDate)}
-📝 *Condition / Treatment:* ${summary || "Routine Follow-up"}
-
-💡 *Discounted Follow-up Fees:*
-Consultations within 10 days of your visit are charged at discounted follow-up rates (₹200 for Dr. Vipeen Raut / ₹100 for Dr. Shillpa Raut).
-
-Would you like to book your follow-up slot for *${nextDate}*?
-
-👇 *Reply with number (फक्त नंबर पाठवा):*
-1️⃣ Book this Follow-up (तारीख बुक करा)
-2️⃣ Choose Another Date (दुसरी तारीख)
-3️⃣ Main Menu (मुख्य मेनू)
-
-👉 Please reply *1*, *2*, or *3*.`,
+    text: inLanguage(
+      lang,
+      `🔔 *RECOMMENDED NEXT FOLLOW-UP*\n━━━━━━━━━━━━━━━━━━━━━\n👨‍⚕️ *Doctor:* ${doctorName}\n📅 *Recommended Date:* ${nextDateDmy}\n📝 *Condition:* ${summary || "Routine Follow-up"}\n\n💡 Consultations within 10 days of your visit are charged at discounted follow-up rates.\n\nWould you like to book your follow-up slot for *${nextDateDmy}*?\nReply *1* to Book this Follow-up.`,
+      `🔔 *अगली अनुशंसित फ़ॉलो-अप तारीख*\n━━━━━━━━━━━━━━━━━━━━━\n👨‍⚕️ *डॉक्टर:* ${doctorName}\n📅 *तारीख:* ${nextDateDmy}\n📝 *स्थिति:* ${summary || "नियमित फ़ॉलो-अप"}\n\n💡 10 दिनों के भीतर परामर्श पर रियायती दर लागू होती है।\n\nक्या आप *${nextDateDmy}* के लिए स्लॉट बुक करना चाहते हैं?\n*1* भेजें।`,
+      `🔔 *पुढील फॉलो-अप तारीख*\n━━━━━━━━━━━━━━━━━━━━━\n👨‍⚕️ *डॉक्टर:* ${doctorName}\n📅 *तारीख:* ${nextDateDmy}\n📝 *तपासणी:* ${summary || "नियमित फॉलो-अप"}\n\n💡 10 दिवसांच्या आत तपासणी केल्यास कमी शुल्क आकारले जाते.\n\nआपण *${nextDateDmy}* साठी वेळ आरक्षित करू इच्छिता का?\n*1* पाठवा.`
+    ),
     nextStep: "IDLE",
     updatedContext: {
       bookingDraft: {
@@ -1453,81 +1691,52 @@ Would you like to book your follow-up slot for *${nextDate}*?
 }
 
 /* =========================================================================
-   DOCTOR AVAILABILITY & HOSPITAL SCHEDULES (Section 7)
+   DOCTOR AVAILABILITY (Section 7)
    ========================================================================= */
 
-async function handleDoctorAvailabilityQuery(userText: string): Promise<AgentResponse> {
+async function handleDoctorAvailabilityQuery(
+  userText: string,
+  context?: AgentContext
+): Promise<AgentResponse> {
+  const lang = context?.language || "en";
   const docs = await fetchDoctors();
 
   const docProfiles = docs
     .map(
       (d) =>
-        `👨‍⚕️ *${d.name}*
-📜 ${d.degrees}
-🩺 *Specialty:* ${d.specialty} ${d.subSpecialty ? `(${d.subSpecialty})` : ""}
-⏰ *Timings:* ${d.scheduleDescription}
-💰 *Fees:* ₹${d.consultationFee.firstVisit} (First visit) | ₹${d.consultationFee.followupVisit} (Follow-up)`
+        `👨‍⚕️ *${d.name}*\n📜 ${d.degrees}\n🩺 *${inLanguage(lang, "Specialty", "विशेषज्ञता", "तज्ज्ञ")}:* ${d.specialty}\n⏰ *${inLanguage(lang, "Timings", "समय", "वेळ")}:* ${d.scheduleDescription}\n💰 *${inLanguage(lang, "Fees", "शुल्क", "फी")}:* ₹${d.consultationFee.firstVisit} (${inLanguage(lang, "First", "पहला", "पहिली भेट")}) | ₹${d.consultationFee.followupVisit} (${inLanguage(lang, "Follow-up", "फ़ॉलो-अप", "फॉलो-अप")})`
     )
     .join("\n\n");
 
   return {
-    text: `👨‍⚕️ *CORTEX HOSPITAL – DOCTOR SCHEDULES*
-━━━━━━━━━━━━━━━━━━━━━
-${docProfiles}
-
-🏥 *Hospital Schedule:*
-• Mon – Fri: 10:00 AM – 1:00 PM & 6:00 PM – 8:00 PM
-• Saturday: 10:00 AM – 1:00 PM (Morning Only)
-• Sunday: Closed (Emergency triage available)
-
-⭐ *Special Clinic:*
-🦴 *HIP & KNEE JOINT CLINIC* – Every Thursday 6:00 PM to 8:00 PM
-
-👇 *Reply with number (फक्त नंबर पाठवा):*
-1️⃣ Book an Appointment (अपॉइंटमेंट बुक करा)
-8️⃣ Hospital Address & Location (पत्ता)
-9️⃣ Talk to Reception (रिसेप्शन)
-
-👉 Please reply *1*, *8*, or *9*.`,
+    text: inLanguage(
+      lang,
+      `👨‍⚕️ *CORTEX HOSPITAL – SPECIALIST DOCTORS & OPD TIMINGS*\n━━━━━━━━━━━━━━━━━━━━━\n${docProfiles}\n\n⭐ *Special Clinic:*\n🦴 *HIP & KNEE JOINT CLINIC* – Every Thursday 6:00 PM to 8:00 PM\n\nReply *1* to book an appointment with any doctor!`,
+      `👨‍⚕️ *CORTEX HOSPITAL – विशेषज्ञ डॉक्टर एवं OPD समय*\n━━━━━━━━━━━━━━━━━━━━━\n${docProfiles}\n\n⭐ *विशेष क्लिनिक:*\n🦴 *हिप एवं घुटना जोड़ क्लिनिक* – प्रत्येक गुरुवार शाम 6:00 से 8:00 बजे\n\nअपॉइंटमेंट बुक करने के लिए *1* भेजें!`,
+      `👨‍⚕️ *CORTEX HOSPITAL – तज्ज्ञ डॉक्टर व OPD वेळ*\n━━━━━━━━━━━━━━━━━━━━━\n${docProfiles}\n\n⭐ *विशेष क्लिनिक:*\n🦴 *हिप व गुडघे सांधे क्लिनिक* – दर गुरुवारी संध्याकाळी 6:00 ते 8:00\n\nअपॉइंटमेंट बुक करण्यासाठी *1* पाठवा!`
+    ),
     nextStep: "IDLE",
   };
 }
 
 /* =========================================================================
-   HOSPITAL INFORMATION & LOCATION (Section 7)
+   HOSPITAL LOCATION & CONTACT (Section 7)
    ========================================================================= */
 
-async function handleHospitalInfoQuery(userText: string): Promise<AgentResponse> {
+async function handleHospitalInfoQuery(
+  userText: string,
+  context?: AgentContext
+): Promise<AgentResponse> {
+  const lang = context?.language || "en";
   const conf = CORTEX_HOSPITAL_CONFIG;
 
   return {
-    text: `🏥 *WELCOME TO CORTEX HOSPITAL*
-_${conf.tagline}_
-━━━━━━━━━━━━━━━━━━━━━
-📍 *Address:*
-${conf.address.fullFormatted}
-
-🕒 *OPD Timings:*
-• Monday to Friday: 10:00 AM – 1:00 PM & 6:00 PM – 8:00 PM
-• Saturday: 10:00 AM – 1:00 PM
-• Sunday: Closed
-
-📞 *Contacts & Helplines:*
-• Reception Landline: *${conf.contacts.landline}*
-• Mobile / WhatsApp: *${conf.contacts.mobile}*
-• Emergency Hotline: *${conf.contacts.emergency}*
-• Email: ${conf.contacts.email}
-• Website: ${conf.contacts.website}
-
-🗺️ *Google Maps Link:*
-https://maps.google.com/?q=${conf.coordinates.latitude},${conf.coordinates.longitude}
-
-👇 *Reply with number (फक्त नंबर पाठवा):*
-1️⃣ Book an Appointment (अपॉइंटमेंट बुक करा)
-6️⃣ Doctor Availability (डॉक्टरांची वेळ)
-9️⃣ Talk to Reception (रिसेप्शन)
-
-👉 Please reply *1*, *6*, or *9*.`,
+    text: inLanguage(
+      lang,
+      `🏥 *CORTEX HOSPITAL, WARDHA*\n━━━━━━━━━━━━━━━━━━━━━\n📍 *Address:*\n${conf.address.fullFormatted}\n\n📞 *Telephone / Helplines:*\n• Reception: 07152-255795\n• Mobile / WhatsApp: +91 9373280505\n• Emergency 24/7 Casualty: +91 9373280505\n\n⏰ *OPD Working Hours:*\n• Monday to Friday: 10:00 AM – 1:00 PM & 6:00 PM – 8:00 PM\n• Saturday: 10:00 AM – 1:00 PM\n• Sunday: OPD Closed (Emergency Casualty 24/7 Open)\n\n🗺️ *Google Maps Link:*\nhttps://maps.google.com/?q=${conf.coordinates.latitude},${conf.coordinates.longitude}\n\nReply *1* to Book an Appointment or *9* to talk to Reception.`,
+      `🏥 *CORTEX HOSPITAL, वर्धा*\n━━━━━━━━━━━━━━━━━━━━━\n📍 *पता:*\n${conf.address.fullFormatted}\n\n📞 *हेल्पलाइन नंबर:*\n• रिसेप्शन: 07152-255795\n• मोबाइल / WhatsApp: +91 9373280505\n• 24/7 आपातकालीन सेवा: +91 9373280505\n\n⏰ *OPD समय:*\n• सोमवार से शुक्रवार: सुबह 10:00 – दोपहर 1:00 व शाम 6:00 – रात 8:00\n• शनिवार: सुबह 10:00 – दोपहर 1:00\n• रविवार: OPD बंद (आपातकालीन सेवा 24 घंटे चालू)\n\n🗺️ *गूगल मैप्स लिंक:*\nhttps://maps.google.com/?q=${conf.coordinates.latitude},${conf.coordinates.longitude}\n\nअपॉइंटमेंट बुक करने के लिए *1* भेजें या रिसेप्शन के लिए *9* भेजें।`,
+      `🏥 *CORTEX HOSPITAL, वर्धा*\n━━━━━━━━━━━━━━━━━━━━━\n📍 *पत्ता:*\n${conf.address.fullFormatted}\n\n📞 *संपर्क क्रमांक:*\n• रिसेप्शन: 07152-255795\n• मोबाइल / WhatsApp: +91 9373280505\n• 24/7 आपत्कालीन सेवा: +91 9373280505\n\n⏰ *OPD वेळ:*\n• सोमवार ते शुक्रवार: सकाळी 10:00 ते दुपारी 1:00 आणि संध्याकाळी 6:00 ते रात्री 8:00\n• शनिवार: सकाळी 10:00 ते दुपारी 1:00\n• रविवार: OPD बंद (इमर्जन्सी 24 तास सुरू)\n\n🗺️ *गुगल मॅप्स लिंक:*\nhttps://maps.google.com/?q=${conf.coordinates.latitude},${conf.coordinates.longitude}\n\nअपॉइंटमेंटसाठी *1* पाठवा किंवा रिसेप्शनसाठी *9* पाठवा.`
+    ),
     nativeLocation: {
       latitude: conf.coordinates.latitude,
       longitude: conf.coordinates.longitude,
@@ -1539,43 +1748,43 @@ https://maps.google.com/?q=${conf.coordinates.latitude},${conf.coordinates.longi
 }
 
 /* =========================================================================
-   LABORATORY REPORTS (Section 7)
+   LABORATORY REPORTS (Section 8)
    ========================================================================= */
 
 async function handleLabReportsQuery(
   phoneNumber: string,
   context: AgentContext
 ): Promise<AgentResponse> {
-  const reports = await getPatientInvestigations(phoneNumber);
+  const lang = context.language || "en";
+  const investigations = await getPatientInvestigations(phoneNumber);
 
-  if (reports.length === 0) {
+  if (investigations.length === 0) {
     return {
-      text: `🧪 No laboratory or X-ray reports found on record for registered number +${phoneNumber}.
-      
-If you recently had a blood test, X-Ray, OPG, or ultrasound at Cortex Hospital, please contact our diagnostic desk at *07152-255795*.`,
+      text: inLanguage(
+        lang,
+        `🧪 *Laboratory & Radiology Reports*\n\nNo test reports found for +${phoneNumber}.\n\nHospital Diagnostic Facilities:\n• Digital X-Ray\n• Pathology & Blood Tests\n\nFor collected sample status, please contact the diagnostic lab counter at *07152-255795*.`,
+        `🧪 *लैब एवं एक्स-रे रिपोर्ट*\n\n+${phoneNumber} के लिए कोई टेस्ट रिपोर्ट दर्ज नहीं है।\n\nउपलब्ध सुविधाएं:\n• डिजिटल एक्स-रे\n• पैथोलॉजी एवं रक्त जांच\n\nजांच रिपोर्ट की स्थिति के लिए लैब काउंटर *07152-255795* से संपर्क करें।`,
+        `🧪 *लॅब व एक्स-रे रिपोर्ट*\n\n+${phoneNumber} या नंबरवर कोणतेही चाचणी अहवाल सापडले नाहीत.\n\nहॉस्पिटल तपासणी सुविधा:\n• डिजिटल एक्स-रे\n• पॅथॉलॉजी व रक्त चाचण्या\n\nरिपोर्टच्या स्थितीसाठी कृपया लॅब काउंंटर *07152-255795* शी संपर्क साधा.`
+      ),
       nextStep: "IDLE",
     };
   }
 
-  const reportsList = reports
+  const reportsList = investigations
     .slice(0, 3)
     .map(
-      (r, i) =>
-        `*${i + 1}.* 🧪 *${r.investigation_type}* (${r.investigation_date})
-   • Indication: ${r.indication || "Clinical review"}
-   • Findings: ${r.findings || "Report completed"}
-   • Status: ${r.payment_status || "Processed"}`
+      (inv, idx) =>
+        `*${idx + 1}.* 🧪 *${inv.investigation_type}*\n   📅 ${inLanguage(lang, "Date", "तारीख", "तारीख")}: ${formatDisplayDate(inv.investigation_date)}\n   👨‍⚕️ ${inLanguage(lang, "Doctor", "डॉक्टर", "डॉक्टर")}: ${inv.doctor_name || "Dr. Vipeen Raut"}\n   📝 ${inLanguage(lang, "Status", "स्थिति", "स्थिती")}: ${inv.findings ? "✅ Available at Reception Desk" : "⏳ In Processing"}`
     )
     .join("\n\n");
 
   return {
-    text: `🧪 *CORTEX HOSPITAL – LABORATORY & IMAGING REPORTS*
-━━━━━━━━━━━━━━━━━━━━━
-${reportsList}
-
-⚠️ *Notice:* Per medical safety regulations, reports must be clinically interpreted by your treating physician. Please schedule a consultation with your doctor to review findings.
-
-Reply *1* to book an appointment with your doctor.`,
+    text: inLanguage(
+      lang,
+      `🧪 *CORTEX HOSPITAL – LABORATORY REPORTS*\n━━━━━━━━━━━━━━━━━━━━━\n${reportsList}\n\n⚠️ *Medical Note:* Lab reports must be clinically interpreted by your treating doctor. Please do not self-medicate based on report values.`,
+      `🧪 *CORTEX HOSPITAL – लैब रिपोर्ट*\n━━━━━━━━━━━━━━━━━━━━━\n${reportsList}\n\n⚠️ *महत्वपूर्ण:* लैब रिपोर्ट का विश्लेषण आपके विशेषज्ञ डॉक्टर द्वारा किया जाना अनिवार्य है। स्वयं दवा न लें।`,
+      `🧪 *CORTEX HOSPITAL – लॅब रिपोर्ट*\n━━━━━━━━━━━━━━━━━━━━━\n${reportsList}\n\n⚠️ *महत्त्वाची सूचना:* चाचणी अहवालांची तपासणी डॉक्टरांकडून करून घेणे आवश्यक आहे. परस्पर औषधे घेऊ नयेत.`
+    ),
     nextStep: "IDLE",
   };
 }

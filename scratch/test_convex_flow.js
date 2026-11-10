@@ -1,5 +1,6 @@
 import { processIncomingMessage, getConvexClient } from '../lib/conversation.js';
 import { api } from '../convex/_generated/api.js';
+import { getCortexConvexClient } from '../lib/cortexClient.js';
 
 const TEST_PHONE = '919373280505'; // Dedicated test phone number
 
@@ -15,18 +16,33 @@ async function run() {
   console.log('Initial step:', session?.currentStep || 'None');
   console.log('✅ Cleared\n');
 
-  // Test 1: Send "Hi" -> Section 15 Welcome Message
-  console.log('--- Test 1: Patient says "Hi" (Section 15 Welcome Message) ---');
+  // Test 1: First message "Hi" -> Language Selection Prompt
+  console.log('--- Test 1: Patient says "Hi" -> Language Selection Prompt ---');
   let res = await processIncomingMessage({
     phoneNumber: TEST_PHONE,
     type: 'text',
     text: 'Hi',
   });
   console.log('Bot replied:\n', res.text);
-  if (!res.text.includes('Welcome to Cortex Hospital') || !res.text.includes('Book an Appointment')) {
-    throw new Error('Test 1 failed: Expected Cortex Hospital welcome message');
+  if (!res.text.includes('Welcome to Cortex Hospital') || !res.text.includes('English') || !res.text.includes('मराठी')) {
+    throw new Error('Test 1 failed: Expected Language Selection prompt with English/Hindi/Marathi');
   }
   console.log('✅ Test 1 Passed\n');
+
+  // Test 1b: Patient selects "1" (English) -> English Main Menu
+  console.log('--- Test 1b: Patient selects "1" (English) ---');
+  res = await processIncomingMessage({
+    phoneNumber: TEST_PHONE,
+    type: 'text',
+    text: '1',
+  });
+  console.log('Bot replied:\n', res.text);
+  session = await convex.query(api.sessions.getWhatsAppSession, { phoneNumber: TEST_PHONE });
+  console.log('Session Language:', session?.language);
+  if (session?.language !== 'en' || !res.text.includes('Book an Appointment')) {
+    throw new Error('Test 1b failed: Expected English main menu');
+  }
+  console.log('✅ Test 1b Passed\n');
 
   // Test 2: Natural Language Booking: "I want to see Dr. Vipeen Raut tomorrow"
   console.log('--- Test 2: Patient says "I want to see Dr. Vipeen Raut tomorrow" ---');
@@ -86,17 +102,24 @@ async function run() {
   }
   console.log('✅ Test 5 Passed\n');
 
-  // Test 6: Marathi Natural Language Query
-  console.log('--- Test 6: Marathi Query: "मला डॉ. राऊत यांची वेळ हवी आहे" ---');
-  await convex.mutation(api.sessions.clearWhatsAppSession, { phoneNumber: TEST_PHONE });
+  // Test 6: Marathi Language Switching
+  console.log('--- Test 6: Language switch to Marathi ---');
   res = await processIncomingMessage({
     phoneNumber: TEST_PHONE,
     type: 'text',
-    text: 'मला डॉ. राऊत यांची वेळ हवी आहे',
+    text: '10', // Change Language
   });
-  console.log('Bot replied:\n', res.text);
-  if (!res.text.includes('Dr. Vipeen Raut') && !res.text.includes('तारीख')) {
-    throw new Error('Test 6 failed: Expected doctor selection or date prompt for Dr. Raut');
+  console.log('Language prompt replied:\n', res.text);
+
+  res = await processIncomingMessage({
+    phoneNumber: TEST_PHONE,
+    type: 'text',
+    text: '3', // Marathi
+  });
+  console.log('Marathi Menu replied:\n', res.text);
+  session = await convex.query(api.sessions.getWhatsAppSession, { phoneNumber: TEST_PHONE });
+  if (session?.language !== 'mr' || !res.text.includes('अपॉइंटमेंट बुक करा')) {
+    throw new Error('Test 6 failed: Expected Marathi main menu');
   }
   console.log('✅ Test 6 Passed\n');
 
@@ -130,7 +153,72 @@ async function run() {
   }
   console.log('✅ Test 8 Passed\n');
 
-  console.log('🎉 ALL 8 TESTS PASSED SUCCESSFULLY! Cortex Hospital Assistant is fully operational.');
+  // Test 9: Complete End-to-End Booking with Age in Dev Cortex PMS
+  console.log('--- Test 9: Complete Booking with Age & Phone Verification in Dev Cortex PMS ---');
+  await convex.mutation(api.sessions.clearWhatsAppSession, { phoneNumber: '919876500001' });
+  // Step 1: Select Language (English)
+  await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: 'Hi' });
+  await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: '1' }); // English
+
+  // Step 2: Book with Doctor 1 (Dr. Vipeen Raut)
+  await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: '1' }); // Book appointment
+  await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: '1' }); // Dr. Vipeen Raut
+  await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: '2' }); // Tomorrow
+
+  // Step 3: Select slot 1
+  res = await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: '1' });
+  console.log('Slot chosen, prompt for name:\n', res.text);
+  if (!res.text.includes('full name')) {
+    throw new Error('Test 9 failed: Expected name prompt');
+  }
+
+  // Step 4: Enter Name
+  res = await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: 'Test Patient Sharma' });
+  console.log('Name given, prompt for age:\n', res.text);
+  if (!res.text.includes('age')) {
+    throw new Error('Test 9 failed: Expected age prompt');
+  }
+
+  // Step 5: Enter Age (e.g. 42)
+  res = await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: '42' });
+  console.log('Age given, prompt for gender:\n', res.text);
+  if (!res.text.includes('gender')) {
+    throw new Error('Test 9 failed: Expected gender prompt');
+  }
+
+  // Step 6: Enter Gender (1: Male)
+  res = await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: '1' });
+  console.log('Gender given, prompt for address:\n', res.text);
+
+  // Step 7: Enter Address (Wardha) -> Creates Booking!
+  res = await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: 'Wardha City' });
+  console.log('Booking Confirmed Reply:\n', res.text);
+  if (!res.text.includes('APPOINTMENT CONFIRMED') || !res.text.includes('42 years')) {
+    throw new Error('Test 9 failed: Expected booking confirmation with 42 years');
+  }
+
+  // Verify directly in Dev Cortex PMS
+  const pmsClient = getCortexConvexClient();
+  const allAppts = await pmsClient.query('appointments:list');
+  const found = allAppts.find((a) => a.phone === '9876500001' && a.name === 'Test Patient Sharma');
+  if (!found) {
+    throw new Error('Test 9 failed: Appointment was not found in Dev Cortex PMS appointments table!');
+  }
+  console.log('Found in Dev Cortex PMS:', {
+    id: found._id,
+    name: found.name,
+    phone: found.phone,
+    age: found.age,
+    date: found.date,
+    time: found.time,
+    status: found.status,
+  });
+  if (found.age !== '42') {
+    throw new Error(`Test 9 failed: Expected age '42', got '${found.age}'`);
+  }
+  console.log('✅ Test 9 Passed: Appointment successfully verified in Dev Cortex PMS!\n');
+
+  console.log('🎉 ALL 9 TESTS PASSED SUCCESSFULLY! Cortex Hospital Assistant is fully operational.');
 }
 
 run().catch((err) => {

@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import type { LocationItem } from '@/components/LocationMap';
 import { DEFAULT_WELCOME_MESSAGE } from '@/lib/cortexConfig';
+import { languagePrompt, languageButtons } from '@/lib/cortexAgent';
+import type { WhatsAppInteractive } from '@/lib/whatsapp';
 
 const LocationMap = dynamic(() => import('@/components/LocationMap'), {
   ssr: false,
@@ -46,6 +48,7 @@ interface ChatMessage {
     latitude: number | string;
     longitude: number | string;
   };
+  interactive?: WhatsAppInteractive;
 }
 
 interface SessionState {
@@ -135,13 +138,14 @@ export default function HomePage() {
         setPatient(null);
       }
 
-      // If chat is empty, greet with default welcome
+      // If chat is empty, greet with language selection prompt
       if (messages.length === 0) {
         setMessages([
           {
             id: 'init-1',
             sender: 'bot',
-            text: DEFAULT_WELCOME_MESSAGE,
+            text: languagePrompt(),
+            interactive: languageButtons(),
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           },
         ]);
@@ -186,6 +190,7 @@ export default function HomePage() {
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           isLocation: !!data.nativeLocation,
           locationDetails: data.nativeLocation,
+          interactive: data.interactive,
         };
         setMessages((prev) => [...prev, botMsg]);
         if (data.session) setSession(data.session);
@@ -278,7 +283,8 @@ export default function HomePage() {
         {
           id: `rst_${Date.now()}`,
           sender: 'bot',
-          text: `🔄 *Session Reset.*\n\n${DEFAULT_WELCOME_MESSAGE}`,
+          text: `🔄 *Session Reset.*\n\n${languagePrompt()}`,
+          interactive: languageButtons(),
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -322,6 +328,9 @@ export default function HomePage() {
       : 'https://your-domain.com/api/whatsapp/webhook';
 
   const testPrompts = [
+    { label: '🇬🇧 1. English (Choose Language)', text: '1' },
+    { label: '🇮🇳 2. हिन्दी (भाषा चुनें)', text: '2' },
+    { label: '🚩 3. मराठी (भाषा निवडा)', text: '3' },
     { label: '🏥 Book Appointment (Dr. Vipeen Raut)', text: 'I want to see Dr. Vipeen Raut tomorrow' },
     { label: '🌸 Book Appointment (Dr. Shillpa Raut)', text: 'Dr. Shillpa Raut se appointment leni hai' },
     { label: '👨‍⚕️ Doctor Availability & Timings', text: '6' },
@@ -330,8 +339,7 @@ export default function HomePage() {
     { label: '🔔 Check Next Follow-up', text: '5' },
     { label: '🧪 Laboratory Reports', text: '7' },
     { label: '📍 Hospital Address & Location', text: '8' },
-    { label: '🗣️ Marathi: मला डॉ. राऊत यांची वेळ हवी आहे', text: 'मला डॉ. राऊत यांची वेळ हवी आहे' },
-    { label: '🗣️ Hindi: कल डॉक्टर साहब बैठेंगे क्या?', text: 'कल डॉक्टर साहब बैठेंगे क्या?' },
+    { label: '🌐 Change Language', text: '10' },
     { label: '🚨 Emergency: Chest Pain', text: 'I have severe chest pain and breathing problem' },
     { label: '☎️ Human Handover (Reception)', text: '9' },
   ];
@@ -554,6 +562,51 @@ export default function HomePage() {
                         <div className="whitespace-pre-wrap leading-relaxed break-words">
                           {msg.text}
                         </div>
+
+                        {/* Interactive WhatsApp Buttons / List Options */}
+                        {msg.interactive && !isUser && (
+                          <div className="mt-2.5 pt-2 border-t border-slate-700/60 flex flex-col gap-2">
+                            {msg.interactive.kind === 'buttons' && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {msg.interactive.buttons.map((btn) => (
+                                  <button
+                                    key={btn.id}
+                                    onClick={() => sendMessage(btn.id)}
+                                    disabled={loading}
+                                    className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#7B1828] hover:bg-[#9E2033] text-white shadow-md transition-all active:scale-95 cursor-pointer border border-rose-400/40 flex items-center gap-1.5 hover:shadow-rose-900/30 hover:shadow-lg"
+                                  >
+                                    <span>👉</span>
+                                    <span>{btn.title}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
+                            {msg.interactive.kind === 'list' && (
+                              <div className="space-y-1.5">
+                                <div className="text-[11px] font-semibold text-rose-300 flex items-center gap-1">
+                                  <span>📋</span>
+                                  <span>{msg.interactive.buttonText || 'Options'}:</span>
+                                </div>
+                                <div className="grid grid-cols-1 gap-1 max-h-52 overflow-y-auto pr-1">
+                                  {msg.interactive.sections.flatMap((s) => s.rows).map((row) => (
+                                    <button
+                                      key={row.id}
+                                      onClick={() => sendMessage(row.id)}
+                                      disabled={loading}
+                                      className="text-left px-2.5 py-1.5 text-xs rounded-lg bg-slate-800/90 hover:bg-[#7B1828]/50 border border-slate-700 hover:border-rose-400/50 text-slate-100 transition-all flex flex-col cursor-pointer"
+                                    >
+                                      <span className="font-semibold text-white">{row.title}</span>
+                                      {row.description && (
+                                        <span className="text-[10px] text-slate-400">{row.description}</span>
+                                      )}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* Native Location Pin Card */}
                         {msg.locationDetails && (

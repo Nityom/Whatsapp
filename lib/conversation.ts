@@ -53,7 +53,7 @@ export async function processIncomingMessage(
   const context: AgentContext = {
     phoneNumber: phone,
     currentStep: sessionDoc?.currentStep || "WELCOME",
-    language: sessionDoc?.language || "en",
+    language: sessionDoc?.language,
     patientId: sessionDoc?.patientId,
     patientReference: sessionDoc?.patientReference,
     patientName: sessionDoc?.patientName,

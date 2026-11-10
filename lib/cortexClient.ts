@@ -374,19 +374,48 @@ export async function bookAppointment(data: {
   notes?: string;
 }): Promise<string> {
   const client = getCortexConvexClient();
-  const appointmentId = (await client.mutation("appointments:create" as any, {
-    name: data.name,
-    phone: data.phone,
-    age: data.age,
-    address: data.address,
-    date: data.date,
-    time: data.time,
-    doctor_name: data.doctor_name || "Dr. Vipeen Raut",
-    duration_minutes: data.duration_minutes || 15,
-    dental_problem: data.dental_problem || "General Consultation",
-    notes: data.notes || "Booked via WhatsApp Virtual Assistant",
-    is_offline: false,
-  })) as string;
+  const cleanPhone = normalizePhone(data.phone);
+  const cleanAge = data.age !== undefined && data.age !== null ? String(data.age).replace(/\D/g, '') || String(data.age) : undefined;
+
+  let appointmentId: string;
+  try {
+    appointmentId = (await client.mutation("appointments:create" as any, {
+      name: data.name,
+      phone: cleanPhone || data.phone,
+      age: cleanAge,
+      address: data.address || "Wardha",
+      date: data.date,
+      time: data.time,
+      doctor_name: data.doctor_name || "Dr. Vipeen Raut",
+      duration_minutes: data.duration_minutes || 15,
+      dental_problem: data.dental_problem || "General Consultation",
+      status: "CONFIRMED",
+      notes: data.notes || "Booked via WhatsApp Virtual Assistant",
+      is_offline: false,
+    })) as string;
+  } catch (createErr) {
+    // Fallback if status not accepted in create args on older deployment
+    appointmentId = (await client.mutation("appointments:create" as any, {
+      name: data.name,
+      phone: cleanPhone || data.phone,
+      age: cleanAge,
+      address: data.address || "Wardha",
+      date: data.date,
+      time: data.time,
+      doctor_name: data.doctor_name || "Dr. Vipeen Raut",
+      duration_minutes: data.duration_minutes || 15,
+      dental_problem: data.dental_problem || "General Consultation",
+      notes: data.notes || "Booked via WhatsApp Virtual Assistant",
+      is_offline: false,
+    })) as string;
+
+    try {
+      await client.mutation("appointments:update" as any, {
+        id: appointmentId,
+        status: "CONFIRMED",
+      });
+    } catch {}
+  }
 
   return appointmentId;
 }

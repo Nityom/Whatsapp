@@ -27,6 +27,7 @@ export default defineSchema({
         patientAge: v.optional(v.string()),
         patientPhone: v.optional(v.string()),
         patientAddress: v.optional(v.string()),
+        sex: v.optional(v.union(v.literal("Male"), v.literal("Female"), v.literal("Other"))),
         complaint: v.optional(v.string()),
         // Legacy fields for backward compatibility
         startDate: v.optional(v.string()),

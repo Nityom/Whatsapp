@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       reply: result.text,
+      interactive: result.interactive,
       nativeLocation: result.nativeLocation,
       session,
       patient,
