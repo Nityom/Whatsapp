@@ -69,9 +69,9 @@ export const saveWhatsAppSession = mutation({
       await ctx.db.patch(existing._id, {
         currentStep: args.currentStep,
         language: args.language ?? existing.language,
-        patientId: args.patientId ?? existing.patientId,
-        patientReference: args.patientReference ?? existing.patientReference,
-        patientName: args.patientName ?? existing.patientName,
+        patientId: args.patientId === "" ? undefined : (args.patientId ?? existing.patientId),
+        patientReference: args.patientReference === "" ? undefined : (args.patientReference ?? existing.patientReference),
+        patientName: args.patientName === "" ? undefined : (args.patientName ?? existing.patientName),
         isVerified: args.isVerified ?? existing.isVerified,
         verificationOtp: args.verificationOtp ?? existing.verificationOtp,
         otpExpiresAt: args.otpExpiresAt ?? existing.otpExpiresAt,

@@ -12,6 +12,8 @@ import {
   fetchDoctors,
   findPatient,
   createPatient,
+  updatePatient,
+  findPatientsByPhone,
   getAvailableSlots,
   bookAppointment,
   getPatientAppointments,
@@ -706,6 +708,9 @@ export async function handleConversationTurn(
   if (context.currentStep === "BOOKING_SELECT_SLOT") {
     return await handleBookingSelectSlot(userText, context);
   }
+  if (context.currentStep === "BOOKING_SELECT_PROFILE") {
+    return await handleBookingSelectProfile(userText, context);
+  }
   if (context.currentStep === "REGISTER_NAME") {
     return await handleRegisterName(userText, context);
   }
@@ -1118,35 +1123,111 @@ async function proceedToPatientRegistration(
     };
   }
 
+  // Find first available slot for this doctor & date
+  let chosenSlot = draft.slot;
+  if (!chosenSlot) {
+    try {
+      const slotData = await getAvailableSlots(dateStr, docName);
+      if (slotData.availableSlots && slotData.availableSlots.length > 0) {
+        chosenSlot = slotData.availableSlots[0];
+      }
+    } catch {}
+    if (!chosenSlot) chosenSlot = "10:00 AM";
+  }
+
   const updatedDraft: Record<string, any> = {
     ...draft,
     date: dateStr,
     doctorName: docName,
-    slot: draft.slot || "10:00 AM", // Standard OPD slot
+    slot: chosenSlot,
   };
 
-  // Check if patient is already registered in Cortex PMS by phone
-  const existingPatient = await findPatient(context.phoneNumber);
+  // Find all registered profiles under this WhatsApp phone number
+  const profiles = await findPatientsByPhone(context.phoneNumber);
 
-  if (existingPatient) {
-    updatedDraft.patientName = existingPatient.name;
-    updatedDraft.patientPhone = existingPatient.phone_number;
-    updatedDraft.patientAddress = existingPatient.address;
-    updatedDraft.sex = existingPatient.sex;
+  // If user already specified a name (e.g. "for Nityom" or "for my sister Priya")
+  if (updatedDraft.patientName) {
+    const matchedProfile = profiles.find(
+      (p) =>
+        p.name.toLowerCase() === updatedDraft.patientName.toLowerCase() ||
+        p.name.toLowerCase().includes(updatedDraft.patientName.toLowerCase()) ||
+        updatedDraft.patientName.toLowerCase().includes(p.name.toLowerCase())
+    );
+
+    if (matchedProfile) {
+      updatedDraft.patientName = matchedProfile.name;
+      updatedDraft.patientPhone = matchedProfile.phone_number;
+      updatedDraft.patientAge = matchedProfile.age;
+      updatedDraft.sex = matchedProfile.sex;
+      updatedDraft.patientAddress = matchedProfile.address;
+
+      if (matchedProfile.address) {
+        // All details already known! Book directly!
+        return await executeBookingCreation(updatedDraft, context, {
+          name: matchedProfile.name,
+          reference_number: matchedProfile.reference_number,
+        });
+      }
+
+      // Address missing -> ask address once
+      return {
+        text: inLanguage(
+          lang,
+          `📅 *Appointment Date:* ${dateDmy}\n👨‍⚕️ *Doctor:* ${docName}\n👤 *Patient:* ${matchedProfile.name} (${matchedProfile.age || "N/A"} yrs, ${matchedProfile.sex})\n\n👉 *Please enter ${matchedProfile.name}'s residential address / city or village (e.g. Wardha):*`,
+          `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n👤 *मरीज:* ${matchedProfile.name} (${matchedProfile.age || "N/A"} वर्ष, ${matchedProfile.sex === "Female" ? "महिला" : "पुरुष"})\n\n👉 *कृपया ${matchedProfile.name} का शहर या गांव (पता) लिखें (जैसे वर्धा):*`,
+          `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n👤 *रुग्ण:* ${matchedProfile.name} (${matchedProfile.age || "N/A"} वर्षे, ${matchedProfile.sex === "Female" ? "महिला" : "पुरुष"})\n\n👉 *कृपया ${matchedProfile.name} यांचे शहर किंवा गाव (पत्ता) लिहा (उदा. वर्धा):*`
+        ),
+        nextStep: "REGISTER_ADDRESS",
+        updatedContext: {
+          bookingDraft: updatedDraft,
+          patientId: matchedProfile._id,
+          patientReference: matchedProfile.reference_number,
+          patientName: matchedProfile.name,
+        },
+      };
+    }
+  }
+
+  // If registered profiles exist under this phone number: Ask who the appointment is for!
+  if (profiles.length > 0) {
+    const listLines = profiles
+      .slice(0, 3)
+      .map(
+        (p, idx) =>
+          `*${idx + 1}️⃣ ${p.name}* (${inLanguage(lang, "Age", "उम्र", "वय")}: ${p.age || "N/A"} yrs, ${p.sex})`
+      )
+      .join("\n");
+
+    const someoneElseNum = Math.min(profiles.length, 3) + 1;
+    const someoneElseText = `*${someoneElseNum}️⃣ ➕ ${inLanguage(
+      lang,
+      "Someone Else / Family Member (e.g. Sister, Parent)",
+      "किसी अन्य के लिए / नया परिजन (जैसे बहन, माता-पिता)",
+      "इतर व्यक्ती / नवीन कुटुंब सदस्य (उदा. बहीण, आई-वडील)"
+    )}*`;
+
+    const buttons = profiles.slice(0, 2).map((p, idx) => ({
+      id: `profile_${idx + 1}`,
+      title: `${idx + 1}. ${p.name.slice(0, 16)}`,
+    }));
+    buttons.push({
+      id: "profile_new",
+      title: inLanguage(lang, `${someoneElseNum}. Someone Else`, `${someoneElseNum}. नया परिजन`, `${someoneElseNum}. इतर व्यक्ती`),
+    });
 
     return {
       text: inLanguage(
         lang,
-        `📅 *Appointment Date:* ${dateDmy}\n👨‍⚕️ *Doctor:* ${docName}\n\n👤 *Registered Patient:* ${existingPatient.name}\n📱 *Registered Mobile:* ${existingPatient.phone_number}\n\n👉 *Please enter the patient's age in years (e.g. 35):*`,
-        `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n\n👤 *पंजीकृत मरीज:* ${existingPatient.name}\n📱 *पंजीकृत मोबाइल:* ${existingPatient.phone_number}\n\n👉 *कृपया मरीज की आयु (उम्र) वर्षों में बताएं (जैसे 35):*`,
-        `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n\n👤 *नोंदणीकृत रुग्ण:* ${existingPatient.name}\n📱 *नोंदणीकृत मोबाइल:* ${existingPatient.phone_number}\n\n👉 *कृपया रुग्णाचे वय वर्षांमध्ये सांगा (उदा. 35):*`
+        `📅 *Appointment Date:* ${dateDmy}\n👨‍⚕️ *Doctor:* ${docName}\n\n👤 *Who is this appointment for?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n${someoneElseText}\n\n👉 *Tap an option below or reply with a number (1, 2...) or write the patient's name:*`,
+        `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n\n👤 *यह अपॉइंटमेंट किसके लिए है?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n${someoneElseText}\n\n👉 *नीचे टैप करें या नंबर (1, 2...) भेजें या मरीज का नाम लिखें:*`,
+        `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n\n👤 *ही अपॉइंटमेंट कोणासाठी आहे?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n${someoneElseText}\n\n👉 *खाली टॅप करा किंवा नंबर (1, 2...) पाठवा किंवा रुग्णाचे नाव लिहा:*`
       ),
-      nextStep: "REGISTER_AGE",
-      updatedContext: {
-        bookingDraft: updatedDraft,
-        patientId: existingPatient._id,
-        patientReference: existingPatient.reference_number,
-        patientName: existingPatient.name,
+      nextStep: "BOOKING_SELECT_PROFILE",
+      updatedContext: { bookingDraft: updatedDraft },
+      interactive: {
+        kind: "buttons",
+        body: inLanguage(lang, "Select patient profile:", "मरीज का चयन करें:", "रुग्ण निवडा:"),
+        buttons,
       },
     };
   }
@@ -1349,6 +1430,167 @@ async function handleBookingSelectSlot(
   };
 }
 
+async function handleBookingSelectProfile(
+  userText: string,
+  context: AgentContext
+): Promise<AgentResponse> {
+  const lang = context.language || "en";
+  const draft = context.bookingDraft || {};
+  const cleanInput = userText.trim();
+  const lower = cleanInput.toLowerCase();
+
+  const profiles = await findPatientsByPhone(context.phoneNumber);
+
+  // Check if user selected "Someone Else / New"
+  const newOptionNum = Math.min(profiles.length, 3) + 1;
+  const isNewSelected =
+    lower === "profile_new" ||
+    lower === String(newOptionNum) ||
+    lower.includes("someone else") ||
+    lower.includes("other") ||
+    lower.includes("new") ||
+    lower.includes("अन्य") ||
+    lower.includes("नया") ||
+    lower.includes("इतर") ||
+    lower.includes("नवीन") ||
+    lower.includes("sister") ||
+    lower.includes("brother") ||
+    lower.includes("mother") ||
+    lower.includes("father") ||
+    lower.includes("बहीण") ||
+    lower.includes("बहन");
+
+  if (isNewSelected) {
+    // Check if user typed a specific name with relationship, e.g. "my sister Priya" or "sister Priya"
+    let candidateName = "";
+    const relMatch = cleanInput.match(/(?:sister|brother|mother|father|बहीण|भाऊ|आई|वडील|बहन|भाई|माता|पिता)\s+([A-Za-z\u0900-\u097F\s]+)/i);
+    if (relMatch && relMatch[1].trim().length >= 2) {
+      candidateName = relMatch[1].trim();
+    }
+
+    if (candidateName) {
+      draft.patientName = candidateName;
+      return {
+        text: inLanguage(
+          lang,
+          `Booking for *${candidateName}*.\n\n👉 *What is ${candidateName}'s age in years? (e.g. 24):*`,
+          `*${candidateName}* के लिए अपॉइंटमेंट।\n\n👉 *${candidateName} की उम्र (आयु) कितने वर्ष है? (जैसे 24):*`,
+          `*${candidateName}* यांच्यासाठी अपॉइंटमेंट.\n\n👉 *${candidateName} यांचे वय किती वर्षे आहे? (उदा. 24):*`
+        ),
+        nextStep: "REGISTER_AGE",
+        updatedContext: {
+          bookingDraft: draft,
+          patientId: undefined,
+          patientReference: undefined,
+          patientName: candidateName,
+        },
+      };
+    }
+
+    return {
+      text: inLanguage(
+        lang,
+        `👉 *Please enter the patient's full name (e.g. Priya Tikhe):*`,
+        `👉 *कृपया मरीज का पूरा नाम लिखें (जैसे प्रिया तिखे):*`,
+        `👉 *कृपया रुग्णाचे पूर्ण नाव लिहा (उदा. प्रिया तिखे):*`
+      ),
+      nextStep: "REGISTER_NAME",
+      updatedContext: {
+        bookingDraft: draft,
+        patientId: undefined,
+        patientReference: undefined,
+        patientName: undefined,
+      },
+    };
+  }
+
+  // Check if selected by index (1, 2...)
+  let selectedProfile: PatientRecord | undefined;
+  const numIndex = parseInt(cleanInput, 10);
+  if (!isNaN(numIndex) && numIndex >= 1 && numIndex <= profiles.length) {
+    selectedProfile = profiles[numIndex - 1];
+  } else if (lower.startsWith("profile_")) {
+    const pIdx = parseInt(lower.replace("profile_", ""), 10);
+    if (!isNaN(pIdx) && pIdx >= 1 && pIdx <= profiles.length) {
+      selectedProfile = profiles[pIdx - 1];
+    }
+  }
+
+  // Check if matched by name (e.g. "Nityom", "myself", "me")
+  if (!selectedProfile) {
+    if (lower === "myself" || lower === "me" || lower === "self" || lower === "खुद" || lower === "स्वयं" || lower === "स्वतः") {
+      selectedProfile = profiles[0];
+    } else {
+      selectedProfile = profiles.find(
+        (p) => p.name.toLowerCase() === lower || p.name.toLowerCase().includes(lower) || lower.includes(p.name.toLowerCase())
+      );
+    }
+  }
+
+  if (selectedProfile) {
+    draft.patientName = selectedProfile.name;
+    draft.patientPhone = selectedProfile.phone_number;
+    draft.patientAge = selectedProfile.age;
+    draft.sex = selectedProfile.sex;
+    draft.patientAddress = selectedProfile.address;
+
+    // If address is already saved, book immediately without asking anything!
+    if (selectedProfile.address) {
+      return await executeBookingCreation(draft, context, {
+        name: selectedProfile.name,
+        reference_number: selectedProfile.reference_number,
+      });
+    }
+
+    // Address missing on profile -> ask once
+    return {
+      text: inLanguage(
+        lang,
+        `Profile selected: *${selectedProfile.name}* (${selectedProfile.age || "N/A"} yrs, ${selectedProfile.sex}).\n\n👉 *Please enter ${selectedProfile.name}'s residential address / city or village (e.g. Wardha):*`,
+        `मरीज चुना गया: *${selectedProfile.name}* (${selectedProfile.age || "N/A"} वर्ष, ${selectedProfile.sex === "Female" ? "महिला" : "पुरुष"})।\n\n👉 *कृपया ${selectedProfile.name} का शहर या गांव (पता) लिखें (जैसे वर्धा):*`,
+        `रुग्ण निवडला: *${selectedProfile.name}* (${selectedProfile.age || "N/A"} वर्षे, ${selectedProfile.sex === "Female" ? "महिला" : "पुरुष"}).\n\n👉 *कृपया ${selectedProfile.name} यांचे शहर किंवा गाव (पत्ता) लिहा (उदा. वर्धा):*`
+      ),
+      nextStep: "REGISTER_ADDRESS",
+      updatedContext: {
+        bookingDraft: draft,
+        patientId: selectedProfile._id,
+        patientReference: selectedProfile.reference_number,
+        patientName: selectedProfile.name,
+      },
+    };
+  }
+
+  // Not matched to existing profile -> Treat userText as a new patient's name!
+  if (cleanInput.length >= 2) {
+    draft.patientName = cleanInput;
+    return {
+      text: inLanguage(
+        lang,
+        `Thank you, *${cleanInput}*.\n\n👉 *What is the patient's age in years? (e.g. 24):*`,
+        `धन्यवाद, *${cleanInput}*।\n\n👉 *मरीज की उम्र (आयु) कितने वर्ष है? (जैसे 24):*`,
+        `धन्यवाद, *${cleanInput}*.\n\n👉 *रुग्णाचे वय किती वर्षे आहे? (उदा. 24):*`
+      ),
+      nextStep: "REGISTER_AGE",
+      updatedContext: {
+        bookingDraft: draft,
+        patientId: undefined,
+        patientReference: undefined,
+        patientName: cleanInput,
+      },
+    };
+  }
+
+  return {
+    text: inLanguage(
+      lang,
+      `Please select a valid option from the list or write the patient's name:`,
+      `कृपया सूची में से सही विकल्प चुनें या मरीज का नाम लिखें:`,
+      `कृपया यादीतील योग्य पर्याय निवडा किंवा रुग्णाचे नाव लिहा:`
+    ),
+    nextStep: "BOOKING_SELECT_PROFILE",
+  };
+}
+
 async function handleRegisterName(userText: string, context: AgentContext): Promise<AgentResponse> {
   const lang = context.language || "en";
   const name = userText.trim();
@@ -1362,6 +1604,28 @@ async function handleRegisterName(userText: string, context: AgentContext): Prom
       ),
       nextStep: "REGISTER_NAME",
     };
+  }
+
+  // Check if this name matches an existing profile under this number
+  const profiles = await findPatientsByPhone(context.phoneNumber);
+  const matched = profiles.find(
+    (p) => p.name.toLowerCase() === name.toLowerCase() || p.name.toLowerCase().includes(name.toLowerCase())
+  );
+
+  if (matched && matched.address && matched.age) {
+    // Already saved!
+    const draft = {
+      ...(context.bookingDraft || {}),
+      patientName: matched.name,
+      patientPhone: matched.phone_number,
+      patientAge: matched.age,
+      sex: matched.sex,
+      patientAddress: matched.address,
+    };
+    return await executeBookingCreation(draft, context, {
+      name: matched.name,
+      reference_number: matched.reference_number,
+    });
   }
 
   const draft = { ...(context.bookingDraft || {}), patientName: name };
@@ -1462,10 +1726,19 @@ async function handleRegisterAddress(
   const address = userText.trim() || "Wardha";
   const draft = { ...(context.bookingDraft || {}), patientAddress: address };
 
-  // 1. Create patient in Cortex PMS if not already registered
+  // 1. Create patient in Cortex PMS if not already registered, or update address if existing
   let createdPatientRef = context.patientReference;
+  const isExistingSamePatient = Boolean(
+    context.patientId &&
+    context.patientName &&
+    draft.patientName &&
+    context.patientName.toLowerCase().trim() === draft.patientName.toLowerCase().trim()
+  );
+
   try {
-    if (!context.patientId) {
+    if (isExistingSamePatient) {
+      await updatePatient(context.patientId!, { address });
+    } else {
       const regRes = await createPatient({
         name: draft.patientName || "Patient",
         age: draft.patientAge || "30",
@@ -1477,7 +1750,7 @@ async function handleRegisterAddress(
       createdPatientRef = regRes.reference_number;
     }
   } catch (err) {
-    console.warn("[Cortex PMS] Patient registration non-fatal error:", err);
+    console.warn("[Cortex PMS] Patient registration/update non-fatal error:", err);
   }
 
   // 2. Book appointment in Cortex PMS

@@ -236,6 +236,62 @@ export async function findPatient(phoneOrUhid: string): Promise<PatientRecord | 
   return null;
 }
 
+export async function findPatientsByPhone(phoneNumber: string): Promise<PatientRecord[]> {
+  const client = getCortexConvexClient();
+  const raw = phoneNumber.trim();
+  const normalized = normalizePhone(raw);
+  if (!normalized) return [];
+
+  try {
+    const allPatients = (await client.query("patients:list" as any)) as PatientRecord[];
+    if (Array.isArray(allPatients)) {
+      const matched = allPatients.filter((p) => {
+        const pNorm = normalizePhone(p.phone_number || "");
+        const wNorm = normalizePhone(p.whatsapp_number || "");
+        return pNorm === normalized || wNorm === normalized;
+      });
+
+      // Filter out invalid/test records and de-duplicate by name (case-insensitive)
+      const valid = matched.filter(
+        (p) => p.name && p.name.trim().length >= 2 && p.name.trim().toLowerCase() !== "abcd"
+      );
+      // Sort newest first
+      valid.sort((a, b) => ((b as any)._creationTime || 0) - ((a as any)._creationTime || 0));
+
+      const uniqueByName: PatientRecord[] = [];
+      for (const p of valid) {
+        const cleanName = p.name.trim().toLowerCase();
+        if (!uniqueByName.some((u) => u.name.trim().toLowerCase() === cleanName)) {
+          uniqueByName.push(p);
+        }
+      }
+      return uniqueByName;
+    }
+  } catch (err) {
+    console.error("[Cortex PMS] findPatientsByPhone error:", err);
+  }
+  return [];
+}
+
+export async function updatePatient(
+  id: string,
+  data: {
+    name?: string;
+    age?: string;
+    sex?: "Male" | "Female" | "Other";
+    address?: string;
+    phone_number?: string;
+    whatsapp_number?: string;
+  }
+): Promise<void> {
+  const client = getCortexConvexClient();
+  try {
+    await client.mutation("patients:update" as any, { id: id as any, ...data });
+  } catch (err) {
+    console.error("[Cortex PMS] updatePatient error:", err);
+  }
+}
+
 export async function createPatient(data: {
   name: string;
   age: string;
