@@ -21,9 +21,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const host = req.headers.get('host') || 'cortexhospital.com';
-    const proto = host.includes('localhost') ? 'http' : 'https';
-    const prescriptionUrl = `${proto}://${host}/print-prescription?id=${encodeURIComponent(prescriptionId)}`;
+    const liveSiteBase = process.env.CORTEX_CONVEX_SITE_URL || 'https://jovial-sheep-76.convex.site';
+    const prescriptionUrl = `${liveSiteBase}/print-prescription?id=${encodeURIComponent(prescriptionId)}`;
     const formattedDate = date ? formatDisplayDate(date) : '';
 
     const message = `🏥 *CORTEX HOSPITAL, WARDHA*

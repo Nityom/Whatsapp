@@ -54,10 +54,11 @@ async function run() {
   console.log('Bot replied:\n', res.text);
   session = await convex.query(api.sessions.getWhatsAppSession, { phoneNumber: TEST_PHONE });
   console.log('Convex currentStep:', session?.currentStep);
-  if (session?.currentStep !== 'BOOKING_SELECT_SLOT') {
-    throw new Error(`Test 2 failed: Step should be BOOKING_SELECT_SLOT, got ${session?.currentStep}`);
+  // Slot selection is bypassed; directly asks for patient details
+  if (session?.currentStep !== 'REGISTER_NAME' && session?.currentStep !== 'REGISTER_AGE') {
+    throw new Error(`Test 2 failed: Step should be REGISTER_NAME or REGISTER_AGE, got ${session?.currentStep}`);
   }
-  console.log('✅ Test 2 Passed\n');
+  console.log('✅ Test 2 Passed: Slot options skipped, moved directly to patient details!\n');
 
   // Test 3: Emergency Detection & Medical Safety (Section 12)
   console.log('--- Test 3: Medical Emergency Safety Triage ---');
@@ -175,38 +176,41 @@ async function run() {
   // Step 2: Book with Doctor 1 (Dr. Vipeen Raut)
   await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '1' }); // Book appointment
   await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '1' }); // Dr. Vipeen Raut
-  await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '2' }); // Tomorrow
-
-  // Step 3: Select slot 1
-  res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '1' });
-  console.log('Slot chosen, prompt for name:\n', res.text);
+  res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '2' }); // Tomorrow -> directly prompts for Name (no slot step!)
+  console.log('Tomorrow selected, prompt for name (no slot selection):\n', res.text);
   if (!res.text.includes('full name')) {
-    throw new Error('Test 9 failed: Expected name prompt');
+    throw new Error('Test 9 failed: Expected name prompt directly after date');
   }
 
-  // Step 4: Enter Name
+  // Step 3: Enter Name
   res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: 'Test Patient Sharma' });
   console.log('Name given, prompt for age:\n', res.text);
   if (!res.text.includes('age')) {
     throw new Error('Test 9 failed: Expected age prompt');
   }
 
-  // Step 5: Enter Age (e.g. 42)
+  // Step 4: Enter Age (e.g. 42)
   res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '42' });
   console.log('Age given, prompt for gender:\n', res.text);
   if (!res.text.includes('gender')) {
     throw new Error('Test 9 failed: Expected gender prompt');
   }
 
-  // Step 6: Enter Gender (1: Male)
+  // Step 5: Enter Gender (1: Male)
   res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '1' });
   console.log('Gender given, prompt for address:\n', res.text);
+  if (!res.text.includes('address') && !res.text.includes('city')) {
+    throw new Error('Test 9 failed: Expected address prompt');
+  }
 
-  // Step 7: Enter Address (Wardha) -> Creates Booking!
-  res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: 'Wardha City' });
+  // Step 6: Enter Address (Wardha) -> Creates Booking!
+  res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: 'Samudrapur, Wardha' });
   console.log('Booking Confirmed Reply:\n', res.text);
   if (!res.text.includes('APPOINTMENT CONFIRMED') || !res.text.includes('42 years')) {
     throw new Error('Test 9 failed: Expected booking confirmation with 42 years');
+  }
+  if (!res.text.includes('Patient Address') || !res.text.includes('Samudrapur, Wardha')) {
+    throw new Error('Test 9 failed: Expected confirmation to display patient address');
   }
 
   // Verify directly in Dev Cortex PMS

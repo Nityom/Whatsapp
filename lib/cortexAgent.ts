@@ -974,8 +974,8 @@ async function initiateAppointmentBooking(
     };
   }
 
-  // Doctor and Date are both known: fetch available slots directly
-  return await showAvailableSlotsForDate(draft.date, draft.doctorName, draft, context);
+  // Doctor and Date are both known: proceed directly to registration (no slot selection options)
+  return await proceedToPatientRegistration(draft.date, draft.doctorName, draft, context);
 }
 
 async function handleBookingSelectDoctor(
@@ -1091,12 +1091,77 @@ async function handleBookingSelectDate(
   }
 
   const docName = context.bookingDraft?.doctorName || "Dr. Vipeen Raut";
-  const updatedDraft = {
-    ...(context.bookingDraft || {}),
-    date: parsedDate,
+  return await proceedToPatientRegistration(parsedDate, docName, context.bookingDraft || {}, context);
+}
+
+async function proceedToPatientRegistration(
+  dateStr: string,
+  docName: string,
+  draft: Record<string, any>,
+  context: AgentContext
+): Promise<AgentResponse> {
+  const lang = context.language || "en";
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const checkDate = new Date(year, month - 1, day);
+  const dateDmy = formatDisplayDate(dateStr);
+
+  if (checkDate.getDay() === 0) {
+    return {
+      text: inLanguage(
+        lang,
+        `⚠️ Cortex Hospital OPD is closed on Sundays (*${dateDmy}*).\n\nPlease choose another date:\n• Reply *Tomorrow*\n• Or specify another weekday (Mon–Sat) in DD/MM/YY.`,
+        `⚠️ Cortex Hospital OPD रविवार (*${dateDmy}*) को बंद रहता है।\n\nकृपया दूसरी तारीख चुनें:\n• *कल* भेजें\n• या सोमवार से शनिवार के बीच की कोई तारीख DD/MM/YY में लिखें।`,
+        `⚠️ Cortex Hospital OPD रविवारी (*${dateDmy}*) बंद असते.\n\nकृपया दुसरी तारीख निवडा:\n• *उद्या* पाठवा\n• किंवा सोमवार ते शनिवार मधील कोणतीही तारीख DD/MM/YY मध्ये लिहा.`
+      ),
+      nextStep: "BOOKING_SELECT_DATE",
+      updatedContext: { bookingDraft: draft },
+    };
+  }
+
+  const updatedDraft: Record<string, any> = {
+    ...draft,
+    date: dateStr,
+    doctorName: docName,
+    slot: draft.slot || "10:00 AM", // Standard OPD slot
   };
 
-  return await showAvailableSlotsForDate(parsedDate, docName, updatedDraft, context);
+  // Check if patient is already registered in Cortex PMS by phone
+  const existingPatient = await findPatient(context.phoneNumber);
+
+  if (existingPatient) {
+    updatedDraft.patientName = existingPatient.name;
+    updatedDraft.patientPhone = existingPatient.phone_number;
+    updatedDraft.patientAddress = existingPatient.address;
+    updatedDraft.sex = existingPatient.sex;
+
+    return {
+      text: inLanguage(
+        lang,
+        `📅 *Appointment Date:* ${dateDmy}\n👨‍⚕️ *Doctor:* ${docName}\n\n👤 *Registered Patient:* ${existingPatient.name}\n📱 *Registered Mobile:* ${existingPatient.phone_number}\n\n👉 *Please enter the patient's age in years (e.g. 35):*`,
+        `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n\n👤 *पंजीकृत मरीज:* ${existingPatient.name}\n📱 *पंजीकृत मोबाइल:* ${existingPatient.phone_number}\n\n👉 *कृपया मरीज की आयु (उम्र) वर्षों में बताएं (जैसे 35):*`,
+        `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n\n👤 *नोंदणीकृत रुग्ण:* ${existingPatient.name}\n📱 *नोंदणीकृत मोबाइल:* ${existingPatient.phone_number}\n\n👉 *कृपया रुग्णाचे वय वर्षांमध्ये सांगा (उदा. 35):*`
+      ),
+      nextStep: "REGISTER_AGE",
+      updatedContext: {
+        bookingDraft: updatedDraft,
+        patientId: existingPatient._id,
+        patientReference: existingPatient.reference_number,
+        patientName: existingPatient.name,
+      },
+    };
+  }
+
+  // New patient: Prompt for Full Name
+  return {
+    text: inLanguage(
+      lang,
+      `📅 *Appointment Date:* ${dateDmy}\n👨‍⚕️ *Doctor:* ${docName}\n\n👉 *Please enter the patient's full name (e.g. Ramesh Patil):*`,
+      `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n\n👉 *कृपया मरीज का पूरा नाम लिखें (जैसे रमेश पाटिल):*`,
+      `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n\n👉 *कृपया रुग्णाचे पूर्ण नाव लिहा (उदा. रमेश पाटील):*`
+    ),
+    nextStep: "REGISTER_NAME",
+    updatedContext: { bookingDraft: updatedDraft },
+  };
 }
 
 async function showAvailableSlotsForDate(
@@ -1330,33 +1395,39 @@ async function handleRegisterAge(userText: string, context: AgentContext): Promi
   const ageStr = ageMatch[0];
   const draft = { ...(context.bookingDraft || {}), patientAge: ageStr };
 
-  // If already registered patient, we have all details -> execute booking!
-  if (context.patientId) {
-    return await executeBookingCreation(draft, context, {
-      name: draft.patientName,
-      reference_number: context.patientReference,
-    });
+  // If gender is not yet known, ask gender next
+  if (!draft.sex) {
+    return {
+      text: inLanguage(
+        lang,
+        `Age recorded: *${ageStr} years*.\n\n👉 *Please select the patient's gender:*`,
+        `आयु दर्ज की गई: *${ageStr} वर्ष*।\n\n👉 *कृपया मरीज का लिंग चुनें:*`,
+        `वय नोंदवले: *${ageStr} वर्षे*.\n\n👉 *कृपया रुग्णाचे लिंग निवडा:*`
+      ),
+      nextStep: "REGISTER_SEX",
+      updatedContext: { bookingDraft: draft },
+      interactive: {
+        kind: "buttons",
+        body: inLanguage(lang, "Select Gender:", "लिंग चुनें:", "लिंग निवडा:"),
+        buttons: [
+          { id: "sex_1", title: inLanguage(lang, "1. Male", "1. पुरुष", "1. पुरुष") },
+          { id: "sex_2", title: inLanguage(lang, "2. Female", "2. महिला", "2. महिला") },
+          { id: "sex_3", title: inLanguage(lang, "3. Other", "3. अन्य", "3. इतर") },
+        ],
+      },
+    };
   }
 
-  // New patient: Ask gender next
+  // Gender already known (e.g. registered patient): Ask patient address next!
   return {
     text: inLanguage(
       lang,
-      `Age recorded: *${ageStr} years*.\n\n👉 *Please select the patient's gender:*`,
-      `आयु दर्ज की गई: *${ageStr} वर्ष*।\n\n👉 *कृपया मरीज का लिंग चुनें:*`,
-      `वय नोंदवले: *${ageStr} वर्षे*.\n\n👉 *कृपया रुग्णाचे लिंग निवडा:*`
+      `Age recorded: *${ageStr} years*.\n\n👉 *Please enter the patient's residential address / city or village (e.g. Wardha, Samudrapur, Hinganghat):*`,
+      `आयु दर्ज की गई: *${ageStr} वर्ष*।\n\n👉 *कृपया मरीज का शहर या गांव (पता) लिखें (जैसे वर्धा, समुद्रपुर, हिंगणघाट):*`,
+      `वय नोंदवले: *${ageStr} वर्षे*.\n\n👉 *कृपया रुग्णाचे शहर किंवा गाव (पत्ता) लिहा (उदा. वर्धा, समुद्रपूर, हिंगणघाट):*`
     ),
-    nextStep: "REGISTER_SEX",
+    nextStep: "REGISTER_ADDRESS",
     updatedContext: { bookingDraft: draft },
-    interactive: {
-      kind: "buttons",
-      body: inLanguage(lang, "Select Gender:", "लिंग चुनें:", "लिंग निवडा:"),
-      buttons: [
-        { id: "sex_1", title: inLanguage(lang, "1. Male", "1. पुरुष", "1. पुरुष") },
-        { id: "sex_2", title: inLanguage(lang, "2. Female", "2. महिला", "2. महिला") },
-        { id: "sex_3", title: inLanguage(lang, "3. Other", "3. अन्य", "3. इतर") },
-      ],
-    },
   };
 }
 
@@ -1375,9 +1446,9 @@ async function handleRegisterSex(userText: string, context: AgentContext): Promi
   return {
     text: inLanguage(
       lang,
-      `Gender: *${sex}*.\n\n👉 *Please enter the patient's residential city or village (e.g. Wardha):*`,
-      `लिंग: *${sex === "Female" ? "महिला" : sex === "Other" ? "अन्य" : "पुरुष"}*।\n\n👉 *कृपया मरीज का शहर या गांव लिखें (जैसे वर्धा):*`,
-      `लिंग: *${sex === "Female" ? "महिला" : sex === "Other" ? "इतर" : "पुरुष"}*.\n\n👉 *कृपया रुग्णाचे शहर किंवा गाव लिहा (उदा. वर्धा):*`
+      `Gender: *${sex}*.\n\n👉 *Please enter the patient's residential address / city or village (e.g. Wardha, Samudrapur, Hinganghat):*`,
+      `लिंग: *${sex === "Female" ? "महिला" : sex === "Other" ? "अन्य" : "पुरुष"}*।\n\n👉 *कृपया मरीज का शहर या गांव (पता) लिखें (जैसे वर्धा, समुद्रपुर, हिंगणघाट):*`,
+      `लिंग: *${sex === "Female" ? "महिला" : sex === "Other" ? "इतर" : "पुरुष"}*.\n\n👉 *कृपया रुग्णाचे शहर किंवा गाव (पत्ता) लिहा (उदा. वर्धा, समुद्रपूर, हिंगणघाट):*`
     ),
     nextStep: "REGISTER_ADDRESS",
     updatedContext: { bookingDraft: draft },
@@ -1391,25 +1462,27 @@ async function handleRegisterAddress(
   const address = userText.trim() || "Wardha";
   const draft = { ...(context.bookingDraft || {}), patientAddress: address };
 
-  // 1. Create patient in Cortex PMS
-  let createdPatientRef: string | undefined;
+  // 1. Create patient in Cortex PMS if not already registered
+  let createdPatientRef = context.patientReference;
   try {
-    const regRes = await createPatient({
-      name: draft.patientName || "Patient",
-      age: draft.patientAge || "30",
-      sex: draft.sex || "Male",
-      phone_number: context.phoneNumber,
-      address,
-      whatsapp_number: context.phoneNumber,
-    });
-    createdPatientRef = regRes.reference_number;
+    if (!context.patientId) {
+      const regRes = await createPatient({
+        name: draft.patientName || "Patient",
+        age: draft.patientAge || "30",
+        sex: draft.sex || "Male",
+        phone_number: context.phoneNumber,
+        address,
+        whatsapp_number: context.phoneNumber,
+      });
+      createdPatientRef = regRes.reference_number;
+    }
   } catch (err) {
     console.warn("[Cortex PMS] Patient registration non-fatal error:", err);
   }
 
   // 2. Book appointment in Cortex PMS
   return await executeBookingCreation(draft, context, {
-    name: draft.patientName!,
+    name: draft.patientName || context.patientName || "Patient",
     reference_number: createdPatientRef,
   });
 }
@@ -1428,7 +1501,7 @@ async function executeBookingCreation(
       age: draft.patientAge,
       address: draft.patientAddress || "Wardha",
       date: draft.date,
-      time: draft.slot,
+      time: draft.slot || "10:00 AM",
       doctor_name: draft.doctorName || "Dr. Vipeen Raut",
       duration_minutes: 15,
       dental_problem: draft.specialty || "Consultation",
@@ -1449,13 +1522,13 @@ async function executeBookingCreation(
 👤 *Patient:* ${patientDisplay}
 🎂 *Age:* ${draft.patientAge || "N/A"} years
 📱 *Phone:* ${context.phoneNumber}
+🏠 *Patient Address:* ${draft.patientAddress || "Wardha"}
 👨‍⚕️ *Doctor:* ${draft.doctorName}
 📅 *Date:* ${dateDmy}
-⏰ *Time Slot:* ${draft.slot}
-📍 *Location:* Aarti Chowk, Nagpur Road, Wardha
+📍 *Hospital Location:* Aarti Chowk, Nagpur Road, Wardha
 
 *Instructions for Patient:*
-• Please arrive 10 minutes prior to your time slot.
+• OPD Timings: 10:00 AM – 1:30 PM & 5:30 PM – 8:00 PM.
 • Bring any previous prescriptions, X-rays, or medical reports.
 • Hospital reception: 07152-255795.
 
@@ -1468,13 +1541,13 @@ Your health matters to us. We look forward to serving you! ❤️`,
 👤 *मरीज:* ${patientDisplay}
 🎂 *उम्र:* ${draft.patientAge || "N/A"} वर्ष
 📱 *मोबाइल:* ${context.phoneNumber}
+🏠 *मरीज का पता:* ${draft.patientAddress || "वर्धा"}
 👨‍⚕️ *डॉक्टर:* ${draft.doctorName}
 📅 *तारीख:* ${dateDmy}
-⏰ *समय:* ${draft.slot}
-📍 *स्थान:* आरती चौक, नागपुर रोड, वर्धा
+📍 *अस्पताल का पता:* आरती चौक, नागपुर रोड, वर्धा
 
 *मरीज के लिए निर्देश:*
-• कृपया समय से 10 मिनट पहले पहुंचें।
+• ओपीडी समय: सुबह 10:00 से 1:30 एवं शाम 5:30 से 8:00।
 • अपने पुराने पर्चे, एक्स-रे या रिपोर्ट साथ लाएं।
 • अस्पताल रिसेप्शन: 07152-255795।
 
@@ -1487,13 +1560,13 @@ Your health matters to us. We look forward to serving you! ❤️`,
 👤 *रुग्ण:* ${patientDisplay}
 🎂 *वय:* ${draft.patientAge || "N/A"} वर्षे
 📱 *मोबाइल:* ${context.phoneNumber}
+🏠 *रुग्णाचा पत्ता:* ${draft.patientAddress || "वर्धा"}
 👨‍⚕️ *डॉक्टर:* ${draft.doctorName}
 📅 *तारीख:* ${dateDmy}
-⏰ *वेळ:* ${draft.slot}
-📍 *पत्ता:* आरती चौक, नागपूर रोड, वर्धा
+📍 *हॉस्पिटलचा पत्ता:* आरती चौक, नागपूर रोड, वर्धा
 
 *रुग्णासाठी सूचना:*
-• कृपया वेळेच्या 10 मिनिटे आधी उपस्थित राहावे.
+• ओपीडी वेळ: सकाळी 10:00 ते 1:30 आणि संध्याकाळी 5:30 ते 8:00.
 • जुनी औषधांची कागदपत्रे, एक्स-रे किंवा रिपोर्ट सोबत आणा.
 • हॉस्पिटल रिसेप्शन: 07152-255795.
 
@@ -1643,11 +1716,11 @@ async function handlePrescriptionQuery(
   return {
     text: inLanguage(
       lang,
-      `💊 *CORTEX HOSPITAL – DIGITAL PRESCRIPTION*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *Patient:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *Doctor:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *Prescription Date:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *Diagnosis:* ${latest.diagnosis || "Consultation"}\n\n📋 *Prescribed Medicines:*\n${medsList}\n\n📝 *Doctor's Advice:*\n${latest.advice || "Follow medication schedule."}\n\n🔔 *Next Follow-up:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "As advised"}\n\n🔗 *View / Print Official Document:*\nhttps://cortexhospital.com/print-prescription?id=${latest._id}`,
+      `💊 *CORTEX HOSPITAL – DIGITAL PRESCRIPTION*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *Patient:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *Doctor:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *Prescription Date:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *Diagnosis:* ${latest.diagnosis || "Consultation"}\n\n📋 *Prescribed Medicines:*\n${medsList}\n\n📝 *Doctor's Advice:*\n${latest.advice || "Follow medication schedule."}\n\n🔔 *Next Follow-up:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "As advised"}\n\n🔗 *View / Print Official Document:*\nhttps://jovial-sheep-76.convex.site/print-prescription?id=${latest._id}`,
 
-      `💊 *CORTEX HOSPITAL – डिजिटल प्रिस्क्रिप्शन*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *मरीज:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *डॉक्टर:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *तारीख:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *निदान:* ${latest.diagnosis || "परामर्श"}\n\n📋 *दवाएं:*\n${medsList}\n\n📝 *सलाह:*\n${latest.advice || "दवा की समय सारणी का पालन करें।"}\n\n🔔 *अगली फ़ॉलो-अप:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "डॉक्टर के निर्देशानुसार"}\n\n🔗 *पर्चा डाउनलोड लिंक:*\nhttps://cortexhospital.com/print-prescription?id=${latest._id}`,
+      `💊 *CORTEX HOSPITAL – डिजिटल प्रिस्क्रिप्शन*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *मरीज:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *डॉक्टर:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *तारीख:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *निदान:* ${latest.diagnosis || "परामर्श"}\n\n📋 *दवाएं:*\n${medsList}\n\n📝 *सलाह:*\n${latest.advice || "दवा की समय सारणी का पालन करें।"}\n\n🔔 *अगली फ़ॉलो-अप:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "डॉक्टर के निर्देशानुसार"}\n\n🔗 *पर्चा डाउनलोड लिंक:*\nhttps://jovial-sheep-76.convex.site/print-prescription?id=${latest._id}`,
 
-      `💊 *CORTEX HOSPITAL – डिजिटल प्रिस्क्रिप्शन*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *रुग्ण:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *डॉक्टर:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *तारीख:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *निदान:* ${latest.diagnosis || "तपासणी"}\n\n📋 *औषधे:*\n${medsList}\n\n📝 *डॉक्टरांचा सल्ला:*\n${latest.advice || "औषधांचे वेळापत्रक पाळावे."}\n\n🔔 *पुढील भेट:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "डॉक्टरांच्या सल्ल्यानुसार"}\n\n🔗 *प्रिस्क्रिप्शन डाउनलोड लिंक:*\nhttps://cortexhospital.com/print-prescription?id=${latest._id}`
+      `💊 *CORTEX HOSPITAL – डिजिटल प्रिस्क्रिप्शन*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *रुग्ण:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *डॉक्टर:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *तारीख:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *निदान:* ${latest.diagnosis || "तपासणी"}\n\n📋 *औषधे:*\n${medsList}\n\n📝 *डॉक्टरांचा सल्ला:*\n${latest.advice || "औषधांचे वेळापत्रक पाळावे."}\n\n🔔 *पुढील भेट:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "डॉक्टरांच्या सल्ल्यानुसार"}\n\n🔗 *प्रिस्क्रिप्शन डाउनलोड लिंक:*\nhttps://jovial-sheep-76.convex.site/print-prescription?id=${latest._id}`
     ),
     nextStep: "IDLE",
   };

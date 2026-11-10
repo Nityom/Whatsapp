@@ -23,7 +23,8 @@ export async function POST(request: NextRequest) {
   const convex = getConvexClient();
   const session = await convex.query(api.sessions.getWhatsAppSession, { phoneNumber: phone });
   const language = session?.language || "en";
-  const link = `https://cortexhospital.com/print-prescription?id=${encodeURIComponent(prescriptionId)}`;
+  const liveSiteBase = process.env.CORTEX_CONVEX_SITE_URL || "https://jovial-sheep-76.convex.site";
+  const link = `${liveSiteBase}/print-prescription?id=${encodeURIComponent(prescriptionId)}`;
   const message = language === "hi"
     ? `Cortex Hospital आने के लिए धन्यवाद, ${prescription.patient_name}। आपका प्रिस्क्रिप्शन तैयार है: ${link}`
     : language === "mr"
