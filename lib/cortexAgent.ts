@@ -131,11 +131,65 @@ export function isGreetingText(text: string): boolean {
     clean === "namaskar" ||
     clean === "start" ||
     clean === "restart" ||
-    clean === "help" ||
-    clean.startsWith("hi ") ||
-    clean.startsWith("hii ") ||
-    clean.startsWith("hello ")
+    clean === "help"
   );
+}
+
+/** Check if the input represents a language choice */
+export function detectLanguageChoice(
+  text: string,
+  isLanguageStep: boolean = false
+): "en" | "hi" | "mr" | undefined {
+  const clean = (text || "").trim().toLowerCase();
+
+  // Explicit button payload or full title
+  if (
+    clean === "lang_en" ||
+    clean === "language_en" ||
+    clean === "english" ||
+    clean === "1. english" ||
+    clean.startsWith("1. english")
+  ) {
+    return "en";
+  }
+
+  if (
+    clean === "lang_hi" ||
+    clean === "language_hi" ||
+    clean === "hindi" ||
+    clean === "हिन्दी" ||
+    clean === "हिंदी" ||
+    clean === "2. हिन्दी" ||
+    clean === "2. हिंदी" ||
+    clean === "2. hindi" ||
+    clean.startsWith("2. हिन्दी") ||
+    clean.startsWith("2. हिंदी") ||
+    clean.startsWith("2. hindi")
+  ) {
+    return "hi";
+  }
+
+  if (
+    clean === "lang_mr" ||
+    clean === "language_mr" ||
+    clean === "marathi" ||
+    clean === "मराठी" ||
+    clean === "3. मराठी" ||
+    clean === "3. marathi" ||
+    clean.startsWith("3. मराठी") ||
+    clean.startsWith("3. marathi")
+  ) {
+    return "mr";
+  }
+
+  // Pure numbers '1', '2', '3' are ONLY language choices if currently in LANGUAGE_SELECT / WELCOME step
+  if (isLanguageStep) {
+    if (clean === "1" || clean === "1.") return "en";
+    if (clean === "2" || clean === "2.") return "hi";
+    if (clean === "3" || clean === "3.") return "mr";
+  }
+
+  return undefined;
 }
 
 /** Check if user wants to change language */
@@ -405,76 +459,53 @@ export async function handleConversationTurn(
     userText = choiceId.split("_")[1];
   }
   const lower = userText.toLowerCase();
-  const normalizedText = lower.startsWith("lang_")
-    ? lower.replace("lang_", "")
-    : lower.startsWith("menu_")
+  const normalizedText = lower.startsWith("menu_")
     ? lower.replace("menu_", "")
     : lower;
 
-  // 1. Language Change Request OR Greeting ("Hi", "Hello", "Namaste", "Start") OR Language not yet selected
-  // Whenever the user sends a greeting or asks for language, ALWAYS show the language options first!
-  if (
-    isGreetingText(userText) ||
-    isLanguageChangeQuery(userText) ||
+  const isLangStep =
     !context.language ||
     context.currentStep === "WELCOME" ||
-    context.currentStep === "LANGUAGE_SELECT"
-  ) {
-    const choice = normalizedText.trim();
-    let selectedLang: "en" | "hi" | "mr" | undefined = undefined;
+    context.currentStep === "LANGUAGE_SELECT";
 
-    if (choice === "1" || /^(english|1\. english)$/i.test(choice) || choice === "lang_en") {
-      selectedLang = "en";
-    } else if (choice === "2" || /^(हिन्दी|हिंदी|hindi|2\. हिन्दी)$/i.test(choice) || choice === "lang_hi") {
-      selectedLang = "hi";
-    } else if (choice === "3" || /^(मराठी|marathi|3\. मराठी)$/i.test(choice) || choice === "lang_mr") {
-      selectedLang = "mr";
-    }
-
-    // If no language choice provided in this turn (e.g. user just said "Hi" or "Menu"), prompt for language!
-    if (!selectedLang) {
-      return {
-        text: languagePrompt(),
-        interactive: languageButtons(),
-        nextStep: "LANGUAGE_SELECT",
-        updatedContext: { currentStep: "LANGUAGE_SELECT" },
-      };
-    }
-
-    // Language confirmed!
+  // 1. Language Selection (via button click e.g. "lang_hi", title "2. हिन्दी", or number "2")
+  const explicitLang = detectLanguageChoice(userText, isLangStep);
+  if (explicitLang) {
     return {
-      text: mainMenu(selectedLang),
-      interactive: menuList(selectedLang),
+      text: mainMenu(explicitLang),
+      interactive: menuList(explicitLang),
       nextStep: "IDLE",
       updatedContext: {
-        language: selectedLang,
+        language: explicitLang,
         currentStep: "IDLE",
         bookingDraft: undefined,
       },
     };
   }
 
-  const lang = context.language || "en";
-
-  // 2. User sent a location pin
-  if (input.type === "location" || (input.latitude && input.longitude)) {
+  // 1b. User explicitly asks to change language (Option 10 or typing "language", "भाषा बदलें", etc.)
+  if (isLanguageChangeQuery(userText)) {
     return {
-      text: inLanguage(
-        lang,
-        `📍 Thank you for sharing your location!\n\n🏥 *Cortex Hospital, Wardha*\nAarti Chowk, Nagpur Road, Wardha - 442001, Maharashtra\n📞 Reception: 07152-255795 / +91 9373280505\n\nGoogle Maps Directions:\nhttps://maps.google.com/?q=${CORTEX_HOSPITAL_CONFIG.coordinates.latitude},${CORTEX_HOSPITAL_CONFIG.coordinates.longitude}\n\nHow can I help you today?\n1️⃣ Book an Appointment\n2️⃣ Doctor Availability\n3️⃣ Talk to Reception`,
-        `📍 अपनी लोकेशन साझा करने के लिए धन्यवाद!\n\n🏥 *Cortex Hospital, वर्धा*\nआरती चौक, नागपुर रोड, वर्धा - 442001, महाराष्ट्र\n📞 रिसेप्शन: 07152-255795 / +91 9373280505\n\nगूगल मैप्स दिशा-निर्देश:\nhttps://maps.google.com/?q=${CORTEX_HOSPITAL_CONFIG.coordinates.latitude},${CORTEX_HOSPITAL_CONFIG.coordinates.longitude}\n\nमैं आपकी क्या मदद करूँ?\n1️⃣ अपॉइंटमेंट बुक करें\n2️⃣ डॉक्टर का समय\n3️⃣ रिसेप्शन से बात करें`,
-        `📍 आपली लोकेशन पाठवल्याबद्दल धन्यवाद!\n\n🏥 *Cortex Hospital, वर्धा*\nआरती चौक, नागपूर रोड, वर्धा - 442001, महाराष्ट्र\n📞 रिसेप्शन: 07152-255795 / +91 9373280505\n\nगुगल मॅप्स दिशानिर्देश:\nhttps://maps.google.com/?q=${CORTEX_HOSPITAL_CONFIG.coordinates.latitude},${CORTEX_HOSPITAL_CONFIG.coordinates.longitude}\n\nमी आपली काय मदत करू शकतो?\n1️⃣ नवीन अपॉइंटमेंट बुक करा\n2️⃣ डॉक्टरांची वेळ\n3️⃣ रिसेप्शनशी बोला`
-      ),
-      nativeLocation: {
-        latitude: CORTEX_HOSPITAL_CONFIG.coordinates.latitude,
-        longitude: CORTEX_HOSPITAL_CONFIG.coordinates.longitude,
-        name: CORTEX_HOSPITAL_CONFIG.name,
-        address: CORTEX_HOSPITAL_CONFIG.address.fullFormatted,
-      },
+      text: languagePrompt(),
+      interactive: languageButtons(),
+      nextStep: "LANGUAGE_SELECT",
+      updatedContext: { currentStep: "LANGUAGE_SELECT" },
     };
   }
 
-  // 3. Human Handover Management (Section 11)
+  // 1c. If no language has been selected yet, prompt for language
+  if (isLangStep) {
+    return {
+      text: languagePrompt(),
+      interactive: languageButtons(),
+      nextStep: "LANGUAGE_SELECT",
+      updatedContext: { currentStep: "LANGUAGE_SELECT" },
+    };
+  }
+
+  const lang = context.language || "en";
+
+  // 2. Human Handover Management (Section 11)
   if (context.isHandedOver) {
     if (isGreetingText(userText) || lower === "resume" || lower === "menu" || lower === "start") {
       return {
@@ -495,6 +526,44 @@ export async function handleConversationTurn(
         `अस्पताल के कर्मचारी इस बातचीत को संभाल रहे हैं। रिसेप्शनिस्ट आपसे जल्द ही संपर्क करेंगे।\n\nAI सहायक पुनः शुरू करने के लिए *Menu* या *Hi* लिखें।`,
         `हॉस्पिटल कर्मचारी या संभाषणावर काम करत आहेत. रिसेप्शनिस्ट लवकरच आपल्याला उत्तर देतील.\n\nपुन्हा AI सहाय्यक सुरू करण्यासाठी *Menu* किंवा *Hi* पाठवा.`
       ),
+    };
+  }
+
+  // 3. User says "Hi", "Hello", "Menu", "Start" while language IS ALREADY SELECTED ->
+  // Show Main Menu directly in their selected language! DO NOT ask for language again!
+  if (
+    isGreetingText(userText) ||
+    lower === "menu" ||
+    lower === "main menu" ||
+    lower === "start" ||
+    lower === "restart"
+  ) {
+    return {
+      text: mainMenu(lang),
+      interactive: menuList(lang),
+      nextStep: "IDLE",
+      updatedContext: {
+        currentStep: "IDLE",
+        bookingDraft: undefined,
+      },
+    };
+  }
+
+  // 4. User sent a location pin
+  if (input.type === "location" || (input.latitude && input.longitude)) {
+    return {
+      text: inLanguage(
+        lang,
+        `📍 Thank you for sharing your location!\n\n🏥 *Cortex Hospital, Wardha*\nAarti Chowk, Nagpur Road, Wardha - 442001, Maharashtra\n📞 Reception: 07152-255795 / +91 9373280505\n\nGoogle Maps Directions:\nhttps://maps.google.com/?q=${CORTEX_HOSPITAL_CONFIG.coordinates.latitude},${CORTEX_HOSPITAL_CONFIG.coordinates.longitude}\n\nHow can I help you today?\n1️⃣ Book an Appointment\n2️⃣ Doctor Availability\n3️⃣ Talk to Reception`,
+        `📍 अपनी लोकेशन साझा करने के लिए धन्यवाद!\n\n🏥 *Cortex Hospital, वर्धा*\nआरती चौक, नागपुर रोड, वर्धा - 442001, महाराष्ट्र\n📞 रिसेप्शन: 07152-255795 / +91 9373280505\n\nगूगल मैप्स दिशा-निर्देश:\nhttps://maps.google.com/?q=${CORTEX_HOSPITAL_CONFIG.coordinates.latitude},${CORTEX_HOSPITAL_CONFIG.coordinates.longitude}\n\nमैं आपकी क्या मदद करूँ?\n1️⃣ अपॉइंटमेंट बुक करें\n2️⃣ डॉक्टर का समय\n3️⃣ रिसेप्शन से बात करें`,
+        `📍 आपली लोकेशन पाठवल्याबद्दल धन्यवाद!\n\n🏥 *Cortex Hospital, वर्धा*\nआरती चौक, नागपूर रोड, वर्धा - 442001, महाराष्ट्र\n📞 रिसेप्शन: 07152-255795 / +91 9373280505\n\nगुगल मॅप्स दिशानिर्देश:\nhttps://maps.google.com/?q=${CORTEX_HOSPITAL_CONFIG.coordinates.latitude},${CORTEX_HOSPITAL_CONFIG.coordinates.longitude}\n\nमी आपली काय मदत करू शकतो?\n1️⃣ नवीन अपॉइंटमेंट बुक करा\n2️⃣ डॉक्टरांची वेळ\n3️⃣ रिसेप्शनशी बोला`
+      ),
+      nativeLocation: {
+        latitude: CORTEX_HOSPITAL_CONFIG.coordinates.latitude,
+        longitude: CORTEX_HOSPITAL_CONFIG.coordinates.longitude,
+        name: CORTEX_HOSPITAL_CONFIG.name,
+        address: CORTEX_HOSPITAL_CONFIG.address.fullFormatted,
+      },
     };
   }
 

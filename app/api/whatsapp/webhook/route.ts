@@ -115,7 +115,21 @@ export async function POST(request: NextRequest) {
               `\nWhatsApp message received\nFrom: +${sender}\nType: text\nMessage: ${messageText}\n`
             );
           } else if (messageType === 'interactive') {
-            messageText = message.interactive?.button_reply?.id || message.interactive?.list_reply?.id;
+            messageText =
+              message.interactive?.button_reply?.id ||
+              message.interactive?.list_reply?.id ||
+              message.interactive?.button_reply?.title ||
+              message.interactive?.list_reply?.title;
+            console.log(
+              `\nWhatsApp interactive received\nFrom: +${sender}\nPayload: ${messageText}\n`
+            );
+          } else if (messageType === 'button') {
+            messageText =
+              (message as any).button?.payload ||
+              (message as any).button?.text;
+            console.log(
+              `\nWhatsApp button received\nFrom: +${sender}\nPayload: ${messageText}\n`
+            );
           } else if (messageType === 'location') {
             latitude = message.location?.latitude;
             longitude = message.location?.longitude;

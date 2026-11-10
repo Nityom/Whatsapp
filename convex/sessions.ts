@@ -188,6 +188,14 @@ export const setHandover = mutation({
   },
 });
 
+export const getRecentChatLogs = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const limit = args.limit || 20;
+    return await ctx.db.query("chatMessages").order("desc").take(limit);
+  },
+});
+
 export const logChatMessage = mutation({
   args: {
     phoneNumber: v.string(),
