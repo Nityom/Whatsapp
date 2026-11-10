@@ -155,43 +155,44 @@ async function run() {
 
   // Test 9: Complete End-to-End Booking with Age in Dev Cortex PMS
   console.log('--- Test 9: Complete Booking with Age & Phone Verification in Dev Cortex PMS ---');
-  await convex.mutation(api.sessions.clearWhatsAppSession, { phoneNumber: '919876500001' });
+  const freshPhone = '9198765' + Math.floor(10000 + Math.random() * 90000);
+  await convex.mutation(api.sessions.clearWhatsAppSession, { phoneNumber: freshPhone });
   // Step 1: Select Language (English)
-  await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: 'Hi' });
-  await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: '1' }); // English
+  await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: 'Hi' });
+  await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '1' }); // English
 
   // Step 2: Book with Doctor 1 (Dr. Vipeen Raut)
-  await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: '1' }); // Book appointment
-  await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: '1' }); // Dr. Vipeen Raut
-  await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: '2' }); // Tomorrow
+  await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '1' }); // Book appointment
+  await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '1' }); // Dr. Vipeen Raut
+  await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '2' }); // Tomorrow
 
   // Step 3: Select slot 1
-  res = await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: '1' });
+  res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '1' });
   console.log('Slot chosen, prompt for name:\n', res.text);
   if (!res.text.includes('full name')) {
     throw new Error('Test 9 failed: Expected name prompt');
   }
 
   // Step 4: Enter Name
-  res = await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: 'Test Patient Sharma' });
+  res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: 'Test Patient Sharma' });
   console.log('Name given, prompt for age:\n', res.text);
   if (!res.text.includes('age')) {
     throw new Error('Test 9 failed: Expected age prompt');
   }
 
   // Step 5: Enter Age (e.g. 42)
-  res = await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: '42' });
+  res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '42' });
   console.log('Age given, prompt for gender:\n', res.text);
   if (!res.text.includes('gender')) {
     throw new Error('Test 9 failed: Expected gender prompt');
   }
 
   // Step 6: Enter Gender (1: Male)
-  res = await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: '1' });
+  res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '1' });
   console.log('Gender given, prompt for address:\n', res.text);
 
   // Step 7: Enter Address (Wardha) -> Creates Booking!
-  res = await processIncomingMessage({ phoneNumber: '919876500001', type: 'text', text: 'Wardha City' });
+  res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: 'Wardha City' });
   console.log('Booking Confirmed Reply:\n', res.text);
   if (!res.text.includes('APPOINTMENT CONFIRMED') || !res.text.includes('42 years')) {
     throw new Error('Test 9 failed: Expected booking confirmation with 42 years');
@@ -200,7 +201,7 @@ async function run() {
   // Verify directly in Dev Cortex PMS
   const pmsClient = getCortexConvexClient();
   const allAppts = await pmsClient.query('appointments:list');
-  const found = allAppts.find((a) => a.phone === '9876500001' && a.name === 'Test Patient Sharma');
+  const found = allAppts.find((a) => a.phone === freshPhone.replace(/^91/, '') && a.name === 'Test Patient Sharma');
   if (!found) {
     throw new Error('Test 9 failed: Appointment was not found in Dev Cortex PMS appointments table!');
   }
@@ -218,7 +219,35 @@ async function run() {
   }
   console.log('✅ Test 9 Passed: Appointment successfully verified in Dev Cortex PMS!\n');
 
-  console.log('🎉 ALL 9 TESTS PASSED SUCCESSFULLY! Cortex Hospital Assistant is fully operational.');
+  // Test 10: Pure Hindi Continuity
+  console.log('--- Test 10: Pure Hindi Continuity ---');
+  const hindiPhone = '9198765' + Math.floor(10000 + Math.random() * 90000);
+  await convex.mutation(api.sessions.clearWhatsAppSession, { phoneNumber: hindiPhone });
+  res = await processIncomingMessage({ phoneNumber: hindiPhone, type: 'text', text: 'Namaste' });
+  if (!res.text.includes('कृपया अपनी पसंदीदा भाषा चुनें')) {
+    throw new Error('Test 10 failed: Expected multilingual greeting with Hindi');
+  }
+  // Choose Hindi
+  res = await processIncomingMessage({ phoneNumber: hindiPhone, type: 'text', text: '2' });
+  console.log('Hindi Menu Reply:\n', res.text);
+  if (!res.text.includes('नमस्ते!') || !res.text.includes('अपॉइंटमेंट बुक करें')) {
+    throw new Error('Test 10 failed: Expected Hindi main menu');
+  }
+  // Check Doctor Timings (Option 6)
+  res = await processIncomingMessage({ phoneNumber: hindiPhone, type: 'text', text: '6' });
+  console.log('Hindi Doctor Timings Reply:\n', res.text);
+  if (!res.text.includes('विशेषज्ञ डॉक्टर एवं OPD समय') || !res.text.includes('विशेषज्ञता')) {
+    throw new Error('Test 10 failed: Expected Hindi doctor timings');
+  }
+  // Check Hospital Location (Option 8)
+  res = await processIncomingMessage({ phoneNumber: hindiPhone, type: 'text', text: '8' });
+  console.log('Hindi Hospital Location Reply:\n', res.text);
+  if (!res.text.includes('पता:') || !res.text.includes('Aarti Chowk') || !res.text.includes('वर्धा')) {
+    throw new Error('Test 10 failed: Expected Hindi hospital location');
+  }
+  console.log('✅ Test 10 Passed: 100% Hindi Continuity Verified!\n');
+
+  console.log('🎉 ALL 10 TESTS PASSED SUCCESSFULLY! Cortex Hospital Assistant is fully operational.');
 }
 
 run().catch((err) => {

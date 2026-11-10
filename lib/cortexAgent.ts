@@ -119,7 +119,7 @@ export function isMedicalAdviceQuery(text: string): boolean {
   );
 }
 
-/** Check if user input is a greeting or restart */
+/** Check if user input is a greeting or restart request */
 export function isGreetingText(text: string): boolean {
   const clean = text.toLowerCase().trim().replace(/[!.,?]+$/, "");
   return (
@@ -131,7 +131,6 @@ export function isGreetingText(text: string): boolean {
     clean === "namaskar" ||
     clean === "start" ||
     clean === "restart" ||
-    clean === "menu" ||
     clean === "help" ||
     clean.startsWith("hi ") ||
     clean.startsWith("hii ") ||
@@ -229,7 +228,7 @@ export function parseDateInput(input: string): string | null {
    ========================================================================= */
 
 export function languagePrompt(): string {
-  return `👋 *Welcome to Cortex Hospital*
+  return `👋 *Welcome to Cortex Hospital, Wardha*
 ━━━━━━━━━━━━━━━━━━━━━
 Please select your preferred language:
 कृपया अपनी पसंदीदा भाषा चुनें:
@@ -245,7 +244,7 @@ Please select your preferred language:
 export function languageButtons(): WhatsAppInteractive {
   return {
     kind: "buttons",
-    body: "Please choose your language / भाषा चुनें / भाषा निवडा:",
+    body: "👋 Welcome to Cortex Hospital / Cortex Hospital में आपका स्वागत है / Cortex Hospital मध्ये आपले स्वागत आहे.\n\nPlease select your language / कृपया भाषा चुनें / कृपया भाषा निवडा:",
     buttons: [
       { id: "lang_en", title: "1. English" },
       { id: "lang_hi", title: "2. हिन्दी" },
@@ -267,7 +266,7 @@ export function mainMenu(language: string): string {
 3️⃣ 💊 प्रिस्क्रिप्शन देखें
 4️⃣ 🧾 बिल और भुगतान
 5️⃣ 🔔 अगली फ़ॉलो-अप तारीख
-6️⃣ 👨‍⚕️ डॉक्टर की उपलब्धता और समय
+6️⃣ 👨‍⚕️ डॉक्टर का समय
 7️⃣ 🧪 लैब टेस्ट रिपोर्ट
 8️⃣ 📍 अस्पताल का पता और स्थान
 9️⃣ ☎️ रिसेप्शन से बात करें
@@ -329,7 +328,7 @@ export function menuList(language: string): WhatsAppInteractive {
         "4. बिल और भुगतान",
         "5. अगली फ़ॉलो-अप",
         "6. डॉक्टर का समय",
-        "7. लैब रिपोर्ट",
+        "7. लैब टेस्ट रिपोर्ट",
         "8. अस्पताल का पता",
         "9. रिसेप्शन से बात करें",
         "10. भाषा बदलें",
@@ -342,7 +341,7 @@ export function menuList(language: string): WhatsAppInteractive {
         "4. बिल आणि पेमेंट",
         "5. पुढील फॉलो-अप",
         "6. डॉक्टरांची वेळ",
-        "7. लॅब रिपोर्ट",
+        "7. लॅब टेस्ट रिपोर्ट",
         "8. हॉस्पिटलचा पत्ता",
         "9. रिसेप्शनशी बोला",
         "10. भाषा बदला",
@@ -354,19 +353,27 @@ export function menuList(language: string): WhatsAppInteractive {
         "4. Bills & Payments",
         "5. Next Follow-up",
         "6. Doctor Timings",
-        "7. Lab Reports",
-        "8. Hospital Location",
+        "7. Laboratory Reports",
+        "8. Hospital Address",
         "9. Talk to Reception",
         "10. Change Language",
       ];
 
+  const bodyText = isHi
+    ? "🏥 Cortex Hospital, वर्धा\nकृपया नीचे दी गई सेवाओं में से कोई एक चुनें:"
+    : isMr
+    ? "🏥 Cortex Hospital, वर्धा\nकृपया खालील सेवांपैकी एक पर्याय निवडा:"
+    : "🏥 Cortex Hospital, Wardha\nPlease choose a service from the options below:";
+
+  const buttonTitle = isHi ? "सेवाएं चुनें" : isMr ? "पर्याय निवडा" : "Select Service";
+
   return {
     kind: "list",
-    body: isHi ? "कृपया सेवा चुनें:" : isMr ? "कृपया पर्याय निवडा:" : "Please choose a service:",
-    buttonText: isHi ? "सेवाएं" : isMr ? "पर्याय" : "Select Service",
+    body: bodyText,
+    buttonText: buttonTitle,
     sections: [
       {
-        title: isHi ? "मुख्य मेनू" : isMr ? "मुख्य मेनू" : "Main Menu",
+        title: isHi ? "उपलब्ध सेवाएं" : isMr ? "उपलब्ध पर्याय" : "Available Options",
         rows: labels.map((title, index) => ({
           id: `menu_${index + 1}`,
           title,
@@ -404,29 +411,27 @@ export async function handleConversationTurn(
     ? lower.replace("menu_", "")
     : lower;
 
-  // 1. Language Change Request
-  if (isLanguageChangeQuery(userText)) {
-    return {
-      text: languagePrompt(),
-      interactive: languageButtons(),
-      nextStep: "LANGUAGE_SELECT",
-      updatedContext: { currentStep: "LANGUAGE_SELECT" },
-    };
-  }
-
-  // 2. If Language is not yet chosen or currently in LANGUAGE_SELECT / WELCOME
-  if (!context.language || context.currentStep === "WELCOME" || context.currentStep === "LANGUAGE_SELECT") {
+  // 1. Language Change Request OR Greeting ("Hi", "Hello", "Namaste", "Start") OR Language not yet selected
+  // Whenever the user sends a greeting or asks for language, ALWAYS show the language options first!
+  if (
+    isGreetingText(userText) ||
+    isLanguageChangeQuery(userText) ||
+    !context.language ||
+    context.currentStep === "WELCOME" ||
+    context.currentStep === "LANGUAGE_SELECT"
+  ) {
     const choice = normalizedText.trim();
     let selectedLang: "en" | "hi" | "mr" | undefined = undefined;
 
-    if (choice === "1" || /^(english|en|1\. english)$/i.test(choice) || choice === "lang_en") {
+    if (choice === "1" || /^(english|1\. english)$/i.test(choice) || choice === "lang_en") {
       selectedLang = "en";
     } else if (choice === "2" || /^(हिन्दी|हिंदी|hindi|2\. हिन्दी)$/i.test(choice) || choice === "lang_hi") {
       selectedLang = "hi";
-    } else if (choice === "3" || /^(मराठी|marathi|mr|3\. मराठी)$/i.test(choice) || choice === "lang_mr") {
+    } else if (choice === "3" || /^(मराठी|marathi|3\. मराठी)$/i.test(choice) || choice === "lang_mr") {
       selectedLang = "mr";
     }
 
+    // If no language choice provided in this turn (e.g. user just said "Hi" or "Menu"), prompt for language!
     if (!selectedLang) {
       return {
         text: languagePrompt(),
@@ -451,7 +456,7 @@ export async function handleConversationTurn(
 
   const lang = context.language || "en";
 
-  // 3. User sent a location pin
+  // 2. User sent a location pin
   if (input.type === "location" || (input.latitude && input.longitude)) {
     return {
       text: inLanguage(
@@ -469,21 +474,17 @@ export async function handleConversationTurn(
     };
   }
 
-  // 4. Human Handover Management (Section 11)
+  // 3. Human Handover Management (Section 11)
   if (context.isHandedOver) {
     if (isGreetingText(userText) || lower === "resume" || lower === "menu" || lower === "start") {
       return {
-        text: inLanguage(
-          lang,
-          `🤖 Virtual Assistant Resumed!\n\n${mainMenu(lang)}`,
-          `🤖 वर्चुअल असिस्टेंट पुनः शुरू हो गया!\n\n${mainMenu(lang)}`,
-          `🤖 व्हर्च्युअल असिस्टंट पुन्हा सुरू झाला आहे!\n\n${mainMenu(lang)}`
-        ),
-        interactive: menuList(lang),
-        nextStep: "IDLE",
+        text: languagePrompt(),
+        interactive: languageButtons(),
+        nextStep: "LANGUAGE_SELECT",
         updatedContext: {
           isHandedOver: false,
           handoverReason: undefined,
+          currentStep: "LANGUAGE_SELECT",
         },
       };
     }
@@ -497,7 +498,7 @@ export async function handleConversationTurn(
     };
   }
 
-  // 5. User requests Reception Handover
+  // 4. User requests Reception Handover
   if (
     normalizedText === "9" ||
     lower.includes("reception") ||
@@ -525,7 +526,7 @@ export async function handleConversationTurn(
     };
   }
 
-  // 6. Medical Emergency Safety Rule (Section 12)
+  // 5. Medical Emergency Safety Rule (Section 12)
   if (isEmergencyQuery(userText)) {
     return {
       text: inLanguage(
@@ -543,7 +544,7 @@ export async function handleConversationTurn(
     };
   }
 
-  // 7. Medical Safety Guardrail: Never diagnose or prescribe medicines (Section 12)
+  // 6. Medical Safety Guardrail: Never diagnose or prescribe medicines (Section 12)
   if (isMedicalAdviceQuery(userText)) {
     return {
       text: inLanguage(
@@ -555,7 +556,7 @@ export async function handleConversationTurn(
     };
   }
 
-  // 8. Handle OTP Verification state for Sensitive Records
+  // 7. Handle OTP Verification state for Sensitive Records
   if (context.currentStep === "OTP_VERIFICATION") {
     const cleanOtp = userText.replace(/\D/g, "");
     if (cleanOtp === context.verificationOtp || cleanOtp === "1234") {
@@ -613,7 +614,7 @@ export async function handleConversationTurn(
     }
   }
 
-  // 9. Multi-step Appointment Booking Interrupt check
+  // 8. Multi-step Appointment Booking Interrupt check
   if (
     context.currentStep.startsWith("BOOKING_") ||
     context.currentStep.startsWith("REGISTER_")
@@ -646,16 +647,7 @@ export async function handleConversationTurn(
     return await handleRegisterAddress(userText, context);
   }
 
-  // 10. Greetings when language is already set
-  if (isGreetingText(userText)) {
-    return {
-      text: mainMenu(lang),
-      interactive: menuList(lang),
-      nextStep: "IDLE",
-    };
-  }
-
-  // 11. Top-Level Intent Routing
+  // 9. Top-Level Intent Routing
   const matchedDoc = matchDoctorByName(normalizedText);
   const parsedDate = parseDateInput(userText);
 
@@ -839,7 +831,7 @@ async function initiateAppointmentBooking(
     const docOptions = docs
       .map(
         (d, idx) =>
-          `*${idx + 1}️⃣ ${d.name}*\n   👨‍⚕️ _${d.specialty}_\n   💰 ${inLanguage(lang, "Fee", "शुल्क", "फी")}: ₹${d.consultationFee.firstVisit} (${inLanguage(lang, "First", "पहला", "पहिली भेट")}) / ₹${d.consultationFee.followupVisit} (${inLanguage(lang, "Follow-up", "फ़ॉलो-अप", "फॉलो-अप")})`
+          `*${idx + 1}️⃣ ${d.name}*\n   👨‍⚕️ _${d.specialty}_\n   💰 ${inLanguage(lang, "Fee", "परामर्श शुल्क", "सल्ला शुल्क")}: ₹${d.consultationFee.firstVisit} (${inLanguage(lang, "First Visit", "पहला", "पहिली भेट")}) / ₹${d.consultationFee.followupVisit} (${inLanguage(lang, "Follow-up", "फ़ॉलो-अप", "फॉलो-अप")})`
       )
       .join("\n\n");
 
@@ -849,12 +841,12 @@ async function initiateAppointmentBooking(
         "🏥 *Book an Appointment at Cortex Hospital*\n\nWhich specialist doctor would you like to consult?",
         "🏥 *Cortex Hospital में अपॉइंटमेंट बुक करें*\n\nआप किस विशेषज्ञ डॉक्टर से परामर्श लेना चाहते हैं?",
         "🏥 *Cortex Hospital मध्ये अपॉइंटमेंट बुक करा*\n\nआपल्याला कोणत्या तज्ज्ञ डॉक्टरांचा सल्ला घ्यायचा आहे?"
-      )}\n\n${docOptions}\n\n👉 ${inLanguage(lang, "Please reply *1* or *2* (or tap a doctor below).", "कृपया *1* या *2* भेजें (या नीचे दिए गए डॉक्टर पर टैप करें)।", "कृपया *1* किंवा *2* पाठवा (किंवा खालील डॉक्टरांवर टॅप करा).")}`,
+      )}\n\n${docOptions}\n\n👉 ${inLanguage(lang, "Please reply *1* or *2* (or tap a doctor below).", "कृपया *1* या *2* भेजें (या नीचे दिए गए डॉक्टर पर टैप करें)।", "कृपया *1* किंवा *2* पाठवा (किंवा खालील पर्यायावर टॅप करा).")}`,
       nextStep: "BOOKING_SELECT_DOCTOR",
       updatedContext: { bookingDraft: draft },
       interactive: {
         kind: "buttons",
-        body: inLanguage(lang, "Choose a specialist doctor:", "डॉक्टर चुनें:", "डॉक्टर निवडा:"),
+        body: inLanguage(lang, "Choose a specialist doctor:", "विशेषज्ञ डॉक्टर चुनें:", "तज्ज्ञ डॉक्टर निवडा:"),
         buttons: [
           { id: "doctor_1", title: docs[0]?.name || "Dr. Vipeen Raut" },
           { id: "doctor_2", title: docs[1]?.name || "Dr. Shillpa Raut" },
@@ -888,9 +880,9 @@ async function initiateAppointmentBooking(
         kind: "buttons",
         body: inLanguage(lang, "Select date (DD/MM/YY):", "तारीख चुनें (DD/MM/YY):", "तारीख निवडा (DD/MM/YY):"),
         buttons: [
-          { id: "date_1", title: inLanguage(lang, `1. Today (${todayDmy})`, `1. आज (${todayDmy})`, `1. आज (${todayDmy})`) },
-          { id: "date_2", title: inLanguage(lang, `2. Tomorrow (${tmrwDmy})`, `2. कल (${tmrwDmy})`, `2. उद्या (${tmrwDmy})`) },
-          { id: "date_3", title: inLanguage(lang, `3. Day After (${dayAfterDmy})`, `3. परसों (${dayAfterDmy})`, `3. परवा (${dayAfterDmy})`) },
+          { id: "date_1", title: inLanguage(lang, `Today (${todayDmy})`, `आज (${todayDmy})`, `आज (${todayDmy})`) },
+          { id: "date_2", title: inLanguage(lang, `Tomorrow (${tmrwDmy})`, `कल (${tmrwDmy})`, `उद्या (${tmrwDmy})`) },
+          { id: "date_3", title: inLanguage(lang, `2 Days (${dayAfterDmy})`, `परसों (${dayAfterDmy})`, `परवा (${dayAfterDmy})`) },
         ],
       },
     };
@@ -966,9 +958,9 @@ async function handleBookingSelectDoctor(
       kind: "buttons",
       body: inLanguage(lang, "Select date (DD/MM/YY):", "तारीख चुनें (DD/MM/YY):", "तारीख निवडा (DD/MM/YY):"),
       buttons: [
-        { id: "date_1", title: inLanguage(lang, `1. Today (${todayDmy})`, `1. आज (${todayDmy})`, `1. आज (${todayDmy})`) },
-        { id: "date_2", title: inLanguage(lang, `2. Tomorrow (${tmrwDmy})`, `2. कल (${tmrwDmy})`, `2. उद्या (${tmrwDmy})`) },
-        { id: "date_3", title: inLanguage(lang, `3. Day After (${dayAfterDmy})`, `3. परसों (${dayAfterDmy})`, `3. परवा (${dayAfterDmy})`) },
+        { id: "date_1", title: inLanguage(lang, `Today (${todayDmy})`, `आज (${todayDmy})`, `आज (${todayDmy})`) },
+        { id: "date_2", title: inLanguage(lang, `Tomorrow (${tmrwDmy})`, `कल (${tmrwDmy})`, `उद्या (${tmrwDmy})`) },
+        { id: "date_3", title: inLanguage(lang, `2 Days (${dayAfterDmy})`, `परसों (${dayAfterDmy})`, `परवा (${dayAfterDmy})`) },
       ],
     },
   };
@@ -1004,9 +996,9 @@ async function handleBookingSelectDate(
         kind: "buttons",
         body: inLanguage(lang, "Select date:", "तारीख चुनें:", "तारीख निवडा:"),
         buttons: [
-          { id: "date_1", title: inLanguage(lang, `1. Today (${todayDmy})`, `1. आज (${todayDmy})`, `1. आज (${todayDmy})`) },
-          { id: "date_2", title: inLanguage(lang, `2. Tomorrow (${tmrwDmy})`, `2. कल (${tmrwDmy})`, `2. उद्या (${tmrwDmy})`) },
-          { id: "date_3", title: inLanguage(lang, `3. Day After (${dayAfterDmy})`, `3. परसों (${dayAfterDmy})`, `3. परवा (${dayAfterDmy})`) },
+          { id: "date_1", title: inLanguage(lang, `Today (${todayDmy})`, `आज (${todayDmy})`, `आज (${todayDmy})`) },
+          { id: "date_2", title: inLanguage(lang, `Tomorrow (${tmrwDmy})`, `कल (${tmrwDmy})`, `उद्या (${tmrwDmy})`) },
+          { id: "date_3", title: inLanguage(lang, `2 Days (${dayAfterDmy})`, `परसों (${dayAfterDmy})`, `परवा (${dayAfterDmy})`) },
         ],
       },
     };
@@ -1060,7 +1052,7 @@ async function showAvailableSlotsForDate(
   let slotText = inLanguage(
     lang,
     `📅 *Available Slots on ${dateDmy}*\n👨‍⚕️ Doctor: *${docName}*\n\n👇 *Please reply with the slot number (1, 2, 3...) or tap below:*\n\n`,
-    `📅 *उपलब्ध स्लॉट: ${dateDmy}*\n👨‍⚕️ डॉक्टर: *${docName}*\n\n👇 *कृपया स्लॉट नंबर (1, 2, 3...) भेजें या नीचे टैप करें:*\n\n`,
+    `📅 *उपलब्ध समय: ${dateDmy}*\n👨‍⚕️ डॉक्टर: *${docName}*\n\n👇 *कृपया समय का नंबर (1, 2, 3...) भेजें या नीचे टैप करें:*\n\n`,
     `📅 *उपलब्ध वेळा: ${dateDmy}*\n👨‍⚕️ डॉक्टर: *${docName}*\n\n👇 *कृपया वेळेचा नंबर (1, 2, 3...) पाठवा किंवा खाली टॅप करा:*\n\n`
   );
 
@@ -1069,7 +1061,7 @@ async function showAvailableSlotsForDate(
     const hour12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
     const ampm = h >= 12 ? "PM" : "AM";
     const formatted12 = `${String(hour12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
-    const period = h < 14 ? "☀️" : "🌙";
+    const period = h < 14 ? inLanguage(lang, "Morning", "सुबह", "सकाळ") : inLanguage(lang, "Evening", "शाम", "संध्याकाळ");
     slotText += `*${idx + 1}.* ⏰ ${formatted12} _(${period})_\n`;
   });
 
@@ -1089,13 +1081,13 @@ async function showAvailableSlotsForDate(
       body: inLanguage(
         lang,
         `Available slots on ${dateDmy} with ${docName}:`,
-        `${dateDmy} को ${docName} के उपलब्ध स्लॉट:`,
+        `${dateDmy} को ${docName} के उपलब्ध समय:`,
         `${dateDmy} रोजी ${docName} यांच्या उपलब्ध वेळा:`
       ),
       buttonText: inLanguage(lang, "Choose Slot", "समय चुनें", "वेळ निवडा"),
       sections: [
         {
-          title: inLanguage(lang, "Available Time Slots", "उपलब्ध स्लॉट", "उपलब्ध वेळा"),
+          title: inLanguage(lang, "Available Time Slots", "उपलब्ध समय", "उपलब्ध वेळा"),
           rows: slotData.availableSlots.slice(0, 10).map((slot, index) => {
             const [h, m] = slot.split(":").map(Number);
             const hour12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
@@ -1130,7 +1122,7 @@ async function handleBookingSelectSlot(
 
   let cleanSlot: string | null = null;
 
-  // Check if user selected by single-digit number (1, 2, 3...)
+  // Check if user selected by number (1, 2, 3...)
   const numIndex = parseInt(cleanInput, 10);
   if (!isNaN(numIndex) && numIndex >= 1 && numIndex <= slotData.availableSlots.length) {
     cleanSlot = slotData.availableSlots[numIndex - 1];
@@ -1157,7 +1149,7 @@ async function handleBookingSelectSlot(
       text: inLanguage(
         lang,
         `Please select a valid slot number from the list (e.g. *1*, *2*...):`,
-        `कृपया सूची में से सही स्लॉट नंबर चुनें (जैसे *1*, *2*...):`,
+        `कृपया सूची में से सही नंबर चुनें (जैसे *1*, *2*...):`,
         `कृपया यादीतील वेळेचा योग्य नंबर निवडा (उदा. *1*, *2*...):`
       ),
       nextStep: "BOOKING_SELECT_SLOT",
@@ -1180,8 +1172,8 @@ async function handleBookingSelectSlot(
       text: inLanguage(
         lang,
         `Slot selected: *${cleanSlot}* on *${formatDisplayDate(dateStr)}* with *${docName}*.\n\n👤 Registered Patient: *${existingPatient.name}*\n📱 Registered Mobile: *${existingPatient.phone_number}*\n\n👉 *Please enter the patient's age in years (e.g. 35):*`,
-        `स्लॉट चुना गया: *${cleanSlot}* | तारीख: *${formatDisplayDate(dateStr)}* | डॉक्टर: *${docName}*।\n\n👤 मरीज: *${existingPatient.name}*\n📱 मोबाइल: *${existingPatient.phone_number}*\n\n👉 *कृपया मरीज की आयु (उम्र) वर्षों में बताएं (जैसे 35):*`,
-        `वेळ निवडली: *${cleanSlot}* | तारीख: *${formatDisplayDate(dateStr)}* | डॉक्टर: *${docName}*.\n\n👤 रुग्ण: *${existingPatient.name}*\n📱 मोबाइल: *${existingPatient.phone_number}*\n\n👉 *कृपया रुग्णाचे वय वर्षांमध्ये सांगा (उदा. 35):*`
+        `समय चुना गया: *${cleanSlot}* | तारीख: *${formatDisplayDate(dateStr)}* | डॉक्टर: *${docName}*।\n\n👤 पंजीकृत मरीज: *${existingPatient.name}*\n📱 पंजीकृत मोबाइल: *${existingPatient.phone_number}*\n\n👉 *कृपया मरीज की आयु (उम्र) वर्षों में बताएं (जैसे 35):*`,
+        `वेळ निवडली: *${cleanSlot}* | तारीख: *${formatDisplayDate(dateStr)}* | डॉक्टर: *${docName}*.\n\n👤 नोंदणीकृत रुग्ण: *${existingPatient.name}*\n📱 नोंदणीकृत मोबाइल: *${existingPatient.phone_number}*\n\n👉 *कृपया रुग्णाचे वय वर्षांमध्ये सांगा (उदा. 35):*`
       ),
       nextStep: "REGISTER_AGE",
       updatedContext: {
@@ -1198,7 +1190,7 @@ async function handleBookingSelectSlot(
     text: inLanguage(
       lang,
       `Slot selected: *${cleanSlot}* on *${formatDisplayDate(dateStr)}* with *${docName}*.\n\n👉 *Please enter the patient's full name (e.g. Ramesh Patil):*`,
-      `स्लॉट चुना गया: *${cleanSlot}* | तारीख: *${formatDisplayDate(dateStr)}* | डॉक्टर: *${docName}*।\n\n👉 *कृपया मरीज का पूरा नाम लिखें (जैसे रमेश पाटिल):*`,
+      `समय चुना गया: *${cleanSlot}* | तारीख: *${formatDisplayDate(dateStr)}* | डॉक्टर: *${docName}*।\n\n👉 *कृपया मरीज का पूरा नाम लिखें (जैसे रमेश पाटिल):*`,
       `वेळ निवडली: *${cleanSlot}* | तारीख: *${formatDisplayDate(dateStr)}* | डॉक्टर: *${docName}*.\n\n👉 *कृपया रुग्णाचे पूर्ण नाव लिहा (उदा. रमेश पाटील):*`
     ),
     nextStep: "REGISTER_NAME",
@@ -1226,7 +1218,7 @@ async function handleRegisterName(userText: string, context: AgentContext): Prom
     text: inLanguage(
       lang,
       `Thank you, *${name}*.\n\n👉 *What is the patient's age in years? (e.g. 28):*`,
-      `धन्यवाद, *${name}*।\n\n👉 *मरीज की आयु (उम्र) कितने वर्ष है? (जैसे 28):*`,
+      `धन्यवाद, *${name}*।\n\n👉 *मरीज की उम्र (आयु) कितने वर्ष है? (जैसे 28):*`,
       `धन्यवाद, *${name}*.\n\n👉 *रुग्णाचे वय किती वर्षे आहे? (उदा. 28):*`
     ),
     nextStep: "REGISTER_AGE",
@@ -1677,7 +1669,7 @@ async function handleFollowupQuery(
     text: inLanguage(
       lang,
       `🔔 *RECOMMENDED NEXT FOLLOW-UP*\n━━━━━━━━━━━━━━━━━━━━━\n👨‍⚕️ *Doctor:* ${doctorName}\n📅 *Recommended Date:* ${nextDateDmy}\n📝 *Condition:* ${summary || "Routine Follow-up"}\n\n💡 Consultations within 10 days of your visit are charged at discounted follow-up rates.\n\nWould you like to book your follow-up slot for *${nextDateDmy}*?\nReply *1* to Book this Follow-up.`,
-      `🔔 *अगली अनुशंसित फ़ॉलो-अप तारीख*\n━━━━━━━━━━━━━━━━━━━━━\n👨‍⚕️ *डॉक्टर:* ${doctorName}\n📅 *तारीख:* ${nextDateDmy}\n📝 *स्थिति:* ${summary || "नियमित फ़ॉलो-अप"}\n\n💡 10 दिनों के भीतर परामर्श पर रियायती दर लागू होती है।\n\nक्या आप *${nextDateDmy}* के लिए स्लॉट बुक करना चाहते हैं?\n*1* भेजें।`,
+      `🔔 *अगली अनुशंसित फ़ॉलो-अप तारीख*\n━━━━━━━━━━━━━━━━━━━━━\n👨‍⚕️ *डॉक्टर:* ${doctorName}\n📅 *तारीख:* ${nextDateDmy}\n📝 *स्थिति:* ${summary || "नियमित फ़ॉलो-अप"}\n\n💡 10 दिनों के भीतर परामर्श पर रियायती दर लागू होती है।\n\nक्या आप *${nextDateDmy}* के लिए समय बुक करना चाहते हैं?\n*1* भेजें।`,
       `🔔 *पुढील फॉलो-अप तारीख*\n━━━━━━━━━━━━━━━━━━━━━\n👨‍⚕️ *डॉक्टर:* ${doctorName}\n📅 *तारीख:* ${nextDateDmy}\n📝 *तपासणी:* ${summary || "नियमित फॉलो-अप"}\n\n💡 10 दिवसांच्या आत तपासणी केल्यास कमी शुल्क आकारले जाते.\n\nआपण *${nextDateDmy}* साठी वेळ आरक्षित करू इच्छिता का?\n*1* पाठवा.`
     ),
     nextStep: "IDLE",
@@ -1704,7 +1696,7 @@ async function handleDoctorAvailabilityQuery(
   const docProfiles = docs
     .map(
       (d) =>
-        `👨‍⚕️ *${d.name}*\n📜 ${d.degrees}\n🩺 *${inLanguage(lang, "Specialty", "विशेषज्ञता", "तज्ज्ञ")}:* ${d.specialty}\n⏰ *${inLanguage(lang, "Timings", "समय", "वेळ")}:* ${d.scheduleDescription}\n💰 *${inLanguage(lang, "Fees", "शुल्क", "फी")}:* ₹${d.consultationFee.firstVisit} (${inLanguage(lang, "First", "पहला", "पहिली भेट")}) | ₹${d.consultationFee.followupVisit} (${inLanguage(lang, "Follow-up", "फ़ॉलो-अप", "फॉलो-अप")})`
+        `👨‍⚕️ *${d.name}*\n📜 ${d.degrees}\n🩺 *${inLanguage(lang, "Specialty", "विशेषज्ञता", "तज्ज्ञ")}:* ${d.specialty}\n⏰ *${inLanguage(lang, "Timings", "समय", "वेळ")}:* ${d.scheduleDescription}\n💰 *${inLanguage(lang, "Fees", "परामर्श शुल्क", "सल्ला शुल्क")}:* ₹${d.consultationFee.firstVisit} (${inLanguage(lang, "First Visit", "पहला", "पहिली भेट")}) | ₹${d.consultationFee.followupVisit} (${inLanguage(lang, "Follow-up", "फ़ॉलो-अप", "फॉलो-अप")})`
     )
     .join("\n\n");
 
