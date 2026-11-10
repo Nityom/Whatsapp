@@ -194,17 +194,20 @@ export function detectLanguageChoice(
 
 /** Check if user wants to change language */
 export function isLanguageChangeQuery(text: string): boolean {
-  const clean = text.toLowerCase().trim();
-  return (
-    clean === "10" ||
-    clean === "change language" ||
-    clean === "language" ||
-    clean === "bhasha" ||
-    clean === "भाषा" ||
-    clean === "भाषा बदला" ||
-    clean === "भाषा बदलें" ||
-    clean === "lang"
-  );
+  const clean = (text || "").toLowerCase().trim();
+  const normalized = clean.startsWith("menu_") ? clean.replace("menu_", "") : clean;
+
+  if (normalized === "10" || normalized === "10.") return true;
+  if (/^10\.\s*(change language|भाषा|language)/i.test(clean)) return true;
+  if (clean.includes("change language") || clean.includes("language") || clean === "lang") return true;
+  if (
+    clean.includes("भाषा") ||
+    clean.includes("bhasha") ||
+    clean.includes("basha") ||
+    /b[h]?as[h]?a\s*bad[a-z]+/i.test(clean)
+  ) return true;
+
+  return false;
 }
 
 /** Check if user query is an interruption of an active sub-step */
@@ -484,7 +487,7 @@ export async function handleConversationTurn(
   }
 
   // 1b. User explicitly asks to change language (Option 10 or typing "language", "भाषा बदलें", etc.)
-  if (isLanguageChangeQuery(userText)) {
+  if (isLanguageChangeQuery(userText) || isLanguageChangeQuery(normalizedText)) {
     return {
       text: languagePrompt(),
       interactive: languageButtons(),
@@ -771,7 +774,7 @@ export async function handleConversationTurn(
     return await handleMyAppointments(input.phoneNumber, userText, context);
   }
 
-  // 3: My Prescriptions
+  // 3: My Prescriptions (No OTP required)
   if (
     normalizedText === "3" ||
     lower.includes("prescription") ||
@@ -783,10 +786,10 @@ export async function handleConversationTurn(
     lower.includes("medicine list") ||
     lower.includes("aushadh")
   ) {
-    return await initiateSecureAccess(input.phoneNumber, context, "VIEW_PRESCRIPTION");
+    return await handlePrescriptionQuery(input.phoneNumber, context);
   }
 
-  // 4: Bills & Payments
+  // 4: Bills & Payments (No OTP required)
   if (
     normalizedText === "4" ||
     lower.includes("bill") ||
@@ -800,7 +803,7 @@ export async function handleConversationTurn(
     lower.includes("kharcha") ||
     lower.includes("paisa")
   ) {
-    return await initiateSecureAccess(input.phoneNumber, context, "VIEW_BILL");
+    return await handleBillingQuery(input.phoneNumber, context);
   }
 
   // 5: Next Follow-up
@@ -834,7 +837,7 @@ export async function handleConversationTurn(
     return await handleDoctorAvailabilityQuery(userText, context);
   }
 
-  // 7: Laboratory Reports
+  // 7: Laboratory Reports (No OTP required)
   if (
     normalizedText === "7" ||
     lower.includes("lab") ||
@@ -846,7 +849,7 @@ export async function handleConversationTurn(
     lower.includes("blood test") ||
     lower.includes("tapasni")
   ) {
-    return await initiateSecureAccess(input.phoneNumber, context, "VIEW_LAB");
+    return await handleLabReportsQuery(input.phoneNumber, context);
   }
 
   // 8: Hospital Information & Location
@@ -865,6 +868,20 @@ export async function handleConversationTurn(
     lower.includes("wardha")
   ) {
     return await handleHospitalInfoQuery(userText, context);
+  }
+
+  // 10: Change Language (bhasha badle / भाषा बदलें)
+  if (
+    normalizedText === "10" ||
+    isLanguageChangeQuery(userText) ||
+    isLanguageChangeQuery(normalizedText)
+  ) {
+    return {
+      text: languagePrompt(),
+      interactive: languageButtons(),
+      nextStep: "LANGUAGE_SELECT",
+      updatedContext: { currentStep: "LANGUAGE_SELECT" },
+    };
   }
 
   // Default fallback in user's selected language
@@ -1575,7 +1592,7 @@ async function handleMyAppointments(
 }
 
 /* =========================================================================
-   SECURE PATIENT RECORD ACCESS (OTP VERIFICATION)
+   PATIENT RECORD ACCESS (DIRECT ACCESS - NO OTP REQUIRED)
    ========================================================================= */
 
 async function initiateSecureAccess(
@@ -1583,30 +1600,10 @@ async function initiateSecureAccess(
   context: AgentContext,
   action: "VIEW_PRESCRIPTION" | "VIEW_BILL" | "VIEW_LAB"
 ): Promise<AgentResponse> {
-  const lang = context.language || "en";
-
-  if (context.isVerified) {
-    if (action === "VIEW_PRESCRIPTION") return await handlePrescriptionQuery(phoneNumber, context);
-    if (action === "VIEW_BILL") return await handleBillingQuery(phoneNumber, context);
-    if (action === "VIEW_LAB") return await handleLabReportsQuery(phoneNumber, context);
-  }
-
-  const otp = Math.floor(1000 + Math.random() * 9000).toString();
-
-  return {
-    text: inLanguage(
-      lang,
-      `🔐 *Patient Privacy Verification*\n\nTo securely protect your medical and billing records, we've generated a one-time verification code:\n\n🔑 Your 4-digit code: *${otp}*\n\nPlease enter this 4-digit code here to verify your identity.`,
-      `🔐 *गोपनीयता सुरक्षा सत्यापन*\n\nआपके मेडिकल और बिलिंग रिकॉर्ड की सुरक्षा के लिए एक ओटीपी कोड जनरेट किया गया है:\n\n🔑 आपका 4-अंकीय कोड: *${otp}*\n\nकृपया अपनी पहचान सत्यापित करने के लिए यह कोड यहाँ भेजें।`,
-      `🔐 *रुग्ण गोपनीयता पडताळणी*\n\nआपल्या वैद्यकीय व बिलिंग रेकॉर्डच्या सुरक्षेसाठी एक सुरक्षित ओटीपी कोड तयार केला आहे:\n\n🔑 आपला 4-अंकी कोड: *${otp}*\n\nकृपया आपली ओळख सिद्ध करण्यासाठी हा 4-अंकी कोड येथे पाठवा.`
-    ),
-    nextStep: "OTP_VERIFICATION",
-    updatedContext: {
-      verificationOtp: otp,
-      otpExpiresAt: Date.now() + 5 * 60 * 1000,
-      pendingAction: action,
-    },
-  };
+  if (action === "VIEW_PRESCRIPTION") return await handlePrescriptionQuery(phoneNumber, context);
+  if (action === "VIEW_BILL") return await handleBillingQuery(phoneNumber, context);
+  if (action === "VIEW_LAB") return await handleLabReportsQuery(phoneNumber, context);
+  return await handlePrescriptionQuery(phoneNumber, context);
 }
 
 /* =========================================================================

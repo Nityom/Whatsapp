@@ -334,7 +334,7 @@ export default function HomePage() {
     { label: '🏥 Book Appointment (Dr. Vipeen Raut)', text: 'I want to see Dr. Vipeen Raut tomorrow' },
     { label: '🌸 Book Appointment (Dr. Shillpa Raut)', text: 'Dr. Shillpa Raut se appointment leni hai' },
     { label: '👨‍⚕️ Doctor Availability & Timings', text: '6' },
-    { label: '💊 My Prescriptions (Secure OTP)', text: '3' },
+    { label: '💊 My Prescriptions', text: '3' },
     { label: '🧾 Check Pending Bill', text: '4' },
     { label: '🔔 Check Next Follow-up', text: '5' },
     { label: '🧪 Laboratory Reports', text: '7' },

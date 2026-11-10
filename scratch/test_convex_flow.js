@@ -72,8 +72,8 @@ async function run() {
   }
   console.log('✅ Test 3 Passed\n');
 
-  // Test 4: Prescription Request & Secure OTP Protection (Section 3 & 4)
-  console.log('--- Test 4: Secure Prescription Access (OTP Required) ---');
+  // Test 4: Prescription Direct Access (No OTP Required)
+  console.log('--- Test 4: Direct Prescription Access (No OTP Required) ---');
   res = await processIncomingMessage({
     phoneNumber: TEST_PHONE,
     type: 'text',
@@ -81,26 +81,37 @@ async function run() {
   });
   console.log('Bot replied:\n', res.text);
   session = await convex.query(api.sessions.getWhatsAppSession, { phoneNumber: TEST_PHONE });
-  console.log('OTP step:', session?.currentStep, 'OTP code:', session?.verificationOtp);
-  if (session?.currentStep !== 'OTP_VERIFICATION' || !session?.verificationOtp) {
-    throw new Error('Test 4 failed: Expected OTP_VERIFICATION step');
+  if (session?.currentStep === 'OTP_VERIFICATION') {
+    throw new Error('Test 4 failed: OTP should NOT be required');
   }
-  console.log('✅ Test 4 Passed\n');
+  if (!res.text.includes('No prescriptions found') && !res.text.includes('DIGITAL PRESCRIPTION')) {
+    throw new Error('Test 4 failed: Expected prescription result');
+  }
+  console.log('✅ Test 4 Passed: Prescription returned directly without OTP!\n');
 
-  // Test 5: Submit Verification Code
-  console.log('--- Test 5: Patient submits OTP code ---');
+  // Test 5: "basha badle" / Change Language Button Verification
+  console.log('--- Test 5: "basha badle" / Change Language Button Verification ---');
   res = await processIncomingMessage({
     phoneNumber: TEST_PHONE,
     type: 'text',
-    text: session.verificationOtp,
+    text: 'basha badle',
   });
-  console.log('Bot replied:\n', res.text);
-  session = await convex.query(api.sessions.getWhatsAppSession, { phoneNumber: TEST_PHONE });
-  console.log('Is verified:', session?.isVerified);
-  if (!session?.isVerified) {
-    throw new Error('Test 5 failed: Session should be verified');
+  console.log('Bot replied to "basha badle":\n', res.text);
+  if (!res.text.includes('Welcome to Cortex Hospital') || !res.text.includes('मराठी')) {
+    throw new Error('Test 5 failed: "basha badle" should trigger language selection prompt');
   }
-  console.log('✅ Test 5 Passed\n');
+
+  // Also test clicking menu_10 from interactive list
+  res = await processIncomingMessage({
+    phoneNumber: TEST_PHONE,
+    type: 'interactive',
+    text: 'menu_10',
+  });
+  console.log('Bot replied to "menu_10":\n', res.text);
+  if (!res.text.includes('Welcome to Cortex Hospital') || !res.text.includes('मराठी')) {
+    throw new Error('Test 5 failed: "menu_10" should trigger language selection prompt');
+  }
+  console.log('✅ Test 5 Passed: "basha badle" and "menu_10" button both work!\n');
 
   // Test 6: Marathi Language Switching
   console.log('--- Test 6: Language switch to Marathi ---');
