@@ -26,6 +26,7 @@ import {
   normalizePhone,
   matchDoctorByName,
   PatientRecord,
+  DetailedSlot,
 } from "./cortexClient";
 import { WhatsAppLocationPayload, WhatsAppInteractive } from "./whatsapp";
 
@@ -47,7 +48,10 @@ export interface AgentContext {
     doctorName?: string;
     specialty?: string;
     date?: string; // YYYY-MM-DD
-    slot?: string; // HH:mm
+    session?: "morning" | "evening";
+    currentSession?: "morning" | "evening";
+    slot?: string; // e.g. "10:30 AM – 10:45 AM"
+    slotTime?: string; // "10:30"
     patientName?: string;
     patientAge?: string;
     patientPhone?: string;
@@ -453,6 +457,10 @@ export async function handleConversationTurn(
   // Normalize interactive button / list clicks
   if (/^(doctor|date|slot|sex)_\d+$/.test(choiceId)) {
     userText = choiceId.split("_")[1];
+  } else if (choiceId === "session_morning") {
+    userText = "morning";
+  } else if (choiceId === "session_evening") {
+    userText = "evening";
   }
   const lower = userText.toLowerCase();
   const normalizedText = lower.startsWith("menu_")
@@ -696,6 +704,9 @@ export async function handleConversationTurn(
   }
   if (context.currentStep === "BOOKING_SELECT_DATE") {
     return await handleBookingSelectDate(userText, context);
+  }
+  if (context.currentStep === "BOOKING_SELECT_SESSION") {
+    return await handleBookingSelectSession(userText, context);
   }
   if (context.currentStep === "BOOKING_SELECT_SLOT") {
     return await handleBookingSelectSlot(userText, context);
@@ -971,8 +982,20 @@ async function initiateAppointmentBooking(
     };
   }
 
-  // Doctor and Date are both known: proceed directly to registration (no slot selection options)
-  return await proceedToPatientRegistration(draft.date, draft.doctorName, draft, context);
+  // Doctor and Date are both known: ask for Session (Morning or Evening) or show session slots if specified
+  const clean = userText.toLowerCase();
+  let session: "morning" | "evening" | null = null;
+  if (clean.includes("morn") || clean.includes("subah") || clean.includes("sakal")) {
+    session = "morning";
+  } else if (clean.includes("even") || clean.includes("sham") || clean.includes("shaam") || clean.includes("sandhya")) {
+    session = "evening";
+  }
+
+  if (session) {
+    return await showAvailableSlotsForSession(draft.date, draft.doctorName, session, draft, context);
+  }
+
+  return await promptBookingSession(draft.date, draft.doctorName, draft, context);
 }
 
 async function handleBookingSelectDoctor(
@@ -1088,7 +1111,21 @@ async function handleBookingSelectDate(
   }
 
   const docName = context.bookingDraft?.doctorName || "Dr. Vipeen Raut";
-  return await proceedToPatientRegistration(parsedDate, docName, context.bookingDraft || {}, context);
+  const draft = context.bookingDraft || {};
+
+  const clean = userText.toLowerCase();
+  let session: "morning" | "evening" | null = null;
+  if (clean.includes("morn") || clean.includes("subah") || clean.includes("sakal")) {
+    session = "morning";
+  } else if (clean.includes("even") || clean.includes("sham") || clean.includes("shaam") || clean.includes("sandhya")) {
+    session = "evening";
+  }
+
+  if (session) {
+    return await showAvailableSlotsForSession(parsedDate, docName, session, draft, context);
+  }
+
+  return await promptBookingSession(parsedDate, docName, draft, context);
 }
 
 async function proceedToPatientRegistration(
@@ -1237,17 +1274,18 @@ async function proceedToPatientRegistration(
   };
 }
 
-async function showAvailableSlotsForDate(
+async function promptBookingSession(
   dateStr: string,
   docName: string,
   draft: Record<string, any>,
   context: AgentContext
 ): Promise<AgentResponse> {
   const lang = context.language || "en";
-  const slotData = await getAvailableSlots(dateStr, docName);
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const checkDate = new Date(year, month - 1, day);
   const dateDmy = formatDisplayDate(dateStr);
 
-  if (slotData.isSunday) {
+  if (checkDate.getDay() === 0) {
     return {
       text: inLanguage(
         lang,
@@ -1260,69 +1298,177 @@ async function showAvailableSlotsForDate(
     };
   }
 
-  if (slotData.availableSlots.length === 0) {
+  const updatedDraft = {
+    ...draft,
+    date: dateStr,
+    doctorName: docName,
+  };
+
+  return {
+    text: inLanguage(
+      lang,
+      `📅 *Appointment Date:* ${dateDmy}\n👨‍⚕️ *Doctor:* ${docName}\n\n👇 *Please choose an OPD session:*\n1️⃣ 🌅 Morning (10:30 AM – 1:00 PM)\n2️⃣ 🌆 Evening (6:00 PM – 7:30 PM)\n\n👉 *Tap an option below or reply with 1 (Morning) or 2 (Evening):*`,
+      `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n\n👇 *कृपया समय चुनें (Session):*\n1️⃣ 🌅 सुबह (Morning: 10:30 AM – 1:00 PM)\n2️⃣ 🌆 शाम (Evening: 6:00 PM – 7:30 PM)\n\n👉 *नीचे बटन दबाएं या 1 (सुबह) या 2 (शाम) भेजें:*`,
+      `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n\n👇 *कृपया सत्राची निवड करा (Session):*\n1️⃣ 🌅 सकाळ (Morning: 10:30 AM – 1:00 PM)\n2️⃣ 🌆 संध्याकाळ (Evening: 6:00 PM – 7:30 PM)\n\n👉 *खालील बटणावर टॅप करा किंवा 1 (सकाळ) किंवा 2 (संध्याकाळ) पाठवा:*`
+    ),
+    nextStep: "BOOKING_SELECT_SESSION",
+    updatedContext: { bookingDraft: updatedDraft },
+    interactive: {
+      kind: "buttons",
+      body: inLanguage(lang, "Choose Session:", "सत्र चुनें:", "सत्र निवडा:"),
+      buttons: [
+        { id: "session_morning", title: inLanguage(lang, "🌅 Morning", "🌅 सुबह", "🌅 सकाळ") },
+        { id: "session_evening", title: inLanguage(lang, "🌆 Evening", "🌆 शाम", "🌆 संध्याकाळ") },
+      ],
+    },
+  };
+}
+
+async function handleBookingSelectSession(
+  userText: string,
+  context: AgentContext
+): Promise<AgentResponse> {
+  const lang = context.language || "en";
+  const draft = context.bookingDraft || {};
+  const clean = userText.toLowerCase().trim();
+
+  let session: "morning" | "evening" | null = null;
+  if (
+    clean === "1" ||
+    clean === "session_morning" ||
+    clean.includes("morn") ||
+    clean.includes("subah") ||
+    clean.includes("sakal")
+  ) {
+    session = "morning";
+  } else if (
+    clean === "2" ||
+    clean === "session_evening" ||
+    clean.includes("even") ||
+    clean.includes("sham") ||
+    clean.includes("shaam") ||
+    clean.includes("sandhya")
+  ) {
+    session = "evening";
+  }
+
+  if (!session) {
     return {
       text: inLanguage(
         lang,
-        `⚠️ All appointment slots with *${docName}* on *${dateDmy}* are fully booked.\n\nWould you like to check availability for the next day? Reply *Tomorrow* or specify another date.`,
-        `⚠️ *${docName}* के साथ *${dateDmy}* के सभी स्लॉट भर चुके हैं।\n\nक्या आप अगले दिन का समय देखना चाहते हैं? *कल* भेजें या कोई अन्य तारीख लिखें।`,
-        `⚠️ *${docName}* यांच्याकडे *${dateDmy}* रोजी सर्व वेळा आरक्षित झाल्या आहेत.\n\nआपण पुढच्या दिवसाची वेळ पाहू इच्छिता का? *उद्या* पाठवा किंवा दुसरी तारीख लिहा.`
+        `Please choose a valid session:\n1️⃣ 🌅 Morning (10:30 AM – 1:00 PM)\n2️⃣ 🌆 Evening (6:00 PM – 7:30 PM)\n\n👉 Reply *1* or *2* (or tap below).`,
+        `कृपया सही विकल्प चुनें:\n1️⃣ 🌅 सुबह (10:30 AM – 1:00 PM)\n2️⃣ 🌆 शाम (6:00 PM – 7:30 PM)\n\n👉 *1* या *2* भेजें।`,
+        `कृपया योग्य पर्याय निवडा:\n1️⃣ 🌅 सकाळ (10:30 AM – 1:00 PM)\n2️⃣ 🌆 संध्याकाळ (6:00 PM – 7:30 PM)\n\n👉 *1* किंवा *2* पाठवा.`
       ),
-      nextStep: "BOOKING_SELECT_DATE",
-      updatedContext: { bookingDraft: draft },
+      nextStep: "BOOKING_SELECT_SESSION",
+      interactive: {
+        kind: "buttons",
+        body: inLanguage(lang, "Choose Session:", "सत्र चुनें:", "सत्र निवडा:"),
+        buttons: [
+          { id: "session_morning", title: inLanguage(lang, "🌅 Morning", "🌅 सुबह", "🌅 सकाळ") },
+          { id: "session_evening", title: inLanguage(lang, "🌆 Evening", "🌆 शाम", "🌆 संध्याकाळ") },
+        ],
+      },
+    };
+  }
+
+  const dateStr = draft.date || formatDate(new Date());
+  const docName = draft.doctorName || "Dr. Vipeen Raut";
+  return await showAvailableSlotsForSession(dateStr, docName, session, draft, context);
+}
+
+async function showAvailableSlotsForSession(
+  dateStr: string,
+  docName: string,
+  session: "morning" | "evening",
+  draft: Record<string, any>,
+  context: AgentContext
+): Promise<AgentResponse> {
+  const lang = context.language || "en";
+  const slotData = await getAvailableSlots(dateStr, docName);
+  const dateDmy = formatDisplayDate(dateStr);
+
+  const slotsList: DetailedSlot[] = session === "morning" ? slotData.morningSlots : slotData.eveningSlots;
+  const sessionName = session === "morning"
+    ? inLanguage(lang, "Morning (10:30 AM – 1:00 PM)", "सुबह (10:30 AM – 1:00 PM)", "सकाळ (10:30 AM – 1:00 PM)")
+    : inLanguage(lang, "Evening (6:00 PM – 7:30 PM)", "शाम (6:00 PM – 7:30 PM)", "संध्याकाळ (6:00 PM – 7:30 PM)");
+
+  const oppositeSession = session === "morning" ? "Evening" : "Morning";
+  const oppositeLabel = session === "morning"
+    ? inLanguage(lang, "Evening (6:00 PM – 7:30 PM)", "शाम (6:00 PM – 7:30 PM)", "संध्याकाळ (6:00 PM – 7:30 PM)")
+    : inLanguage(lang, "Morning (10:30 AM – 1:00 PM)", "सुबह (10:30 AM – 1:00 PM)", "सकाळ (10:30 AM – 1:00 PM)");
+
+  const availableInSession = slotsList.filter((s) => !s.isBooked);
+  if (availableInSession.length === 0) {
+    return {
+      text: inLanguage(
+        lang,
+        `⚠️ All ${session} slots on *${dateDmy}* with *${docName}* are fully booked.\n\n👉 Would you like to check *${oppositeSession}* slots? Reply *${oppositeSession}* or specify another date.`,
+        `⚠️ *${dateDmy}* को ${docName} के सभी ${session === "morning" ? "सुबह" : "शाम"} के स्लॉट बुक हो चुके हैं।\n\n👉 क्या आप ${session === "morning" ? "शाम" : "सुबह"} के स्लॉट देखना चाहते हैं? *${session === "morning" ? "शाम" : "सुबह"}* लिखें या दूसरी तारीख बताएं।`,
+        `⚠️ *${dateDmy}* रोजी ${docName} यांच्या सर्व ${session === "morning" ? "सकाळच्या" : "संध्याकाळच्या"} वेळा बुक झाल्या आहेत.\n\n👉 आपण ${session === "morning" ? "संध्याकाळच्या" : "सकाळच्या"} वेळा पाहू इच्छिता का? *${session === "morning" ? "संध्याकाळ" : "सकाळ"}* लिहा किंवा दुसरी तारीख सांगा.`
+      ),
+      nextStep: "BOOKING_SELECT_SESSION",
+      updatedContext: { bookingDraft: { ...draft, date: dateStr, doctorName: docName } },
     };
   }
 
   let slotText = inLanguage(
     lang,
-    `📅 *Available Slots on ${dateDmy}*\n👨‍⚕️ Doctor: *${docName}*\n\n👇 *Please reply with the slot number (1, 2, 3...) or tap below:*\n\n`,
-    `📅 *उपलब्ध समय: ${dateDmy}*\n👨‍⚕️ डॉक्टर: *${docName}*\n\n👇 *कृपया समय का नंबर (1, 2, 3...) भेजें या नीचे टैप करें:*\n\n`,
-    `📅 *उपलब्ध वेळा: ${dateDmy}*\n👨‍⚕️ डॉक्टर: *${docName}*\n\n👇 *कृपया वेळेचा नंबर (1, 2, 3...) पाठवा किंवा खाली टॅप करा:*\n\n`
+    `📅 *${session === "morning" ? "🌅 Morning" : "🌆 Evening"} Slots on ${dateDmy}*\n👨‍⚕️ *Doctor:* ${docName}\n⏰ *OPD Timings:* ${session === "morning" ? "10:30 AM – 1:00 PM" : "6:00 PM – 7:30 PM"}\n\n👇 *Please select your preferred 15-min slot:*\n\n`,
+    `📅 *${session === "morning" ? "🌅 सुबह" : "🌆 शाम"} के स्लॉट: ${dateDmy}*\n👨‍⚕️ *डॉक्टर:* ${docName}\n⏰ *OPD समय:* ${session === "morning" ? "10:30 AM – 1:00 PM" : "6:00 PM – 7:30 PM"}\n\n👇 *कृपया 15 मिनट का समय चुनें:*\n\n`,
+    `📅 *${session === "morning" ? "🌅 सकाळ" : "🌆 संध्याकाळ"}च्या वेळा: ${dateDmy}*\n👨‍⚕️ *डॉक्टर:* ${docName}\n⏰ *OPD वेळ:* ${session === "morning" ? "10:30 AM – 1:00 PM" : "6:00 PM – 7:30 PM"}\n\n👇 *कृपया 15 मिनिटांची वेळ निवडा:*\n\n`
   );
 
-  slotData.availableSlots.forEach((slot, idx) => {
-    const [h, m] = slot.split(":").map(Number);
-    const hour12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
-    const ampm = h >= 12 ? "PM" : "AM";
-    const formatted12 = `${String(hour12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
-    const period = h < 14 ? inLanguage(lang, "Morning", "सुबह", "सकाळ") : inLanguage(lang, "Evening", "शाम", "संध्याकाळ");
-    slotText += `*${idx + 1}.* ⏰ ${formatted12} _(${period})_\n`;
+  slotsList.forEach((s, idx) => {
+    const num = idx + 1;
+    if (s.isBooked) {
+      slotText += `*${num}.* ⏰ ${s.display} *(Booked 🚫)*\n`;
+    } else {
+      slotText += `*${num}.* ⏰ ${s.display}\n`;
+    }
   });
 
   slotText += inLanguage(
     lang,
-    `\n👉 Reply with any number (*1*, *2*, *3*...) or tap a time slot.`,
-    `\n👉 कोई भी नंबर (*1*, *2*, *3*...) भेजें या समय पर टैप करें।`,
-    `\n👉 कोणताही एक नंबर (*1*, *2*, *3*...) पाठवा किंवा वेळेवर टॅप करा.`
+    `\n👉 *Reply with the slot number (e.g. 1, 2, 3...) or tap below:*\n_(Reply *${oppositeSession}* to switch to ${oppositeLabel})_`,
+    `\n👉 *स्लॉट नंबर (जैसे 1, 2, 3...) भेजें या नीचे टैप करें:*\n_(${session === "morning" ? "शाम" : "सुबह"} के स्लॉट देखने के लिए *${session === "morning" ? "शाम" : "सुबह"}* लिखें)_`,
+    `\n👉 *वेळेचा नंबर (उदा. 1, 2, 3...) पाठवा किंवा खाली टॅप करा:*\n_(${session === "morning" ? "संध्याकाळ" : "सकाळ"}च्या वेळा पाहण्यासाठी *${session === "morning" ? "संध्याकाळ" : "सकाळ"}* लिहा)_`
   );
+
+  const updatedDraft = {
+    ...draft,
+    date: dateStr,
+    doctorName: docName,
+    currentSession: session,
+  };
+
+  // Only AVAILABLE slots are clickable in the WhatsApp interactive list! Booked slots are omitted so they cannot be clicked.
+  const interactiveRows = availableInSession.map((s) => {
+    const overallIndex = slotsList.findIndex((item) => item.slot === s.slot) + 1;
+    return {
+      id: `slot_${overallIndex}`,
+      title: `${overallIndex}. ${s.display}`,
+      description: session === "morning" ? "Morning OPD" : "Evening OPD",
+    };
+  });
 
   return {
     text: slotText,
     nextStep: "BOOKING_SELECT_SLOT",
-    updatedContext: { bookingDraft: draft },
+    updatedContext: { bookingDraft: updatedDraft },
     interactive: {
       kind: "list",
       body: inLanguage(
         lang,
-        `Available slots on ${dateDmy} with ${docName}:`,
-        `${dateDmy} को ${docName} के उपलब्ध समय:`,
-        `${dateDmy} रोजी ${docName} यांच्या उपलब्ध वेळा:`
+        `Choose available slot (${sessionName}):`,
+        `उपलब्ध समय चुनें (${sessionName}):`,
+        `उपलब्ध वेळ निवडा (${sessionName}):`
       ),
       buttonText: inLanguage(lang, "Choose Slot", "समय चुनें", "वेळ निवडा"),
       sections: [
         {
-          title: inLanguage(lang, "Available Time Slots", "उपलब्ध समय", "उपलब्ध वेळा"),
-          rows: slotData.availableSlots.slice(0, 10).map((slot, index) => {
-            const [h, m] = slot.split(":").map(Number);
-            const hour12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
-            const ampm = h >= 12 ? "PM" : "AM";
-            const formatted12 = `${String(hour12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
-            return {
-              id: `slot_${index + 1}`,
-              title: `${index + 1}. ${formatted12}`,
-              description: slot,
-            };
-          }),
+          title: inLanguage(lang, "Available 15-min Slots", "उपलब्ध 15 मिनट स्लॉट", "उपलब्ध 15 मिनिटांच्या वेळा"),
+          rows: interactiveRows.slice(0, 10),
         },
       ],
     },
@@ -1339,21 +1485,33 @@ async function handleBookingSelectSlot(
     return await initiateAppointmentBooking(userText, context);
   }
 
+  const cleanInput = userText.trim().toLowerCase();
   const dateStr = draft.date;
   const docName = draft.doctorName || "Dr. Vipeen Raut";
-  const slotData = await getAvailableSlots(dateStr, docName);
-  const cleanInput = userText.trim().toLowerCase();
+  const currentSession: "morning" | "evening" = draft.currentSession || "morning";
 
-  let cleanSlot: string | null = null;
-
-  // Check if user selected by number (1, 2, 3...)
-  const numIndex = parseInt(cleanInput, 10);
-  if (!isNaN(numIndex) && numIndex >= 1 && numIndex <= slotData.availableSlots.length) {
-    cleanSlot = slotData.availableSlots[numIndex - 1];
+  // Check if user wants to switch session (e.g. "evening" or "morning")
+  if (cleanInput.includes("even") || cleanInput.includes("sham") || cleanInput.includes("shaam") || cleanInput.includes("sandhya")) {
+    return await showAvailableSlotsForSession(dateStr, docName, "evening", draft, context);
+  }
+  if (cleanInput.includes("morn") || cleanInput.includes("subah") || cleanInput.includes("sakal")) {
+    return await showAvailableSlotsForSession(dateStr, docName, "morning", draft, context);
   }
 
-  // Fallback: Check if user typed formatted time e.g. "10:00" or "10:00 AM"
-  if (!cleanSlot) {
+  const slotData = await getAvailableSlots(dateStr, docName);
+  const slotsList: DetailedSlot[] = currentSession === "morning" ? slotData.morningSlots : slotData.eveningSlots;
+
+  // Check if selected via "slot_X" or numeric index e.g. "1", "2"
+  const slotMatch = cleanInput.match(/^slot_(\d+)$/i);
+  const numIndex = slotMatch ? parseInt(slotMatch[1], 10) : parseInt(cleanInput, 10);
+
+  let matchedDetailed: DetailedSlot | undefined;
+  if (!isNaN(numIndex) && numIndex >= 1 && numIndex <= slotsList.length) {
+    matchedDetailed = slotsList[numIndex - 1];
+  }
+
+  // Fallback: match by time text e.g. "10:30", "10:30 am", "6:15", "10:30 - 10:45"
+  if (!matchedDetailed) {
     const timeMatch = cleanInput.match(/(\d{1,2})[:.](\d{2})\s*(am|pm)?/i);
     if (timeMatch) {
       let h = parseInt(timeMatch[1], 10);
@@ -1362,64 +1520,43 @@ async function handleBookingSelectSlot(
       if (meridiem === "pm" && h < 12) h += 12;
       if (meridiem === "am" && h === 12) h = 0;
       const targetTime = `${String(h).padStart(2, "0")}:${m}`;
-      if (slotData.availableSlots.includes(targetTime)) {
-        cleanSlot = targetTime;
-      }
+
+      matchedDetailed = slotsList.find((s) => s.slot === targetTime) ||
+        [...slotData.morningSlots, ...slotData.eveningSlots].find((s) => s.slot === targetTime);
     }
   }
 
-  if (!cleanSlot) {
+  if (!matchedDetailed) {
     return {
       text: inLanguage(
         lang,
-        `Please select a valid slot number from the list (e.g. *1*, *2*...):`,
-        `कृपया सूची में से सही नंबर चुनें (जैसे *1*, *2*...):`,
-        `कृपया यादीतील वेळेचा योग्य नंबर निवडा (उदा. *1*, *2*...):`
+        `⚠️ Please reply with a valid slot number (e.g. *1*, *2*...) or tap "Choose Slot" below:`,
+        `⚠️ कृपया सही स्लॉट नंबर भेजें (जैसे *1*, *2*...) या नीचे "समय चुनें" पर टैप करें:`,
+        `⚠️ कृपया योग्य वेळेचा नंबर पाठवा (उदा. *1*, *2*...) किंवा खाली "वेळ निवडा" वर टॅप करा:`
       ),
       nextStep: "BOOKING_SELECT_SLOT",
     };
   }
 
-  draft.slot = cleanSlot;
-
-  // Check if patient is already registered in Cortex PMS by phone
-  const existingPatient = await findPatient(context.phoneNumber);
-
-  if (existingPatient) {
-    draft.patientName = existingPatient.name;
-    draft.patientPhone = existingPatient.phone_number;
-    draft.patientAddress = existingPatient.address;
-    draft.sex = existingPatient.sex;
-
-    // Ask Age to confirm
+  // Check if slot is already booked
+  if (matchedDetailed.isBooked) {
     return {
       text: inLanguage(
         lang,
-        `Slot selected: *${cleanSlot}* on *${formatDisplayDate(dateStr)}* with *${docName}*.\n\n👤 Registered Patient: *${existingPatient.name}*\n📱 Registered Mobile: *${existingPatient.phone_number}*\n\n👉 *Please enter the patient's age in years (e.g. 35):*`,
-        `समय चुना गया: *${cleanSlot}* | तारीख: *${formatDisplayDate(dateStr)}* | डॉक्टर: *${docName}*।\n\n👤 पंजीकृत मरीज: *${existingPatient.name}*\n📱 पंजीकृत मोबाइल: *${existingPatient.phone_number}*\n\n👉 *कृपया मरीज की आयु (उम्र) वर्षों में बताएं (जैसे 35):*`,
-        `वेळ निवडली: *${cleanSlot}* | तारीख: *${formatDisplayDate(dateStr)}* | डॉक्टर: *${docName}*.\n\n👤 नोंदणीकृत रुग्ण: *${existingPatient.name}*\n📱 नोंदणीकृत मोबाइल: *${existingPatient.phone_number}*\n\n👉 *कृपया रुग्णाचे वय वर्षांमध्ये सांगा (उदा. 35):*`
+        `⚠️ *${matchedDetailed.display}* is already booked (Booked 🚫).\n\nPlease choose another available slot number from the list:`,
+        `⚠️ *${matchedDetailed.display}* पहले से बुक हो चुका है (Booked 🚫)।\n\nकृपया सूची में से कोई अन्य उपलब्ध स्लॉट नंबर चुनें:`,
+        `⚠️ *${matchedDetailed.display}* ही वेळ आधीच बुक झाली आहे (Booked 🚫).\n\nकृपया यादीतील दुसरी उपलब्ध वेळ निवडा:`
       ),
-      nextStep: "REGISTER_AGE",
-      updatedContext: {
-        bookingDraft: draft,
-        patientId: existingPatient._id,
-        patientReference: existingPatient.reference_number,
-        patientName: existingPatient.name,
-      },
+      nextStep: "BOOKING_SELECT_SLOT",
     };
   }
 
-  // New patient: Prompt for Full Name
-  return {
-    text: inLanguage(
-      lang,
-      `Slot selected: *${cleanSlot}* on *${formatDisplayDate(dateStr)}* with *${docName}*.\n\n👉 *Please enter the patient's full name (e.g. Ramesh Patil):*`,
-      `समय चुना गया: *${cleanSlot}* | तारीख: *${formatDisplayDate(dateStr)}* | डॉक्टर: *${docName}*।\n\n👉 *कृपया मरीज का पूरा नाम लिखें (जैसे रमेश पाटिल):*`,
-      `वेळ निवडली: *${cleanSlot}* | तारीख: *${formatDisplayDate(dateStr)}* | डॉक्टर: *${docName}*.\n\n👉 *कृपया रुग्णाचे पूर्ण नाव लिहा (उदा. रमेश पाटील):*`
-    ),
-    nextStep: "REGISTER_NAME",
-    updatedContext: { bookingDraft: draft },
-  };
+  // Slot successfully selected!
+  draft.slot = matchedDetailed.display;
+  draft.slotTime = matchedDetailed.slot;
+
+  // Proceed to patient identification / registration
+  return await proceedToPatientRegistration(dateStr, docName, draft, context);
 }
 
 async function handleBookingSelectProfile(
@@ -1766,17 +1903,18 @@ async function executeBookingCreation(
       age: draft.patientAge,
       address: draft.patientAddress || "Wardha",
       date: draft.date,
-      time: draft.slot || "10:00 AM",
+      time: draft.slotTime || (draft.slot ? draft.slot.slice(0, 5) : "10:30"),
       doctor_name: draft.doctorName || "Dr. Vipeen Raut",
       duration_minutes: 15,
       dental_problem: draft.specialty || "Consultation",
-      notes: `Booked via WhatsApp Assistant | UHID: ${patientInfo?.reference_number || "New"}`,
+      notes: `Booked via WhatsApp Assistant | Slot: ${draft.slot || "10:30 AM – 10:45 AM"} | UHID: ${patientInfo?.reference_number || "New"}`,
     });
 
     const patientDisplay = `${draft.patientName || patientInfo?.name || "Patient"}${
       patientInfo?.reference_number ? ` (${patientInfo.reference_number})` : ""
     }`;
     const dateDmy = formatDisplayDate(draft.date);
+    const slotDisplay = draft.slot || "10:30 AM – 10:45 AM";
 
     const confirmationText = inLanguage(
       lang,
@@ -1790,10 +1928,11 @@ async function executeBookingCreation(
 🏠 *Patient Address:* ${draft.patientAddress || "Wardha"}
 👨‍⚕️ *Doctor:* ${draft.doctorName}
 📅 *Date:* ${dateDmy}
+⏰ *Time Slot:* ${slotDisplay}
 📍 *Hospital Location:* Aarti Chowk, Nagpur Road, Wardha
 
 *Instructions for Patient:*
-• OPD Timings: 10:00 AM – 1:30 PM & 5:30 PM – 8:00 PM.
+• OPD Timings: Mon–Sat 10:30 AM – 1:00 PM & 6:00 PM – 7:30 PM (Sunday Closed).
 • Bring any previous prescriptions, X-rays, or medical reports.
 • Hospital reception: 07152-255795.
 
@@ -1809,10 +1948,11 @@ Your health matters to us. We look forward to serving you! ❤️`,
 🏠 *मरीज का पता:* ${draft.patientAddress || "वर्धा"}
 👨‍⚕️ *डॉक्टर:* ${draft.doctorName}
 📅 *तारीख:* ${dateDmy}
+⏰ *समय:* ${slotDisplay}
 📍 *अस्पताल का पता:* आरती चौक, नागपुर रोड, वर्धा
 
 *मरीज के लिए निर्देश:*
-• ओपीडी समय: सुबह 10:00 से 1:30 एवं शाम 5:30 से 8:00।
+• ओपीडी समय: सोमवार से शनिवार सुबह 10:30 से 1:00 एवं शाम 6:00 से 7:30 (रविवार बंद)।
 • अपने पुराने पर्चे, एक्स-रे या रिपोर्ट साथ लाएं।
 • अस्पताल रिसेप्शन: 07152-255795।
 
@@ -1828,14 +1968,15 @@ Your health matters to us. We look forward to serving you! ❤️`,
 🏠 *रुग्णाचा पत्ता:* ${draft.patientAddress || "वर्धा"}
 👨‍⚕️ *डॉक्टर:* ${draft.doctorName}
 📅 *तारीख:* ${dateDmy}
+⏰ *वेळ:* ${slotDisplay}
 📍 *हॉस्पिटलचा पत्ता:* आरती चौक, नागपूर रोड, वर्धा
 
 *रुग्णासाठी सूचना:*
-• ओपीडी वेळ: सकाळी 10:00 ते 1:30 आणि संध्याकाळी 5:30 ते 8:00.
+• ओपीडी वेळ: सोमवार ते शनिवार सकाळी 10:30 ते 1:00 आणि संध्याकाळी 6:00 ते 7:30 (रविवार बंद).
 • जुनी औषधांची कागदपत्रे, एक्स-रे किंवा रिपोर्ट सोबत आणा.
 • हॉस्पिटल रिसेप्शन: 07152-255795.
 
-आपले आरोग्य आमची प्राथमिकता आहे. ❤️`
+आपले आरोग्य आमची प्राथमिकता आहे। ❤️`
     );
 
     return {
@@ -2129,9 +2270,9 @@ async function handleHospitalInfoQuery(
   return {
     text: inLanguage(
       lang,
-      `🏥 *CORTEX HOSPITAL, WARDHA*\n━━━━━━━━━━━━━━━━━━━━━\n📍 *Address:*\n${conf.address.fullFormatted}\n\n📞 *Telephone / Helplines:*\n• Reception: 07152-255795\n• Mobile / WhatsApp: +91 9373280505\n• Emergency 24/7 Casualty: +91 9373280505\n\n⏰ *OPD Working Hours:*\n• Monday to Friday: 10:00 AM – 1:00 PM & 6:00 PM – 8:00 PM\n• Saturday: 10:00 AM – 1:00 PM\n• Sunday: OPD Closed (Emergency Casualty 24/7 Open)\n\n🗺️ *Google Maps Link:*\nhttps://maps.google.com/?q=${conf.coordinates.latitude},${conf.coordinates.longitude}\n\nReply *1* to Book an Appointment or *9* to talk to Reception.`,
-      `🏥 *CORTEX HOSPITAL, वर्धा*\n━━━━━━━━━━━━━━━━━━━━━\n📍 *पता:*\n${conf.address.fullFormatted}\n\n📞 *हेल्पलाइन नंबर:*\n• रिसेप्शन: 07152-255795\n• मोबाइल / WhatsApp: +91 9373280505\n• 24/7 आपातकालीन सेवा: +91 9373280505\n\n⏰ *OPD समय:*\n• सोमवार से शुक्रवार: सुबह 10:00 – दोपहर 1:00 व शाम 6:00 – रात 8:00\n• शनिवार: सुबह 10:00 – दोपहर 1:00\n• रविवार: OPD बंद (आपातकालीन सेवा 24 घंटे चालू)\n\n🗺️ *गूगल मैप्स लिंक:*\nhttps://maps.google.com/?q=${conf.coordinates.latitude},${conf.coordinates.longitude}\n\nअपॉइंटमेंट बुक करने के लिए *1* भेजें या रिसेप्शन के लिए *9* भेजें।`,
-      `🏥 *CORTEX HOSPITAL, वर्धा*\n━━━━━━━━━━━━━━━━━━━━━\n📍 *पत्ता:*\n${conf.address.fullFormatted}\n\n📞 *संपर्क क्रमांक:*\n• रिसेप्शन: 07152-255795\n• मोबाइल / WhatsApp: +91 9373280505\n• 24/7 आपत्कालीन सेवा: +91 9373280505\n\n⏰ *OPD वेळ:*\n• सोमवार ते शुक्रवार: सकाळी 10:00 ते दुपारी 1:00 आणि संध्याकाळी 6:00 ते रात्री 8:00\n• शनिवार: सकाळी 10:00 ते दुपारी 1:00\n• रविवार: OPD बंद (इमर्जन्सी 24 तास सुरू)\n\n🗺️ *गुगल मॅप्स लिंक:*\nhttps://maps.google.com/?q=${conf.coordinates.latitude},${conf.coordinates.longitude}\n\nअपॉइंटमेंटसाठी *1* पाठवा किंवा रिसेप्शनसाठी *9* पाठवा.`
+      `🏥 *CORTEX HOSPITAL, WARDHA*\n━━━━━━━━━━━━━━━━━━━━━\n📍 *Address:*\n${conf.address.fullFormatted}\n\n📞 *Telephone / Helplines:*\n• Reception: 07152-255795\n• Mobile / WhatsApp: +91 9373280505\n• Emergency 24/7 Casualty: +91 9373280505\n\n⏰ *OPD Working Hours:*\n• Monday to Saturday: 10:30 AM – 1:00 PM & 6:00 PM – 7:30 PM\n• Sunday: OPD Closed (Emergency Casualty 24/7 Open)\n\n🗺️ *Google Maps Link:*\nhttps://maps.google.com/?q=${conf.coordinates.latitude},${conf.coordinates.longitude}\n\nReply *1* to Book an Appointment or *8* to talk to Reception.`,
+      `🏥 *CORTEX HOSPITAL, वर्धा*\n━━━━━━━━━━━━━━━━━━━━━\n📍 *पता:*\n${conf.address.fullFormatted}\n\n📞 *हेल्पलाइन नंबर:*\n• रिसेप्शन: 07152-255795\n• मोबाइल / WhatsApp: +91 9373280505\n• 24/7 आपातकालीन सेवा: +91 9373280505\n\n⏰ *OPD समय:*\n• सोमवार से शनिवार: सुबह 10:30 – दोपहर 1:00 व शाम 6:00 – शाम 7:30\n• रविवार: OPD बंद (आपातकालीन सेवा 24 घंटे चालू)\n\n🗺️ *गूगल मैप्स लिंक:*\nhttps://maps.google.com/?q=${conf.coordinates.latitude},${conf.coordinates.longitude}\n\nअपॉइंटमेंट बुक करने के लिए *1* भेजें या रिसेप्शन के लिए *8* भेजें।`,
+      `🏥 *CORTEX HOSPITAL, वर्धा*\n━━━━━━━━━━━━━━━━━━━━━\n📍 *पत्ता:*\n${conf.address.fullFormatted}\n\n📞 *संपर्क क्रमांक:*\n• रिसेप्शन: 07152-255795\n• मोबाइल / WhatsApp: +91 9373280505\n• 24/7 आपत्कालीन सेवा: +91 9373280505\n\n⏰ *OPD वेळ:*\n• सोमवार ते शनिवार: सकाळी 10:30 ते दुपारी 1:00 आणि संध्याकाळी 6:00 ते 7:30\n• रविवार: OPD बंद (इमर्जन्सी 24 तास सुरू)\n\n🗺️ *गुगल मॅप्स लिंक:*\nhttps://maps.google.com/?q=${conf.coordinates.latitude},${conf.coordinates.longitude}\n\nअपॉइंटमेंटसाठी *1* पाठवा किंवा रिसेप्शनसाठी *8* पाठवा.`
     ),
     nativeLocation: {
       latitude: conf.coordinates.latitude,

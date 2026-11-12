@@ -317,39 +317,83 @@ export async function createPatient(data: {
    3. APPOINTMENTS & REAL-TIME SLOTS
    ========================================================================= */
 
+export interface DetailedSlot {
+  slot: string; // Start time "HH:mm" e.g. "10:30"
+  endTime: string; // End time "HH:mm" e.g. "10:45"
+  display: string; // "10:30 AM – 10:45 AM"
+  period: "morning" | "evening";
+  isBooked: boolean;
+}
+
+export function formatSlotRange12(startHHMM: string): { endHHMM: string; display: string } {
+  const [h, m] = startHHMM.split(":").map(Number);
+  const startMins = h * 60 + m;
+  const endMins = startMins + 15;
+  const endH = Math.floor(endMins / 60);
+  const endM = endMins % 60;
+  const endHHMM = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+
+  const format12 = (hour24: number, min: number) => {
+    const h12 = hour24 > 12 ? hour24 - 12 : hour24 === 0 ? 12 : hour24;
+    const ampm = hour24 >= 12 ? "PM" : "AM";
+    return `${String(h12).padStart(2, "0")}:${String(min).padStart(2, "0")} ${ampm}`;
+  };
+
+  return {
+    endHHMM,
+    display: `${format12(h, m)} – ${format12(endH, endM)}`,
+  };
+}
+
+export function isSlotBooked(slotStartHHMM: string, bookedTimes: string[]): boolean {
+  const [sh, sm] = slotStartHHMM.split(":").map(Number);
+  const slotStartMins = sh * 60 + sm;
+  const slotEndMins = slotStartMins + 15;
+
+  for (const bt of bookedTimes) {
+    if (!bt) continue;
+    if (bt.includes(slotStartHHMM)) return true;
+
+    const m = bt.match(/(\d{1,2})[:.](\d{2})\s*(am|pm)?/i);
+    if (m) {
+      let bh = parseInt(m[1], 10);
+      const bm = parseInt(m[2], 10);
+      const meridiem = m[3]?.toLowerCase();
+      if (meridiem === "pm" && bh < 12) bh += 12;
+      if (meridiem === "am" && bh === 12) bh = 0;
+      const bMins = bh * 60 + bm;
+      if (bMins >= slotStartMins && bMins < slotEndMins) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+export const MORNING_SLOT_STARTS = [
+  "10:30", "10:45", "11:00", "11:15", "11:30", "11:45",
+  "12:00", "12:15", "12:30", "12:45",
+];
+
+export const EVENING_SLOT_STARTS = [
+  "18:00", "18:15", "18:30", "18:45", "19:00", "19:15",
+];
+
 /**
  * Generate standard 15-minute appointment slots based on Cortex OPD Timings
- * Mon-Fri: 10:00 - 13:00 and 18:00 - 20:00
- * Sat: 10:00 - 13:00
+ * Mon-Sat: 10:30 AM - 1:00 PM & 6:00 PM - 7:30 PM
  * Sun: Closed
  */
 export function generateDaySlots(dateStr: string): string[] {
   const [year, month, day] = dateStr.split("-").map(Number);
   const date = new Date(year, month - 1, day);
-  const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
+  const dayOfWeek = date.getDay(); // 0 = Sunday
 
   if (dayOfWeek === 0) {
     return []; // Sunday closed
   }
 
-  const morningSlots: string[] = [
-    "10:00", "10:15", "10:30", "10:45",
-    "11:00", "11:15", "11:30", "11:45",
-    "12:00", "12:15", "12:30", "12:45",
-  ];
-
-  if (dayOfWeek === 6) {
-    // Saturday morning only
-    return morningSlots;
-  }
-
-  // Weekdays (Mon - Fri) morning + evening
-  const eveningSlots: string[] = [
-    "18:00", "18:15", "18:30", "18:45",
-    "19:00", "19:15", "19:30", "19:45",
-  ];
-
-  return [...morningSlots, ...eveningSlots];
+  return [...MORNING_SLOT_STARTS, ...EVENING_SLOT_STARTS];
 }
 
 export async function getAvailableSlots(dateStr: string, doctorName?: string): Promise<{
@@ -358,6 +402,8 @@ export async function getAvailableSlots(dateStr: string, doctorName?: string): P
   isSunday: boolean;
   bookedSlots: string[];
   availableSlots: string[];
+  morningSlots: DetailedSlot[];
+  eveningSlots: DetailedSlot[];
 }> {
   const [year, month, day] = dateStr.split("-").map(Number);
   const date = new Date(year, month - 1, day);
@@ -371,10 +417,11 @@ export async function getAvailableSlots(dateStr: string, doctorName?: string): P
       isSunday: true,
       bookedSlots: [],
       availableSlots: [],
+      morningSlots: [],
+      eveningSlots: [],
     };
   }
 
-  const allPossibleSlots = generateDaySlots(dateStr);
   let bookedSlots: string[] = [];
 
   try {
@@ -390,7 +437,30 @@ export async function getAvailableSlots(dateStr: string, doctorName?: string): P
     console.error("[Cortex PMS] Error getting booked slots:", err);
   }
 
-  const availableSlots = allPossibleSlots.filter((slot) => !bookedSlots.includes(slot));
+  const morningSlots: DetailedSlot[] = MORNING_SLOT_STARTS.map((slot) => {
+    const { endHHMM, display } = formatSlotRange12(slot);
+    return {
+      slot,
+      endTime: endHHMM,
+      display,
+      period: "morning",
+      isBooked: isSlotBooked(slot, bookedSlots),
+    };
+  });
+
+  const eveningSlots: DetailedSlot[] = EVENING_SLOT_STARTS.map((slot) => {
+    const { endHHMM, display } = formatSlotRange12(slot);
+    return {
+      slot,
+      endTime: endHHMM,
+      display,
+      period: "evening",
+      isBooked: isSlotBooked(slot, bookedSlots),
+    };
+  });
+
+  const allDetailed = [...morningSlots, ...eveningSlots];
+  const availableSlots = allDetailed.filter((s) => !s.isBooked).map((s) => s.slot);
 
   return {
     date: dateStr,
@@ -398,6 +468,8 @@ export async function getAvailableSlots(dateStr: string, doctorName?: string): P
     isSunday: false,
     bookedSlots,
     availableSlots,
+    morningSlots,
+    eveningSlots,
   };
 }
 

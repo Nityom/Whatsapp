@@ -54,11 +54,10 @@ async function run() {
   console.log('Bot replied:\n', res.text);
   session = await convex.query(api.sessions.getWhatsAppSession, { phoneNumber: TEST_PHONE });
   console.log('Convex currentStep:', session?.currentStep);
-  // Slot selection is bypassed; directly asks for patient details
-  if (session?.currentStep !== 'REGISTER_NAME' && session?.currentStep !== 'REGISTER_AGE') {
-    throw new Error(`Test 2 failed: Step should be REGISTER_NAME or REGISTER_AGE, got ${session?.currentStep}`);
+  if (session?.currentStep !== 'BOOKING_SELECT_SESSION') {
+    throw new Error(`Test 2 failed: Step should be BOOKING_SELECT_SESSION, got ${session?.currentStep}`);
   }
-  console.log('✅ Test 2 Passed: Slot options skipped, moved directly to patient details!\n');
+  console.log('✅ Test 2 Passed: Successfully prompted for Morning/Evening session!\n');
 
   // Test 3: Emergency Detection & Medical Safety (Section 12)
   console.log('--- Test 3: Medical Emergency Safety Triage ---');
@@ -176,10 +175,24 @@ async function run() {
   // Step 2: Book with Doctor 1 (Dr. Vipeen Raut)
   await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '1' }); // Book appointment
   await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '1' }); // Dr. Vipeen Raut
-  res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '2' }); // Tomorrow -> directly prompts for Name (no slot step!)
-  console.log('Tomorrow selected, prompt for name (no slot selection):\n', res.text);
+  res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '2' }); // Tomorrow -> Prompts for Session
+  console.log('Tomorrow selected, prompt for session (Morning/Evening):\n', res.text);
+  if (!res.text.includes('Morning') || !res.text.includes('Evening')) {
+    throw new Error('Test 9 failed: Expected session prompt after date');
+  }
+
+  // Step 2b: Choose Morning Session
+  res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '1' }); // 1: Morning
+  console.log('Morning selected, prompt for 15-min slots:\n', res.text);
+  if (!res.text.includes('10:30 AM') || !res.text.includes('10:45 AM')) {
+    throw new Error('Test 9 failed: Expected 15-min slot listing');
+  }
+
+  // Step 2c: Choose First Available Slot (slot 2)
+  res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '2' }); // Pick available slot 2
+  console.log('Slot chosen, prompt for name:\n', res.text);
   if (!res.text.includes('full name')) {
-    throw new Error('Test 9 failed: Expected name prompt directly after date');
+    throw new Error('Test 9 failed: Expected name prompt after slot choice');
   }
 
   // Step 3: Enter Name

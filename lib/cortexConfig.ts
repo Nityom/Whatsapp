@@ -80,11 +80,11 @@ export const CORTEX_HOSPITAL_CONFIG: HospitalConfig = {
     emergency: "112 / +91 9373280505",
   },
   schedule: {
-    opdTimings: "Mon. to Fri. - 10:00 AM to 1:00 PM & 6:00 PM to 8:00 PM | Sat. - 10:00 AM to 1:00 PM | Sunday Closed",
-    weekdays: "10:00 AM – 1:00 PM & 6:00 PM – 8:00 PM",
-    saturday: "10:00 AM – 1:00 PM (Morning Only)",
+    opdTimings: "Mon. to Sat. - 10:30 AM to 1:00 PM & 6:00 PM to 7:30 PM | Sunday Closed",
+    weekdays: "10:30 AM – 1:00 PM & 6:00 PM – 7:30 PM",
+    saturday: "10:30 AM – 1:00 PM & 6:00 PM – 7:30 PM",
     sunday: "Closed (Emergency triage on-call)",
-    specialClinics: "HIP & KNEE JOINT CLINIC • Every Thursday 6:00 PM – 8:00 PM",
+    specialClinics: "HIP & KNEE JOINT CLINIC • Every Thursday 6:00 PM – 7:30 PM",
   },
   doctors: [
     {
@@ -100,7 +100,7 @@ export const CORTEX_HOSPITAL_CONFIG: HospitalConfig = {
         followupVisit: 200,
         followupValidityDays: 10,
       },
-      scheduleDescription: "Mon–Fri: 10:00 AM–1:00 PM & 6:00 PM–8:00 PM | Sat: 10:00 AM–1:00 PM | Special Joint Clinic: Thu 6:00 PM–8:00 PM",
+      scheduleDescription: "Mon–Sat: 10:30 AM–1:00 PM & 6:00 PM–7:30 PM | Sunday Closed | Special Joint Clinic: Thu 6:00 PM–7:30 PM",
     },
     {
       id: "dr-shillpa-raut",
@@ -115,7 +115,7 @@ export const CORTEX_HOSPITAL_CONFIG: HospitalConfig = {
         followupVisit: 100,
         followupValidityDays: 10,
       },
-      scheduleDescription: "Mon–Fri: 10:00 AM–1:00 PM & 6:00 PM–8:00 PM | Sat: 10:00 AM–1:00 PM",
+      scheduleDescription: "Mon–Sat: 10:30 AM–1:00 PM & 6:00 PM–7:30 PM | Sunday Closed",
     },
   ],
 };
