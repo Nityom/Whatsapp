@@ -521,28 +521,42 @@ export async function bookAppointment(data: {
       notes: data.notes || "Booked via WhatsApp Virtual Assistant",
       is_offline: false,
     })) as string;
-  } catch (createErr) {
-    // Fallback if status not accepted in create args on older deployment
-    appointmentId = (await client.mutation("appointments:create" as any, {
-      name: data.name,
-      phone: cleanPhone || data.phone,
-      age: cleanAge,
-      address: data.address || "Wardha",
-      date: data.date,
-      time: data.time,
-      doctor_name: data.doctor_name || "Dr. Vipeen Raut",
-      duration_minutes: data.duration_minutes || 15,
-      dental_problem: data.dental_problem || "General Consultation",
-      notes: data.notes || "Booked via WhatsApp Virtual Assistant",
-      is_offline: false,
-    })) as string;
+  } catch (createErr: any) {
+    const errMsg = String(createErr?.message || "");
+    if (errMsg.includes("already booked")) {
+      throw new Error("SLOT_ALREADY_BOOKED");
+    }
 
+    // Fallback if status not accepted in create args on older deployment
     try {
-      await client.mutation("appointments:update" as any, {
-        id: appointmentId,
-        status: "CONFIRMED",
-      });
-    } catch {}
+      appointmentId = (await client.mutation("appointments:create" as any, {
+        name: data.name,
+        phone: cleanPhone || data.phone,
+        age: cleanAge,
+        address: data.address || "Wardha",
+        date: data.date,
+        time: data.time,
+        doctor_name: data.doctor_name || "Dr. Vipeen Raut",
+        duration_minutes: data.duration_minutes || 15,
+        dental_problem: data.dental_problem || "General Consultation",
+        notes: data.notes || "Booked via WhatsApp Virtual Assistant",
+        is_offline: false,
+      })) as string;
+
+      try {
+        await client.mutation("appointments:update" as any, {
+          id: appointmentId,
+          status: "CONFIRMED",
+        });
+      } catch {}
+    } catch (fallbackErr: any) {
+      const fallbackMsg = String(fallbackErr?.message || "");
+      if (fallbackMsg.includes("already booked")) {
+        throw new Error("SLOT_ALREADY_BOOKED");
+      }
+      console.error("[Cortex PMS] appointments:create fallback failed:", fallbackErr);
+      throw new Error("BOOKING_FAILED");
+    }
   }
 
   return appointmentId;

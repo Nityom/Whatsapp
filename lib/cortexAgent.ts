@@ -1540,14 +1540,22 @@ async function handleBookingSelectSlot(
 
   // Check if slot is already booked
   if (matchedDetailed.isBooked) {
+    const slotView = await showAvailableSlotsForSession(
+      dateStr,
+      docName,
+      matchedDetailed.period || currentSession,
+      draft,
+      context
+    );
+    const alertPrefix = inLanguage(
+      lang,
+      `⚠️ *${matchedDetailed.display}* is already booked (Booked 🚫).\n\nPlease choose from the remaining available slots below:\n\n`,
+      `⚠️ *${matchedDetailed.display}* पहले से बुक हो चुका है (Booked 🚫)।\n\nकृपया नीचे दिए गए उपलब्ध स्लॉट में से चुनें:\n\n`,
+      `⚠️ *${matchedDetailed.display}* ही वेळ आधीच बुक झाली आहे (Booked 🚫).\n\nकृपया खालील उपलब्ध वेळेमधून एक वेळ निवडा:\n\n`
+    );
     return {
-      text: inLanguage(
-        lang,
-        `⚠️ *${matchedDetailed.display}* is already booked (Booked 🚫).\n\nPlease choose another available slot number from the list:`,
-        `⚠️ *${matchedDetailed.display}* पहले से बुक हो चुका है (Booked 🚫)।\n\nकृपया सूची में से कोई अन्य उपलब्ध स्लॉट नंबर चुनें:`,
-        `⚠️ *${matchedDetailed.display}* ही वेळ आधीच बुक झाली आहे (Booked 🚫).\n\nकृपया यादीतील दुसरी उपलब्ध वेळ निवडा:`
-      ),
-      nextStep: "BOOKING_SELECT_SLOT",
+      ...slotView,
+      text: alertPrefix + slotView.text,
     };
   }
 
@@ -1996,14 +2004,50 @@ Your health matters to us. We look forward to serving you! ❤️`,
     };
   } catch (err: any) {
     console.error("[Cortex PMS] Booking execution error:", err);
+
+    const isAlreadyBooked =
+      err?.message === "SLOT_ALREADY_BOOKED" ||
+      String(err?.message || "").toLowerCase().includes("already booked");
+
+    if (isAlreadyBooked && draft.date) {
+      const session: "morning" | "evening" =
+        draft.currentSession === "evening" ||
+        (draft.slotTime && parseInt(draft.slotTime.split(":")[0], 10) >= 16)
+          ? "evening"
+          : "morning";
+
+      const slotView = await showAvailableSlotsForSession(
+        draft.date,
+        draft.doctorName || "Dr. Vipeen Raut",
+        session,
+        draft,
+        context
+      );
+
+      const alertPrefix = inLanguage(
+        lang,
+        `⚠️ *The slot (${draft.slot || "selected time"}) is already booked.*\nAnother patient just reserved this time. Please choose from the remaining available slots below:\n\n`,
+        `⚠️ *यह समय (${draft.slot || "चुना गया स्लॉट"}) पहले ही बुक हो चुका है।*\nकिसी अन्य मरीज ने यह समय आरक्षित कर लिया है। कृपया नीचे दिए गए उपलब्ध स्लॉट में से चुनें:\n\n`,
+        `⚠️ *ही वेळ (${draft.slot || "निवडलेली वेळ"}) आधीच आरक्षित झाली आहे.*\nकृपया खाली दिलेल्या उपलब्ध वेळेमधून एक वेळ निवडा:\n\n`
+      );
+
+      return {
+        ...slotView,
+        text: alertPrefix + slotView.text,
+      };
+    }
+
     return {
       text: inLanguage(
         lang,
-        `❌ Could not complete booking: ${err.message || "Slot may have just been booked"}.\n\nPlease reply with another slot or type *1* to pick a different time.`,
-        `❌ अपॉइंटमेंट बुक नहीं हो सकी: ${err.message || "यह स्लॉट अभी बुक हो गया हो सकता है"}।\n\nकृपया दूसरा स्लॉट चुनें या *1* भेजें।`,
-        `❌ अपॉइंटमेंट पूर्ण होऊ शकली नाही: ${err.message || "ही वेळ नुकतीच आरक्षित झाली असावी"}.\n\nकृपया दुसरी वेळ निवडा किंवा *1* पाठवा.`
+        `⚠️ *We could not complete your booking at this moment.*\nPlease reply with another time slot or contact hospital reception at *07152-255795*.`,
+        `⚠️ *तकनीकी समस्या के कारण अपॉइंटमेंट बुक नहीं हो सकी।*\nकृपया दूसरा स्लॉट चुनें या अस्पताल रिसेप्शन *07152-255795* पर संपर्क करें।`,
+        `⚠️ *काही कारणास्तव अपॉइंटमेंट पूर्ण होऊ शकली नाही.*\nकृपया दुसरी वेळ निवडा किंवा हॉस्पिटल रिसेप्शनशी *07152-255795* वर संपर्क साधा.`
       ),
       nextStep: "BOOKING_SELECT_SLOT",
+      updatedContext: {
+        bookingDraft: draft,
+      },
     };
   }
 }

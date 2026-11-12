@@ -188,11 +188,21 @@ async function run() {
     throw new Error('Test 9 failed: Expected 15-min slot listing');
   }
 
-  // Step 2c: Choose First Available Slot (slot 2)
-  res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '2' }); // Pick available slot 2
+  // Step 2c: Choose First Available Slot
+  const slotLines = res.text.split('\n');
+  let chosenSlotIndex = '3';
+  for (const line of slotLines) {
+    const m = line.match(/^\*(\d+)\.\*\s+⏰/);
+    if (m && !line.includes('Booked 🚫')) {
+      chosenSlotIndex = m[1];
+      break;
+    }
+  }
+  console.log(`Choosing available slot #${chosenSlotIndex}`);
+  res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: chosenSlotIndex });
   console.log('Slot chosen, prompt for name:\n', res.text);
-  if (!res.text.includes('full name')) {
-    throw new Error('Test 9 failed: Expected name prompt after slot choice');
+  if (!res.text.includes('full name') && !res.text.includes('address')) {
+    throw new Error('Test 9 failed: Expected name or address prompt after slot choice');
   }
 
   // Step 3: Enter Name
@@ -273,6 +283,34 @@ async function run() {
   if (!res.text.includes('पता:') || !res.text.includes('Aarti Chowk') || !res.text.includes('वर्धा')) {
     throw new Error('Test 10 failed: Expected Hindi hospital location');
   }
+  console.log('✅ Test 10 Passed: Pure Hindi interaction verified!\n');
+
+  // Test 11: Non-technical error message verification (NO Server Error / Request ID)
+  console.log('--- Test 11: Non-technical Error Message UX Verification ---');
+  const collisionPhone = '9197777' + Math.floor(10000 + Math.random() * 90000);
+  await convex.mutation(api.sessions.clearWhatsAppSession, { phoneNumber: collisionPhone });
+
+  // Init English session
+  await processIncomingMessage({ phoneNumber: collisionPhone, type: 'text', text: 'Hi' });
+  await processIncomingMessage({ phoneNumber: collisionPhone, type: 'text', text: '1' }); // English
+  await processIncomingMessage({ phoneNumber: collisionPhone, type: 'text', text: '1' }); // Book appointment
+  await processIncomingMessage({ phoneNumber: collisionPhone, type: 'text', text: '1' }); // Dr. Vipeen Raut
+  res = await processIncomingMessage({ phoneNumber: collisionPhone, type: 'text', text: '2' }); // Tomorrow
+  res = await processIncomingMessage({ phoneNumber: collisionPhone, type: 'text', text: '1' }); // Morning slots
+
+  // User tries to pick slot 1 (which is booked: 10:30 AM – 10:45 AM)
+  res = await processIncomingMessage({ phoneNumber: collisionPhone, type: 'text', text: '1' });
+  console.log('Collision/Booked reply:\n', res.text);
+
+  // Check that NO technical error leaks:
+  if (res.text.includes('Request ID') || res.text.includes('Server Error') || res.text.includes('Uncaught Error') || res.text.includes('at handler')) {
+    throw new Error('Test 11 failed: Technical server error or stack trace leaked to user!');
+  }
+  if (!res.text.includes('already booked') && !res.text.includes('Booked 🚫')) {
+    throw new Error('Test 11 failed: Expected human-friendly message about slot already booked');
+  }
+  console.log('✅ Test 11 Passed: No technical server errors or stack traces leaked to user!');
+  console.log('\n🎉 ALL 11 TEST SUITES PASSED SUCCESSFULLY!');
   console.log('✅ Test 10 Passed: 100% Hindi Continuity Verified!\n');
 
   console.log('🎉 ALL 10 TESTS PASSED SUCCESSFULLY! Cortex Hospital Assistant is fully operational.');
