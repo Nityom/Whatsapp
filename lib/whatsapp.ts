@@ -313,3 +313,146 @@ export async function sendWhatsAppDocument(
     };
   }
 }
+
+/**
+ * Fetch all message templates from Meta WhatsApp Business Account (WABA).
+ */
+export async function getWhatsAppTemplates(): Promise<{
+  success: boolean;
+  templates?: any[];
+  error?: string;
+}> {
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  const wabaId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "479847545221049";
+
+  if (!token) {
+    return { success: false, error: "WHATSAPP_ACCESS_TOKEN not configured" };
+  }
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/${GRAPH_API_VERSION}/${wabaId}/message_templates?limit=100`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    const data = await response.json();
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data?.error?.message || "Failed to fetch WhatsApp templates",
+      };
+    }
+    return {
+      success: true,
+      templates: data.data || [],
+    };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Submit a new template to Meta WhatsApp Cloud API for review.
+ */
+export async function createWhatsAppTemplate(params: {
+  name: string;
+  category: "UTILITY" | "MARKETING";
+  language?: string;
+  headerText?: string;
+  bodyText: string;
+  sampleValues?: string[];
+}): Promise<{
+  success: boolean;
+  templateId?: string;
+  status?: string;
+  error?: string;
+}> {
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  const wabaId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "479847545221049";
+
+  if (!token) {
+    return { success: false, error: "WHATSAPP_ACCESS_TOKEN not configured" };
+  }
+
+  const cleanName = params.name
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "_")
+    .replace(/_+/g, "_")
+    .slice(0, 512);
+
+  const components: any[] = [];
+
+  if (params.headerText) {
+    components.push({
+      type: "HEADER",
+      format: "TEXT",
+      text: params.headerText,
+    });
+  }
+
+  // Count variables {{1}}, {{2}}, etc.
+  const variableMatches = params.bodyText.match(/\{\{(\d+)\}\}/g) || [];
+  const varCount = variableMatches.length;
+
+  const bodyComponent: any = {
+    type: "BODY",
+    text: params.bodyText,
+  };
+
+  if (varCount > 0) {
+    const samples = params.sampleValues && params.sampleValues.length >= varCount
+      ? params.sampleValues.slice(0, varCount)
+      : Array.from({ length: varCount }, (_, i) => `Sample ${i + 1}`);
+
+    bodyComponent.example = {
+      body_text: [samples],
+    };
+  }
+
+  components.push(bodyComponent);
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/${GRAPH_API_VERSION}/${wabaId}/message_templates`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: cleanName,
+          category: params.category,
+          language: params.language || "en_US",
+          components,
+        }),
+      }
+    );
+
+    const data = await response.json();
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data?.error?.message || "Failed to create template on Meta",
+      };
+    }
+
+    return {
+      success: true,
+      templateId: data.id,
+      status: data.status || "PENDING",
+    };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
