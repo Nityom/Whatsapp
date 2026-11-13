@@ -291,7 +291,8 @@ export function parseDateInput(input: string): string | null {
    ========================================================================= */
 
 export function languagePrompt(): string {
-  return `👋 *Welcome to Cortex Hospital, Wardha*
+  return `🌿 *Welcome to Svaasth Connect*
+🏥 Cortex Hospital, Wardha
 ━━━━━━━━━━━━━━━━━━━━━
 Please select your preferred language:
 कृपया अपनी पसंदीदा भाषा चुनें:
@@ -307,7 +308,7 @@ Please select your preferred language:
 export function languageButtons(): WhatsAppInteractive {
   return {
     kind: "buttons",
-    body: "👋 Welcome to Cortex Hospital / Cortex Hospital में आपका स्वागत है / Cortex Hospital मध्ये आपले स्वागत आहे.\n\nPlease select your language / कृपया भाषा चुनें / कृपया भाषा निवडा:",
+    body: "🌿 Welcome to Svaasth Connect (Cortex Hospital)\n\nPlease select your language / कृपया भाषा चुनें / कृपया भाषा निवडा:",
     buttons: [
       { id: "lang_en", title: "1. English" },
       { id: "lang_hi", title: "2. हिन्दी" },
@@ -318,7 +319,7 @@ export function languageButtons(): WhatsAppInteractive {
 
 export function mainMenu(language: string): string {
   if (language === "hi") {
-    return `🏥 *Cortex Hospital, वर्धा*
+    return `🌿 *Svaasth Connect* | Cortex Hospital, वर्धा
 नमस्ते! 👋 मैं आपका डिजिटल अस्पताल सहायक हूँ।
 
 मैं आपकी क्या सहायता कर सकता हूँ?
@@ -338,7 +339,7 @@ export function mainMenu(language: string): string {
   }
 
   if (language === "mr") {
-    return `🏥 *Cortex Hospital, वर्धा*
+    return `🌿 *Svaasth Connect* | Cortex Hospital, वर्धा
 नमस्कार! 👋 मी आपला डिजिटल हॉस्पिटल सहाय्यक आहे.
 
 मी आपली काय मदत करू शकतो?
@@ -357,7 +358,7 @@ export function mainMenu(language: string): string {
 आपले आरोग्य आणि सोय हीच आमची प्राथमिकता आहे. ❤️`;
   }
 
-  return `🏥 *Cortex Hospital, Wardha*
+  return `🌿 *Svaasth Connect* | Cortex Hospital, Wardha
 Hello! 👋 I am your virtual hospital assistant, available 24/7.
 
 How can I assist you today?
@@ -417,10 +418,10 @@ export function menuList(language: string): WhatsAppInteractive {
       ];
 
   const bodyText = isHi
-    ? "🏥 Cortex Hospital, वर्धा\nकृपया नीचे दी गई सेवाओं में से कोई एक चुनें:"
+    ? "🌿 Svaasth Connect (Cortex Hospital, वर्धा)\nकृपया नीचे दी गई सेवाओं में से कोई एक चुनें:"
     : isMr
-    ? "🏥 Cortex Hospital, वर्धा\nकृपया खालील सेवांपैकी एक पर्याय निवडा:"
-    : "🏥 Cortex Hospital, Wardha\nPlease choose a service from the options below:";
+    ? "🌿 Svaasth Connect (Cortex Hospital, वर्धा)\nकृपया खालील सेवांपैकी एक पर्याय निवडा:"
+    : "🌿 Svaasth Connect (Cortex Hospital, Wardha)\nPlease choose a service from the options below:";
 
   const buttonTitle = isHi ? "सेवाएं चुनें" : isMr ? "पर्याय निवडा" : "Select Service";
 

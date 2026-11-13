@@ -203,3 +203,4 @@ export default function ChatWindow({ phoneNumber, patientName }: ChatWindowProps
     </div>
   );
 }
+

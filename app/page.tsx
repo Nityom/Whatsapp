@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import {
   Send,
   MapPin,
@@ -348,16 +349,16 @@ export default function HomePage() {
       {/* Top Header */}
       <header className="bg-slate-950 border-b border-slate-800 px-6 py-4 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-50 shadow-md">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#7B1828] flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-[#7B1828]/30">
-            🏥
+          <div className="w-10 h-10 rounded-xl bg-[#176e56] flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-[#176e56]/30">
+            🌿
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold tracking-tight text-white">
-                Cortex Hospital
+                Svaasth Connect
               </h1>
-              <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-[#7B1828]/30 text-rose-300 border border-[#7B1828]/50">
-                Official AI WhatsApp Assistant
+              <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-[#176e56]/30 text-emerald-300 border border-[#176e56]/50">
+                Cortex Hospital Bot
               </span>
             </div>
             <p className="text-xs text-slate-400">
@@ -366,14 +367,22 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Live Backend Indicator */}
+        {/* Live Backend Indicator & Admin Link */}
         <div className="flex items-center gap-3">
+          <Link
+            href="/admin"
+            className="flex items-center gap-1.5 bg-[#176e56] hover:bg-[#1a5c48] text-white px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm"
+          >
+            <span>Admin Dashboard</span>
+            <span>→</span>
+          </Link>
+
           <div className="flex items-center gap-2 bg-emerald-950/60 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs text-emerald-300">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span className="font-medium">Cortex PMS Connected (DEV Environment)</span>
+            <span className="font-medium">Cortex PMS Connected (DEV)</span>
           </div>
 
           <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-lg text-xs">

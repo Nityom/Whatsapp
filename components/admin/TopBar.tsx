@@ -25,3 +25,4 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
     </div>
   );
 }
+
