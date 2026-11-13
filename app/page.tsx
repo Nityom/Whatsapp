@@ -20,6 +20,7 @@ import {
   WhatsAppSession,
   ChatMessage,
   DashboardStats,
+  OpdWaitingPatient,
 } from '@/components/admin/types';
 
 export default function AdminDashboardPage() {
@@ -28,6 +29,7 @@ export default function AdminDashboardPage() {
   const [chatFilter, setChatFilter] = useState<ChatFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sessions, setSessions] = useState<WhatsAppSession[]>([]);
+  const [waitingPatients, setWaitingPatients] = useState<OpdWaitingPatient[]>([]);
   const [selectedPhone, setSelectedPhone] = useState<string>('919876543210');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [stats, setStats] = useState<DashboardStats | undefined>(undefined);
@@ -52,6 +54,9 @@ export default function AdminDashboardPage() {
       if (data.success) {
         setSessions(data.sessions || []);
         setStats(data.stats);
+        if (Array.isArray(data.waitingPatients)) {
+          setWaitingPatients(data.waitingPatients);
+        }
 
         // If no phone selected yet, pick the first one
         if (!selectedPhone && data.sessions?.length > 0) {
@@ -241,7 +246,8 @@ export default function AdminDashboardPage() {
     phoneNumbers: string[],
     text: string,
     campaignTitle: string,
-    targetAudience: string
+    targetAudience: string,
+    personalizedMessages?: Record<string, string>
   ) => {
     try {
       await fetch('/api/admin/dashboard', {
@@ -253,6 +259,7 @@ export default function AdminDashboardPage() {
           text,
           campaignTitle,
           targetAudience,
+          personalizedMessages,
         }),
       });
       await fetchDashboardData();
@@ -350,6 +357,7 @@ export default function AdminDashboardPage() {
           <div className="mt-4">
             <BroadcastView
               campaigns={stats?.campaigns}
+              waitingPatients={waitingPatients}
               onOpenNewCampaign={() => setIsBulkModalOpen(true)}
             />
           </div>
@@ -469,6 +477,7 @@ export default function AdminDashboardPage() {
         isOpen={isBulkModalOpen}
         onClose={() => setIsBulkModalOpen(false)}
         sessions={sessions}
+        waitingPatients={waitingPatients}
         onSendBulk={handleSendBulk}
       />
 

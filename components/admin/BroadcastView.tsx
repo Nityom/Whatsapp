@@ -1,16 +1,18 @@
 'use client';
 
 import React from 'react';
-import { Send, Users, CheckCircle, Clock, Plus, BarChart2, MessageSquare } from 'lucide-react';
-import { BroadcastCampaign } from './types';
+import { Send, Users, CheckCircle, Clock, Plus, BarChart2, MessageSquare, Activity } from 'lucide-react';
+import { BroadcastCampaign, OpdWaitingPatient } from './types';
 
 interface BroadcastViewProps {
   campaigns?: BroadcastCampaign[];
+  waitingPatients?: OpdWaitingPatient[];
   onOpenNewCampaign: () => void;
 }
 
 export const BroadcastView: React.FC<BroadcastViewProps> = ({
   campaigns = [],
+  waitingPatients = [],
   onOpenNewCampaign,
 }) => {
   const sampleCampaigns: BroadcastCampaign[] =
@@ -62,12 +64,43 @@ export const BroadcastView: React.FC<BroadcastViewProps> = ({
 
         <button
           onClick={onOpenNewCampaign}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#176e56] hover:bg-[#125643] text-white text-xs font-bold transition-all shadow-xs self-start sm:self-auto"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#176e56] hover:bg-[#125643] text-white text-xs font-bold transition-all shadow-xs self-start sm:self-auto cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>New Broadcast Campaign</span>
         </button>
       </div>
+
+      {/* Live OPD Waiting Queue Quick Broadcast Banner */}
+      {waitingPatients.length > 0 && (
+        <div className="p-4 rounded-2xl bg-[#f0fdf4] border border-[#bbf7d0] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#dcfce7] text-[#166534] flex items-center justify-center font-bold text-sm shrink-0">
+              #{waitingPatients.length}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse"></span>
+                <h3 className="text-sm font-bold text-[#166534]">
+                  {waitingPatients.length} Patients Currently Waiting in OPD
+                </h3>
+              </div>
+              <p className="text-xs text-[#15803d] mt-0.5">
+                Send an instant queue update, doctor delay alert, or token call directly to all waiting patients on WhatsApp.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onOpenNewCampaign}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#166534] hover:bg-[#14532d] text-white text-xs font-bold transition-all shadow-xs shrink-0 self-start sm:self-auto cursor-pointer"
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span>Notify Waiting Queue</span>
+          </button>
+        </div>
+      )}
 
       {/* Campaign Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">

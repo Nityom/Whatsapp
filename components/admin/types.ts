@@ -86,3 +86,15 @@ export interface QuickTemplate {
   text: string;
 }
 
+export interface OpdWaitingPatient {
+  id: string;
+  name: string;
+  phone: string;
+  uhid?: string;
+  doctorName: string;
+  date: string;
+  slotTime: string;
+  tokenNo: number;
+  status: 'WAITING' | 'CONFIRMED';
+}
+

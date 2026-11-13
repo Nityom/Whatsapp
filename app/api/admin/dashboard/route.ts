@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getConvexClient } from '@/lib/conversation';
 import { api } from '@/convex/_generated/api';
 import { sendWhatsAppMessage, sendWhatsAppTemplate, WhatsAppTemplateComponent } from '@/lib/whatsapp';
+import { getOpdWaitingQueue } from '@/lib/cortexClient';
 
 /**
  * Format recipient phone number for WhatsApp Cloud API.
@@ -23,11 +24,13 @@ export async function GET(request: NextRequest) {
     const convex = getConvexClient();
     const sessions = await convex.query(api.sessions.listAllSessions, {});
     const stats = await convex.query(api.sessions.getDashboardStats, {});
+    const waitingPatients = await getOpdWaitingQueue();
 
     return NextResponse.json({
       success: true,
       sessions,
       stats,
+      waitingPatients,
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
@@ -141,14 +144,22 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'send_bulk') {
-      const { phoneNumbers, text, campaignTitle, targetAudience } = body;
+      const {
+        phoneNumbers,
+        text,
+        campaignTitle,
+        targetAudience,
+        personalizedMessages = {},
+      } = body;
 
       // 1. Dispatch real WhatsApp message to each recipient
       const deliveryResults = [];
       for (const phone of phoneNumbers) {
-        const waRecipient = formatWhatsAppRecipientPhone(phone);
+        const cleanPhone = phone.replace(/\D/g, '');
+        const waRecipient = formatWhatsAppRecipientPhone(cleanPhone);
         if (waRecipient) {
-          const sendRes = await sendWhatsAppMessage(waRecipient, text);
+          const msgToSend = personalizedMessages[cleanPhone] || text;
+          const sendRes = await sendWhatsAppMessage(waRecipient, msgToSend);
           deliveryResults.push({ phone: waRecipient, ...sendRes });
         }
       }

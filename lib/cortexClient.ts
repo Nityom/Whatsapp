@@ -722,3 +722,59 @@ export async function getPatientInvestigations(phoneOrUhid: string): Promise<Inv
   }
   return [];
 }
+
+/* =========================================================================
+   8. OPD LIVE WAITING QUEUE
+   ========================================================================= */
+
+export interface OpdWaitingPatient {
+  id: string;
+  name: string;
+  phone: string;
+  uhid?: string;
+  doctorName: string;
+  date: string;
+  slotTime: string;
+  tokenNo: number;
+  status: "WAITING" | "CONFIRMED";
+}
+
+export async function getOpdWaitingQueue(): Promise<OpdWaitingPatient[]> {
+  try {
+    const client = getCortexConvexClient();
+    const all = (await client.query("appointments:list" as any, {})) as AppointmentRecord[];
+    if (!Array.isArray(all)) return [];
+
+    const active = all.filter(
+      (a) => a.status === "CONFIRMED" || !a.status || a.status === "PENDING"
+    );
+
+    active.sort((a, b) => {
+      const cmpDate = (b.date || "").localeCompare(a.date || "");
+      if (cmpDate !== 0) return cmpDate;
+      return (a.time || "").localeCompare(b.time || "");
+    });
+
+    return active.slice(0, 15).map((a, idx) => {
+      const rawSlot = a.time || "10:30";
+      const slotEnd = rawSlot.includes(":")
+        ? rawSlot.replace(/:(\d+)/, (_, m) => `:${String(Math.min(59, Number(m) + 15)).padStart(2, "0")}`)
+        : rawSlot;
+
+      return {
+        id: a._id,
+        name: a.name || "Patient",
+        phone: a.phone ? normalizePhone(a.phone) : "",
+        uhid: a.notes?.match(/UHID:\s*([A-Z0-9]+)/)?.[1] || `CRX${String(100 + idx).padStart(4, "0")}`,
+        doctorName: a.doctor_name || "Dr. Vipeen Raut",
+        date: a.date || "Today",
+        slotTime: `${rawSlot} – ${slotEnd}`,
+        tokenNo: idx + 1,
+        status: "WAITING" as const,
+      };
+    });
+  } catch (err) {
+    console.error("[Cortex PMS] getOpdWaitingQueue error:", err);
+    return [];
+  }
+}
