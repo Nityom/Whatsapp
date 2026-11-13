@@ -291,8 +291,7 @@ export function parseDateInput(input: string): string | null {
    ========================================================================= */
 
 export function languagePrompt(): string {
-  return `🌿 *Welcome to Svaasth Connect*
-🏥 Cortex Hospital, Wardha
+  return `👋 *Welcome to Svaasth Connect*
 ━━━━━━━━━━━━━━━━━━━━━
 Please select your preferred language:
 कृपया अपनी पसंदीदा भाषा चुनें:
@@ -308,7 +307,7 @@ Please select your preferred language:
 export function languageButtons(): WhatsAppInteractive {
   return {
     kind: "buttons",
-    body: "🌿 Welcome to Svaasth Connect (Cortex Hospital)\n\nPlease select your language / कृपया भाषा चुनें / कृपया भाषा निवडा:",
+    body: "👋 Welcome to Svaasth Connect / Svaasth Connect में आपका स्वागत है / Svaasth Connect मध्ये आपले स्वागत आहे.\n\nPlease select your language / कृपया भाषा चुनें / कृपया भाषा निवडा:",
     buttons: [
       { id: "lang_en", title: "1. English" },
       { id: "lang_hi", title: "2. हिन्दी" },
@@ -319,7 +318,7 @@ export function languageButtons(): WhatsAppInteractive {
 
 export function mainMenu(language: string): string {
   if (language === "hi") {
-    return `🌿 *Svaasth Connect* | Cortex Hospital, वर्धा
+    return `🏥 *Svaasth Connect* (Hospital Assistant)
 नमस्ते! 👋 मैं आपका डिजिटल अस्पताल सहायक हूँ।
 
 मैं आपकी क्या सहायता कर सकता हूँ?
@@ -339,7 +338,7 @@ export function mainMenu(language: string): string {
   }
 
   if (language === "mr") {
-    return `🌿 *Svaasth Connect* | Cortex Hospital, वर्धा
+    return `🏥 *Svaasth Connect* (Hospital Assistant)
 नमस्कार! 👋 मी आपला डिजिटल हॉस्पिटल सहाय्यक आहे.
 
 मी आपली काय मदत करू शकतो?
@@ -358,7 +357,7 @@ export function mainMenu(language: string): string {
 आपले आरोग्य आणि सोय हीच आमची प्राथमिकता आहे. ❤️`;
   }
 
-  return `🌿 *Svaasth Connect* | Cortex Hospital, Wardha
+  return `🏥 *Svaasth Connect* (Hospital Assistant)
 Hello! 👋 I am your virtual hospital assistant, available 24/7.
 
 How can I assist you today?
@@ -369,12 +368,12 @@ How can I assist you today?
 3️⃣ 💊 View Prescription
 4️⃣ 🧾 Bills & Payments
 5️⃣ 🔔 Next Follow-up Date
-6️⃣ 👨‍⚕️ Doctor Availability & Timings
-7️⃣ 📍 Hospital Location & Address
+6️⃣ 👨‍⚕️ Doctor Availability
+7️⃣ 📍 Hospital Address & Location
 8️⃣ ☎️ Talk to Reception
 9️⃣ 🌐 Change Language
 
-Your health and convenience matter to us. ❤️`;
+Your health and comfort are our highest priority. ❤️`;
 }
 
 export function menuList(language: string): WhatsAppInteractive {
@@ -418,10 +417,10 @@ export function menuList(language: string): WhatsAppInteractive {
       ];
 
   const bodyText = isHi
-    ? "🌿 Svaasth Connect (Cortex Hospital, वर्धा)\nकृपया नीचे दी गई सेवाओं में से कोई एक चुनें:"
+    ? "🏥 Svaasth Connect\nकृपया नीचे दी गई सेवाओं में से कोई एक चुनें:"
     : isMr
-    ? "🌿 Svaasth Connect (Cortex Hospital, वर्धा)\nकृपया खालील सेवांपैकी एक पर्याय निवडा:"
-    : "🌿 Svaasth Connect (Cortex Hospital, Wardha)\nPlease choose a service from the options below:";
+    ? "🏥 Svaasth Connect\nकृपया खालील सेवांपैकी एक पर्याय निवडा:"
+    : "🏥 Svaasth Connect\nPlease choose a service from the options below:";
 
   const buttonTitle = isHi ? "सेवाएं चुनें" : isMr ? "पर्याय निवडा" : "Select Service";
 
@@ -588,9 +587,9 @@ export async function handleConversationTurn(
     return {
       text: inLanguage(
         lang,
-        `☎️ *Connecting to Cortex Hospital Reception*\n\nOur receptionist will be happy to assist you directly!\n\n🏥 *Reception Helplines:*\n📞 Landline: *07152-255795*\n📱 Mobile / WhatsApp: *+91 9373280505*\n⏰ Timings: 10:00 AM – 1:00 PM & 6:00 PM – 8:00 PM\n\nWe have transferred your chat context to the front desk.\nAutomated messages are now paused so staff can assist you.\n\n_(Type *Menu* or *Hi* whenever you wish to resume virtual assistance.)_`,
-        `☎️ *Cortex Hospital रिसेप्शन से संपर्क*\n\nहमारे रिसेप्शनिस्ट आपकी सीधी सहायता करेंगे!\n\n🏥 *हेल्पलाइन नंबर:*\n📞 लैंडलाइन: *07152-255795*\n📱 मोबाइल / WhatsApp: *+91 9373280505*\n⏰ समय: सुबह 10:00 – दोपहर 1:00 व शाम 6:00 – रात 8:00\n\nआपकी चैट रिसेप्शन को भेज दी गई है।\n\n_(वर्चुअल असिस्टेंट पुनः शुरू करने के लिए कभी भी *Menu* लिखें।)_`,
-        `☎️ *Cortex Hospital रिसेप्शनशी संपर्क*\n\nआमचे रिसेप्शनिस्ट आपल्याला थेट मदत करतील!\n\n🏥 *हेल्पलाइन क्रमांक:*\n📞 लँडलाइन: *07152-255795*\n📱 मोबाइल / WhatsApp: *+91 9373280505*\n⏰ वेळ: सकाळी 10:00 ते दुपारी 1:00 आणि संध्याकाळी 6:00 ते रात्री 8:00\n\nआपले संभाषण फ्रंट डेस्ककडे पाठवले आहे.\n\n_(पुन्हा व्हर्च्युअल असिस्टंट सुरू करण्यासाठी कधीही *Menu* लिहा.)_`
+        `☎️ *Connecting to Svaasth Hospital Reception*\n\nOur receptionist will be happy to assist you directly!\n\n🏥 *Reception Helplines:*\n📞 Landline: *07152-255795*\n📱 Mobile / WhatsApp: *+91 9373280505*\n⏰ Timings: 10:00 AM – 1:00 PM & 6:00 PM – 8:00 PM\n\nWe have transferred your chat context to the front desk.\nAutomated messages are now paused so staff can assist you.\n\n_(Type *Menu* or *Hi* whenever you wish to resume virtual assistance.)_`,
+        `☎️ *Svaasth Hospital रिसेप्शन से संपर्क*\n\nहमारे रिसेप्शनिस्ट आपकी सीधी सहायता करेंगे!\n\n🏥 *हेल्पलाइन नंबर:*\n📞 लैंडलाइन: *07152-255795*\n📱 मोबाइल / WhatsApp: *+91 9373280505*\n⏰ समय: सुबह 10:00 – दोपहर 1:00 व शाम 6:00 – रात 8:00\n\nआपकी चैट रिसेप्शन को भेज दी गई है।\n\n_(वर्चुअल असिस्टेंट पुनः शुरू करने के लिए कभी भी *Menu* लिखें।)_`,
+        `☎️ *Svaasth Hospital रिसेप्शनशी संपर्क*\n\nआमचे रिसेप्शनिस्ट आपल्याला थेट मदत करतील!\n\n🏥 *हेल्पलाइन क्रमांक:*\n📞 लँडलाइन: *07152-255795*\n📱 मोबाइल / WhatsApp: *+91 9373280505*\n⏰ वेळ: सकाळी 10:00 ते दुपारी 1:00 आणि संध्याकाळी 6:00 ते रात्री 8:00\n\nआपले संभाषण फ्रंट डेस्ककडे पाठवले आहे.\n\n_(पुन्हा व्हर्च्युअल असिस्टंट सुरू करण्यासाठी कधीही *Menu* लिहा.)_`
       ),
       nextStep: "HANDED_OVER",
       updatedContext: {
@@ -933,9 +932,9 @@ async function initiateAppointmentBooking(
     return {
       text: `${inLanguage(
         lang,
-        "🏥 *Book an Appointment at Cortex Hospital*\n\nWhich specialist doctor would you like to consult?",
-        "🏥 *Cortex Hospital में अपॉइंटमेंट बुक करें*\n\nआप किस विशेषज्ञ डॉक्टर से परामर्श लेना चाहते हैं?",
-        "🏥 *Cortex Hospital मध्ये अपॉइंटमेंट बुक करा*\n\nआपल्याला कोणत्या तज्ज्ञ डॉक्टरांचा सल्ला घ्यायचा आहे?"
+        "🏥 *Book an Appointment – Svaasth Connect*\n\nWhich specialist doctor would you like to consult?",
+        "🏥 *Svaasth Connect में अपॉइंटमेंट बुक करें*\n\nआप किस विशेषज्ञ डॉक्टर से परामर्श लेना चाहते हैं?",
+        "🏥 *Svaasth Connect मध्ये अपॉइंटमेंट बुक करा*\n\nआपल्याला कोणत्या तज्ज्ञ डॉक्टरांचा सल्ला घ्यायचा आहे?"
       )}\n\n${docOptions}\n\n👉 ${inLanguage(lang, "Please reply *1* or *2* (or tap a doctor below).", "कृपया *1* या *2* भेजें (या नीचे दिए गए डॉक्टर पर टैप करें)।", "कृपया *1* किंवा *2* पाठवा (किंवा खालील पर्यायावर टॅप करा).")}`,
       nextStep: "BOOKING_SELECT_DOCTOR",
       updatedContext: { bookingDraft: draft },
@@ -2107,9 +2106,9 @@ async function handleMyAppointments(
   return {
     text: inLanguage(
       lang,
-      `📋 *Your Appointments at Cortex Hospital:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\n👇 *Options:*\n1️⃣ Cancel this appointment\n2️⃣ Book a new appointment\n3️⃣ Main Menu`,
-      `📋 *Cortex Hospital में आपकी अपॉइंटमेंट:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\n👇 *विकल्प:*\n1️⃣ अपॉइंटमेंट रद्द करें\n2️⃣ नई अपॉइंटमेंट बुक करें\n3️⃣ मुख्य मेनू`,
-      `📋 *Cortex Hospital मधील आपल्या अपॉइंटमेंट्स:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\n👇 *पर्याय:*\n1️⃣ अपॉइंटमेंट रद्द करा\n2️⃣ नवीन अपॉइंटमेंट बुक करा\n3️⃣ मुख्य मेनू`
+      `📋 *Your Appointments – Svaasth Connect:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\n👇 *Options:*\n1️⃣ Cancel this appointment\n2️⃣ Book a new appointment\n3️⃣ Main Menu`,
+      `📋 *Svaasth Connect में आपकी अपॉइंटमेंट:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\n👇 *विकल्प:*\n1️⃣ अपॉइंटमेंट रद्द करें\n2️⃣ नई अपॉइंटमेंट बुक करें\n3️⃣ मुख्य मेनू`,
+      `📋 *Svaasth Connect मधील आपल्या अपॉइंटमेंट्स:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\n👇 *पर्याय:*\n1️⃣ अपॉइंटमेंट रद्द करा\n2️⃣ नवीन अपॉइंटमेंट बुक करा\n3️⃣ मुख्य मेनू`
     ),
     nextStep: "IDLE",
   };

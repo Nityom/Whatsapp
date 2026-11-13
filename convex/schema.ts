@@ -51,6 +51,13 @@ export default defineSchema({
     customerId: v.optional(v.string()),
     selectedVehicleId: v.optional(v.string()),
     pickupLocationId: v.optional(v.string()),
+    // Dashboard & CRM metadata
+    notes: v.optional(v.string()),
+    tags: v.optional(v.array(v.string())), // e.g. ["Patient", "Lead", "VIP"]
+    unreadCount: v.optional(v.number()),
+    assignedTo: v.optional(v.string()),
+    lastMessage: v.optional(v.string()),
+    lastMessageTimestamp: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_phoneNumber", ["phoneNumber"]),
@@ -64,4 +71,15 @@ export default defineSchema({
     metadata: v.optional(v.any()),
     createdAt: v.number(),
   }).index("by_phone", ["phoneNumber"]),
+
+  // Broadcast & Bulk Campaigns
+  broadcastCampaigns: defineTable({
+    title: v.string(),
+    message: v.string(),
+    targetAudience: v.string(), // "all" | "patients" | "leads" | "custom"
+    recipientCount: v.number(),
+    status: v.string(), // "sent" | "scheduled" | "draft"
+    sentAt: v.number(),
+    tags: v.optional(v.array(v.string())),
+  }),
 });

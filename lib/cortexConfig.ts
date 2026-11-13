@@ -120,10 +120,13 @@ export const CORTEX_HOSPITAL_CONFIG: HospitalConfig = {
   ],
 };
 
+export const BOT_NAME = "Svaasth Connect";
+export const BOT_TAGLINE = "Healthcare WhatsApp AI & Operations Hub";
+
 /**
  * Standard Default Welcome Message (Strictly adhering to Section 15 of System Prompt, numbered 1-9 for easy access)
  */
-export const DEFAULT_WELCOME_MESSAGE = `Welcome to Cortex Hospital 👋
+export const DEFAULT_WELCOME_MESSAGE = `Welcome to Svaasth Connect 👋
 Please choose your language / कृपया भाषा चुनें / कृपया भाषा निवडा:
 
 1️⃣ English

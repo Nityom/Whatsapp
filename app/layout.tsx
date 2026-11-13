@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Svaasth Connect – Cortex Hospital WhatsApp Bot',
+  title: 'Svaasth Connect – WhatsApp Hub & Admin Dashboard',
   description:
-    'Svaasth Connect – Official AI-Powered WhatsApp Virtual Assistant for Cortex Hospital, Aarti Chowk, Wardha. 24/7 Appointments, Prescriptions, Billing, and Patient Care.',
+    'Official Svaasth Connect Healthcare WhatsApp AI & Operations Hub. 24/7 Appointments, Prescriptions, Live Two-Way Chat, Bulk Broadcasts, and Patient Care.',
 };
 
 export default function RootLayout({
@@ -14,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="bg-slate-900 text-slate-100 antialiased min-h-screen">
+      <body className="bg-[#f8faf8] text-[#173d37] antialiased min-h-screen">
         {children}
       </body>
     </html>

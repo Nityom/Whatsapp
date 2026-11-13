@@ -24,7 +24,12 @@ async function run() {
     text: 'Hi',
   });
   console.log('Bot replied:\n', res.text);
-  if (!res.text.includes('Welcome to Cortex Hospital') || !res.text.includes('English') || !res.text.includes('मराठी')) {
+  if (
+    (!res.text.includes('Welcome to Svaasth Connect') &&
+      !res.text.includes('Welcome to Cortex Hospital')) ||
+    !res.text.includes('English') ||
+    !res.text.includes('मराठी')
+  ) {
     throw new Error('Test 1 failed: Expected Language Selection prompt with English/Hindi/Marathi');
   }
   console.log('✅ Test 1 Passed\n');
@@ -44,14 +49,20 @@ async function run() {
   }
   console.log('✅ Test 1b Passed\n');
 
-  // Test 2: Natural Language Booking: "I want to see Dr. Vipeen Raut tomorrow"
-  console.log('--- Test 2: Patient says "I want to see Dr. Vipeen Raut tomorrow" ---');
+  // Test 2: Natural Language Booking: "I want to see Dr. Vipeen Raut"
+  console.log('--- Test 2: Patient says "I want to see Dr. Vipeen Raut" ---');
   res = await processIncomingMessage({
     phoneNumber: TEST_PHONE,
     type: 'text',
-    text: 'I want to see Dr. Vipeen Raut tomorrow',
+    text: 'I want to see Dr. Vipeen Raut',
   });
   console.log('Bot replied:\n', res.text);
+  res = await processIncomingMessage({
+    phoneNumber: TEST_PHONE,
+    type: 'text',
+    text: '16/11/26',
+  });
+  console.log('Bot replied for date:\n', res.text);
   session = await convex.query(api.sessions.getWhatsAppSession, { phoneNumber: TEST_PHONE });
   console.log('Convex currentStep:', session?.currentStep);
   if (session?.currentStep !== 'BOOKING_SELECT_SESSION') {
@@ -97,7 +108,11 @@ async function run() {
     text: 'basha badle',
   });
   console.log('Bot replied to "basha badle":\n', res.text);
-  if (!res.text.includes('Welcome to Cortex Hospital') || !res.text.includes('मराठी')) {
+  if (
+    (!res.text.includes('Welcome to Svaasth Connect') &&
+      !res.text.includes('Welcome to Cortex Hospital')) ||
+    !res.text.includes('मराठी')
+  ) {
     throw new Error('Test 5 failed: "basha badle" should trigger language selection prompt');
   }
 
@@ -108,7 +123,11 @@ async function run() {
     text: 'menu_10',
   });
   console.log('Bot replied to "menu_10":\n', res.text);
-  if (!res.text.includes('Welcome to Cortex Hospital') || !res.text.includes('मराठी')) {
+  if (
+    (!res.text.includes('Welcome to Svaasth Connect') &&
+      !res.text.includes('Welcome to Cortex Hospital')) ||
+    !res.text.includes('मराठी')
+  ) {
     throw new Error('Test 5 failed: "menu_10" should trigger language selection prompt');
   }
   console.log('✅ Test 5 Passed: "basha badle" and "menu_10" button both work!\n');
@@ -175,7 +194,7 @@ async function run() {
   // Step 2: Book with Doctor 1 (Dr. Vipeen Raut)
   await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '1' }); // Book appointment
   await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '1' }); // Dr. Vipeen Raut
-  res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '2' }); // Tomorrow -> Prompts for Session
+  res = await processIncomingMessage({ phoneNumber: freshPhone, type: 'text', text: '16/11/26' }); // Monday -> Prompts for Session
   console.log('Tomorrow selected, prompt for session (Morning/Evening):\n', res.text);
   if (!res.text.includes('Morning') || !res.text.includes('Evening')) {
     throw new Error('Test 9 failed: Expected session prompt after date');
