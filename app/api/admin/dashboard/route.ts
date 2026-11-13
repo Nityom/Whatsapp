@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConvexClient } from '@/lib/conversation';
 import { api } from '@/convex/_generated/api';
+import { sendWhatsAppMessage } from '@/lib/whatsapp';
+
+/**
+ * Format recipient phone number for WhatsApp Cloud API.
+ * Ensures the country code (91 for India) is present without '+' or formatting.
+ */
+function formatWhatsAppRecipientPhone(phone: string): string {
+  let digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('0')) {
+    digits = digits.slice(1);
+  }
+  if (digits.length === 10) {
+    return `91${digits}`;
+  }
+  return digits;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -38,22 +54,54 @@ export async function POST(request: NextRequest) {
     if (action === 'send_staff_reply') {
       const { phoneNumber, text } = body;
       const cleanPhone = phoneNumber.replace(/\D/g, '');
+      const waRecipient = formatWhatsAppRecipientPhone(cleanPhone);
+
+      // 1. Dispatch real message via WhatsApp Business Cloud API (Meta)
+      console.log(`[Dashboard Outbound] Dispatching WhatsApp message to +${waRecipient}...`);
+      const waResult = await sendWhatsAppMessage(waRecipient, text);
+      console.log(`[Dashboard Outbound Result]`, waResult);
+
+      // 2. Persist to Convex database audit log
       const res = await convex.mutation(api.sessions.sendStaffMessage, {
         phoneNumber: cleanPhone,
         text,
       });
-      return NextResponse.json({ success: true, res });
+
+      return NextResponse.json({
+        success: true,
+        res,
+        whatsappDelivered: waResult.success,
+        whatsappMessageId: waResult.messageId,
+        whatsappError: waResult.error,
+      });
     }
 
     if (action === 'send_bulk') {
       const { phoneNumbers, text, campaignTitle, targetAudience } = body;
+
+      // 1. Dispatch real WhatsApp message to each recipient
+      const deliveryResults = [];
+      for (const phone of phoneNumbers) {
+        const waRecipient = formatWhatsAppRecipientPhone(phone);
+        if (waRecipient) {
+          const sendRes = await sendWhatsAppMessage(waRecipient, text);
+          deliveryResults.push({ phone: waRecipient, ...sendRes });
+        }
+      }
+
+      // 2. Persist campaign in Convex
       const res = await convex.mutation(api.sessions.sendBulkMessage, {
         phoneNumbers,
         text,
         campaignTitle,
         targetAudience,
       });
-      return NextResponse.json({ success: true, res });
+
+      return NextResponse.json({
+        success: true,
+        res,
+        deliveries: deliveryResults,
+      });
     }
 
     if (action === 'toggle_handover') {
@@ -95,4 +143,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }
-
