@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Cortex Hospital – AI WhatsApp Assistant',
+  title: 'Svaasth Connect – Cortex Hospital WhatsApp Bot',
   description:
-    'Official AI-Powered WhatsApp Virtual Assistant for Cortex Hospital, Aarti Chowk, Wardha. 24/7 Appointments, Prescriptions, Billing, and Patient Care.',
+    'Svaasth Connect – Official AI-Powered WhatsApp Virtual Assistant for Cortex Hospital, Aarti Chowk, Wardha. 24/7 Appointments, Prescriptions, Billing, and Patient Care.',
 };
 
 export default function RootLayout({
