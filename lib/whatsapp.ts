@@ -44,6 +44,84 @@ export interface WhatsAppLocationPayload {
   address: string;
 }
 
+export interface WhatsAppTemplateComponent {
+  type: "header" | "body" | "button";
+  sub_type?: string;
+  index?: string | number;
+  parameters: Array<{
+    type: "text" | "currency" | "date_time" | "image" | "document" | "video";
+    text?: string;
+    [key: string]: any;
+  }>;
+}
+
+/**
+ * Sends an approved WhatsApp Template message.
+ * Required by Meta to initiate outbound messages outside the 24-hour service window.
+ */
+export async function sendWhatsAppTemplate(
+  to: string,
+  templateName: string,
+  languageCode: string = "en_US",
+  components?: WhatsAppTemplateComponent[]
+): Promise<SendMessageResult> {
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+  if (!token || !phoneNumberId) {
+    console.log(`[WhatsApp API Simulated Template] To: ${to}, Template: ${templateName}`);
+    return { success: true, messageId: `sim_tpl_${Date.now()}` };
+  }
+
+  const endpoint = `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`;
+  try {
+    const payload: Record<string, any> = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "template",
+      template: {
+        name: templateName,
+        language: { code: languageCode },
+      },
+    };
+    if (components && components.length > 0) {
+      payload.template.components = components;
+    }
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      console.error(`[WhatsApp Template Error] HTTP ${response.status}:`, data);
+      return {
+        success: false,
+        error: data?.error?.message || "Failed to send WhatsApp template message",
+      };
+    }
+
+    const messageId = data?.messages?.[0]?.id;
+    console.log(`[WhatsApp Template Success] Sent ${templateName} to ${to}. ID: ${messageId}`);
+    return {
+      success: true,
+      messageId,
+    };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return {
+      success: false,
+      error: errorMessage,
+    };
+  }
+}
+
 /**
  * Sends a WhatsApp text message using the WhatsApp Cloud API.
  * 

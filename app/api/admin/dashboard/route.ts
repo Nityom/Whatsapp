@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConvexClient } from '@/lib/conversation';
 import { api } from '@/convex/_generated/api';
-import { sendWhatsAppMessage } from '@/lib/whatsapp';
+import { sendWhatsAppMessage, sendWhatsAppTemplate, WhatsAppTemplateComponent } from '@/lib/whatsapp';
 
 /**
  * Format recipient phone number for WhatsApp Cloud API.
@@ -65,6 +65,54 @@ export async function POST(request: NextRequest) {
       const res = await convex.mutation(api.sessions.sendStaffMessage, {
         phoneNumber: cleanPhone,
         text,
+      });
+
+      return NextResponse.json({
+        success: true,
+        res,
+        whatsappDelivered: waResult.success,
+        whatsappMessageId: waResult.messageId,
+        whatsappError: waResult.error,
+      });
+    }
+
+    if (action === 'send_template') {
+      const {
+        phoneNumber,
+        templateName = 'appointment_booked',
+        languageCode = 'en_US',
+        parameters = [],
+      } = body;
+      const cleanPhone = phoneNumber.replace(/\D/g, '');
+      const waRecipient = formatWhatsAppRecipientPhone(cleanPhone);
+
+      // Construct component body parameters for Meta WhatsApp Cloud API
+      const components: WhatsAppTemplateComponent[] = [];
+      if (parameters && parameters.length > 0) {
+        components.push({
+          type: 'body',
+          parameters: parameters.map((val: string) => ({
+            type: 'text',
+            text: String(val),
+          })),
+        });
+      }
+
+      console.log(`[Dashboard Outbound Template] Sending '${templateName}' to +${waRecipient}...`);
+      const waResult = await sendWhatsAppTemplate(
+        waRecipient,
+        templateName,
+        languageCode,
+        components
+      );
+      console.log(`[Dashboard Outbound Template Result]`, waResult);
+
+      // Audit text representation in Convex chat history
+      const paramText = parameters.length > 0 ? `\nParameters: ${parameters.join(' | ')}` : '';
+      const auditText = `📋 [Meta Template: ${templateName}]${paramText}`;
+      const res = await convex.mutation(api.sessions.sendStaffMessage, {
+        phoneNumber: cleanPhone,
+        text: auditText,
       });
 
       return NextResponse.json({

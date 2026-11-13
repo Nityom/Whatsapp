@@ -24,6 +24,7 @@ interface ChatThreadColumnProps {
   session?: WhatsAppSession | null;
   messages: ChatMessage[];
   onSendMessage: (text: string) => Promise<void>;
+  onSendTemplate?: (templateName: string, parameters: string[]) => Promise<void>;
   onToggleBotHandover: () => Promise<void>;
   onOpenProfile?: () => void;
   isProfileOpen?: boolean;
@@ -34,6 +35,7 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
   session,
   messages,
   onSendMessage,
+  onSendTemplate,
   onToggleBotHandover,
   onOpenProfile,
   isProfileOpen = false,
@@ -42,6 +44,11 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
   const [inputText, setInputText] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Calculate whether contact is outside Meta's 24-hour service window
+  const lastPatientMessage = [...messages].reverse().find((m) => m.sender === 'patient');
+  const lastPatientTime = lastPatientMessage?.createdAt;
+  const isOutside24Hours = !lastPatientTime || Date.now() - lastPatientTime > 24 * 60 * 60 * 1000;
 
   const quickTemplates: QuickTemplate[] = [
     {
@@ -203,6 +210,41 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
         </div>
       </div>
 
+      {/* WhatsApp 24-Hour Care Window Status Banner */}
+      <div
+        className={`px-3.5 py-2 flex items-center justify-between text-[11px] border-b ${
+          isOutside24Hours
+            ? 'bg-[#fffbeb] border-[#fde68a] text-[#92400e]'
+            : 'bg-[#f0fdf4] border-[#dcfce7] text-[#166534]'
+        }`}
+      >
+        <div className="flex items-center gap-2 font-medium">
+          <span
+            className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+              isOutside24Hours ? 'bg-[#f59e0b] ring-2 ring-[#fde68a]' : 'bg-[#22c55e]'
+            }`}
+          />
+          {isOutside24Hours ? (
+            <span>
+              <strong>Outside 24-Hour Window:</strong> Meta policy requires an Approved Template to deliver outbound messages. Freeform texts won&apos;t reach WhatsApp until the patient messages <strong>+91 80107 72998</strong>.
+            </span>
+          ) : (
+            <span>
+              <strong>24-Hour Care Window Active:</strong> Normal text replies and staff messages deliver directly to the patient&apos;s WhatsApp.
+            </span>
+          )}
+        </div>
+        {isOutside24Hours && onSendTemplate && (
+          <button
+            type="button"
+            onClick={() => setShowTemplates(true)}
+            className="text-[10px] bg-[#fef3c7] hover:bg-[#fde68a] text-[#78350f] px-2.5 py-1 rounded-lg font-bold transition-colors shrink-0 ml-2 shadow-2xs border border-[#fcd34d]"
+          >
+            Send Approved Template ⚡
+          </button>
+        )}
+      </div>
+
       {/* Message Feed */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#fcfdfc]">
         {messages.length === 0 ? (
@@ -269,9 +311,9 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
 
       {/* Templates Drawer / Popover */}
       {showTemplates && (
-        <div className="p-3.5 bg-[#f8faf8] border-t border-[#dbe9e0] space-y-2 max-h-48 overflow-y-auto">
+        <div className="p-3.5 bg-[#f8faf8] border-t border-[#dbe9e0] space-y-2.5 max-h-56 overflow-y-auto">
           <div className="flex items-center justify-between text-xs font-bold text-[#173d37] pb-1">
-            <span>Select a pre-approved message template:</span>
+            <span>Select a Message Template:</span>
             <button
               onClick={() => setShowTemplates(false)}
               className="text-[#77a193] hover:text-[#173d37]"
@@ -279,12 +321,47 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
               Close
             </button>
           </div>
+
+          {/* Official Meta Template (Bypasses 24h window) */}
+          <div className="p-3 rounded-xl bg-[#eaf5ef] border border-[#bde5cf] flex items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#176e56] text-white">META APPROVED</span>
+                <span className="text-xs font-bold text-[#173d37]">appointment_booked</span>
+              </div>
+              <p className="text-[11px] text-[#3e6057] mt-0.5 leading-snug">
+                Bypasses Meta&apos;s 24-hour restriction! Delivers official appointment confirmation directly to WhatsApp anytime.
+              </p>
+            </div>
+            {onSendTemplate && (
+              <button
+                type="button"
+                disabled={isSending}
+                onClick={async () => {
+                  const patientName = session.patientName || 'Patient';
+                  const doc = session.bookingDraft?.doctorName || 'Dr. Vipeen Raut';
+                  const date = session.bookingDraft?.date || 'Tomorrow';
+                  const time = session.bookingDraft?.slotTime || '10:30 AM';
+                  await onSendTemplate('appointment_booked', [patientName, 'Svaasth Connect', doc, date, time]);
+                  setShowTemplates(false);
+                }}
+                className="px-3 py-1.5 rounded-lg bg-[#176e56] hover:bg-[#125643] text-white text-xs font-bold shrink-0 transition-colors shadow-2xs cursor-pointer"
+              >
+                Send via Meta ⚡
+              </button>
+            )}
+          </div>
+
+          <div className="text-[11px] font-semibold text-[#55776d] pt-1">
+            Standard Quick Replies (Delivered when 24h care window is active):
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {quickTemplates.map((t) => (
               <button
                 key={t.id}
                 onClick={() => handleSelectTemplate(t.text)}
-                className="p-2.5 rounded-xl bg-white border border-[#dbe9e0] hover:border-[#176e56] hover:bg-[#eaf5ef] text-left transition-all group"
+                className="p-2.5 rounded-xl bg-white border border-[#dbe9e0] hover:border-[#176e56] hover:bg-[#eaf5ef] text-left transition-all group cursor-pointer"
               >
                 <p className="text-xs font-bold text-[#173d37] group-hover:text-[#176e56]">
                   {t.title}

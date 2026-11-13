@@ -95,7 +95,28 @@ export async function POST(request: NextRequest) {
       for (const change of changes) {
         const value = change.value;
 
-        // Skip status updates (sent/delivered/read receipts)
+        // Process message delivery status receipts (sent, delivered, read, failed)
+        if (value.statuses && Array.isArray(value.statuses)) {
+          for (const status of value.statuses as any[]) {
+            const statusType = status.status; // "sent", "delivered", "read", "failed"
+            const recipient = status.recipient_id;
+            const messageId = status.id;
+            if (statusType === 'failed') {
+              const err = status.errors?.[0];
+              console.error(
+                `🚨 [WhatsApp Delivery FAILED] To: +${recipient} (MsgID: ${messageId})\n` +
+                `Code: ${err?.code} | Title: ${err?.title} | Message: ${err?.message}\n` +
+                `Details: ${JSON.stringify(err?.error_data || {})}`
+              );
+            } else {
+              console.log(
+                `ℹ️ [WhatsApp Delivery Status] To: +${recipient} -> ${statusType?.toUpperCase()} (MsgID: ${messageId})`
+              );
+            }
+          }
+        }
+
+        // If no incoming messages, continue to next change
         if (!value.messages || value.messages.length === 0) {
           continue;
         }

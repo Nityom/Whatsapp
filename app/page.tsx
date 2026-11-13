@@ -148,6 +148,31 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // Handle Meta WhatsApp Template message dispatch (bypasses 24h care window)
+  const handleSendTemplate = async (templateName: string, parameters: string[] = []) => {
+    if (!selectedPhone) return;
+    setIsSendingMessage(true);
+
+    try {
+      await fetch('/api/admin/dashboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send_template',
+          phoneNumber: selectedPhone,
+          templateName,
+          parameters,
+        }),
+      });
+      await fetchChatHistory(selectedPhone);
+      await fetchDashboardData();
+    } catch (err) {
+      console.error('[Send Template Error]', err);
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
   // Toggle bot handover / takeover
   const handleToggleBotHandover = async () => {
     if (!activeSession) return;
@@ -300,6 +325,7 @@ export default function AdminDashboardPage() {
               session={activeSession}
               messages={messages}
               onSendMessage={handleSendMessage}
+              onSendTemplate={handleSendTemplate}
               onToggleBotHandover={handleToggleBotHandover}
               onOpenProfile={() => setIsProfileOpen((prev) => !prev)}
               isProfileOpen={isProfileOpen}
