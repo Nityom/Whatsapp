@@ -83,14 +83,6 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#176e56]"></span>
         </button>
 
-        {/* User Avatar Circle */}
-        <div
-          className="w-10 h-10 rounded-xl bg-[#176e56] text-white font-bold flex items-center justify-center text-sm shadow-xs"
-          title={`Signed in as ${userName}`}
-        >
-          {userName.charAt(0).toUpperCase()}
-        </div>
-
         {/* Primary "+ Send Bulk Message" Button */}
         <button
           onClick={onOpenBulkModal}

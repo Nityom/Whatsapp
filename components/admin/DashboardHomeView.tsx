@@ -6,15 +6,16 @@ import {
   Send,
   Calendar,
   Clock,
-  UserCheck,
-  Stethoscope,
   Sparkles,
   ArrowRight,
   TrendingUp,
   Activity,
   CheckCircle2,
-  AlertCircle,
-  Plus,
+  FileText,
+  Users,
+  Smartphone,
+  Bot,
+  Zap,
 } from 'lucide-react';
 import { WhatsAppSession, DashboardStats } from './types';
 
@@ -35,7 +36,16 @@ export const DashboardHomeView: React.FC<DashboardHomeViewProps> = ({
   onOpenQuickAction,
   onNavigateTab,
 }) => {
-  const recentSessions = sessions.slice(0, 5);
+  const recentSessions = sessions.slice(0, 6);
+
+  // Chatbot services engagement breakdown
+  const chatbotIntents = [
+    { label: 'OPD Appointments Booked', percentage: 48, count: 598, color: 'bg-[#176e56]' },
+    { label: 'Digital Prescriptions Viewed', percentage: 26, count: 324, color: 'bg-[#54a987]' },
+    { label: 'Clinic Timings & Directions', percentage: 14, count: 175, color: 'bg-[#77d1a5]' },
+    { label: 'Billing & Payment Queries', percentage: 8, count: 99, color: 'bg-[#a3e2c3]' },
+    { label: 'Reception Staff Handover', percentage: 4, count: 52, color: 'bg-[#d2efe2]' },
+  ];
 
   return (
     <div className="space-y-6">
@@ -50,24 +60,8 @@ export const DashboardHomeView: React.FC<DashboardHomeViewProps> = ({
               <Send className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-[#173d37]">Send Broadcast</p>
-              <p className="text-[11px] text-[#55776d]">Reach all patients</p>
-            </div>
-          </div>
-          <ArrowRight className="w-4 h-4 text-[#77a193] group-hover:text-[#176e56] transition-colors" />
-        </button>
-
-        <button
-          onClick={() => onOpenQuickAction('appointment')}
-          className="p-4 rounded-2xl bg-white border border-[#dbe9e0] hover:border-[#176e56] hover:shadow-xs text-left transition-all group flex items-center justify-between"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#eaf5ef] text-[#176e56] flex items-center justify-center group-hover:scale-105 transition-transform">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-[#173d37]">Book Appointment</p>
-              <p className="text-[11px] text-[#55776d]">15-min OPD slot</p>
+              <p className="text-xs font-bold text-[#173d37]">Send Bulk Broadcast</p>
+              <p className="text-[11px] text-[#55776d]">Reach all contacts</p>
             </div>
           </div>
           <ArrowRight className="w-4 h-4 text-[#77a193] group-hover:text-[#176e56] transition-colors" />
@@ -79,11 +73,27 @@ export const DashboardHomeView: React.FC<DashboardHomeViewProps> = ({
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#eaf5ef] text-[#176e56] flex items-center justify-center group-hover:scale-105 transition-transform">
-              <Sparkles className="w-5 h-5" />
+              <FileText className="w-5 h-5" />
             </div>
             <div>
               <p className="text-xs font-bold text-[#173d37]">Message Templates</p>
               <p className="text-[11px] text-[#55776d]">Pre-approved texts</p>
+            </div>
+          </div>
+          <ArrowRight className="w-4 h-4 text-[#77a193] group-hover:text-[#176e56] transition-colors" />
+        </button>
+
+        <button
+          onClick={() => onNavigateTab('contacts')}
+          className="p-4 rounded-2xl bg-white border border-[#dbe9e0] hover:border-[#176e56] hover:shadow-xs text-left transition-all group flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#eaf5ef] text-[#176e56] flex items-center justify-center group-hover:scale-105 transition-transform">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-[#173d37]">Contacts Directory</p>
+              <p className="text-[11px] text-[#55776d]">Patient database</p>
             </div>
           </div>
           <ArrowRight className="w-4 h-4 text-[#77a193] group-hover:text-[#176e56] transition-colors" />
@@ -95,111 +105,108 @@ export const DashboardHomeView: React.FC<DashboardHomeViewProps> = ({
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#eaf5ef] text-[#176e56] flex items-center justify-center group-hover:scale-105 transition-transform">
-              <Activity className="w-5 h-5" />
+              <Smartphone className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-[#173d37]">AI Live Simulator</p>
-              <p className="text-[11px] text-[#55776d]">Test bot replies</p>
+              <p className="text-xs font-bold text-[#173d37]">Live Bot Simulator</p>
+              <p className="text-[11px] text-[#55776d]">Test AI interactions</p>
             </div>
           </div>
           <ArrowRight className="w-4 h-4 text-[#77a193] group-hover:text-[#176e56] transition-colors" />
         </button>
       </div>
 
-      {/* 2. Middle Grid: Doctor OPD Schedule & Live Activity Feed */}
+      {/* 2. Middle Grid: Chatbot Analytics & Live Conversations */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Left 3 Cols: OPD Schedule & Occupancy */}
+        {/* Left 3 Cols: Chatbot Engagement & AI Performance */}
         <div className="lg:col-span-3 space-y-6">
-          {/* OPD Doctors Schedule Card */}
+          {/* Chatbot Inquiries & Intent Breakdown */}
           <div className="bg-white border border-[#dbe9e0] rounded-2xl p-5 shadow-xs">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-sm font-bold text-[#173d37] flex items-center gap-2">
-                  <Stethoscope className="w-4 h-4 text-[#176e56]" />
-                  <span>Today's OPD Schedule & Occupancy</span>
+                  <Bot className="w-4 h-4 text-[#176e56]" />
+                  <span>Chatbot Automated Services Breakdown</span>
                 </h3>
-                <p className="text-xs text-[#55776d]">Live slot bookings synchronized with PMS</p>
+                <p className="text-xs text-[#55776d]">
+                  Patient self-service engagement via Svaasth Connect
+                </p>
               </div>
               <span className="px-2.5 py-0.5 rounded-full bg-[#eaf5ef] text-[#176e56] text-[11px] font-bold">
-                OPD Active
+                1,248 Sessions
               </span>
             </div>
 
-            <div className="space-y-4">
-              {/* Doctor 1 */}
-              <div className="p-4 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] space-y-2.5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div>
-                    <h4 className="text-sm font-bold text-[#173d37]">Dr. Vipeen Raut</h4>
-                    <p className="text-xs text-[#55776d]">Orthopaedics & Joint Replacement Surgeon</p>
+            <div className="space-y-3.5">
+              {chatbotIntents.map((item, idx) => (
+                <div key={idx} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-[#173d37]">{item.label}</span>
+                    <div className="flex items-center gap-2 text-[#55776d]">
+                      <span>{item.count} sessions</span>
+                      <span className="font-bold text-[#176e56]">{item.percentage}%</span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xs font-bold text-[#176e56]">12 of 16 Slots Booked</span>
-                    <p className="text-[10px] text-[#77a193]">75% Occupancy</p>
-                  </div>
-                </div>
-
-                {/* Progress bar */}
-                <div className="w-full bg-[#e2eee7] h-2 rounded-full overflow-hidden">
-                  <div className="bg-[#176e56] h-full rounded-full" style={{ width: '75%' }}></div>
-                </div>
-
-                <div className="flex items-center justify-between text-xs text-[#55776d] pt-1">
-                  <span className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-[#54a987]" />
-                    Morning: 10:30 AM – 1:00 PM (8 booked)
-                  </span>
-                  <span>Evening: 6:00 PM – 7:30 PM (4 booked)</span>
-                </div>
-              </div>
-
-              {/* Doctor 2 */}
-              <div className="p-4 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] space-y-2.5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div>
-                    <h4 className="text-sm font-bold text-[#173d37]">Dr. Shillpa Raut</h4>
-                    <p className="text-xs text-[#55776d]">Consulting Gynecologist & Obstetrician</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs font-bold text-[#176e56]">9 of 16 Slots Booked</span>
-                    <p className="text-[10px] text-[#77a193]">56% Occupancy</p>
+                  <div className="w-full bg-[#e2eee7] h-2 rounded-full overflow-hidden">
+                    <div
+                      className={`${item.color} h-full rounded-full transition-all`}
+                      style={{ width: `${item.percentage}%` }}
+                    />
                   </div>
                 </div>
+              ))}
+            </div>
 
-                {/* Progress bar */}
-                <div className="w-full bg-[#e2eee7] h-2 rounded-full overflow-hidden">
-                  <div className="bg-[#54a987] h-full rounded-full" style={{ width: '56%' }}></div>
-                </div>
-
-                <div className="flex items-center justify-between text-xs text-[#55776d] pt-1">
-                  <span className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-[#54a987]" />
-                    Morning: 10:30 AM – 1:00 PM (5 booked)
-                  </span>
-                  <span>Evening: 6:00 PM – 7:30 PM (4 booked)</span>
-                </div>
-              </div>
+            <div className="mt-5 pt-4 border-t border-[#edf5f0] flex items-center justify-between text-xs text-[#55776d]">
+              <span className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-[#54a987]" />
+                Peak Bot Traffic: 10:00 AM – 1:00 PM & 6:00 PM – 8:00 PM
+              </span>
+              <span className="font-semibold text-[#176e56]">24/7 Virtual Availability</span>
             </div>
           </div>
 
-          {/* AI Bot Performance Stats */}
+          {/* AI Bot Performance & Automation Health */}
           <div className="bg-white border border-[#dbe9e0] rounded-2xl p-5 shadow-xs">
-            <h3 className="text-sm font-bold text-[#173d37] mb-3">AI Engine Performance</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-[#173d37] flex items-center gap-2">
+                <Zap className="w-4 h-4 text-[#176e56]" />
+                <span>AI Bot Automation Health</span>
+              </h3>
+              <span className="text-xs text-[#77a193]">Live Metrics</span>
+            </div>
+
             <div className="grid grid-cols-3 gap-4 text-center">
-              <div className="p-3 rounded-xl bg-[#f8faf8] border border-[#dbe9e0]">
-                <p className="text-xs text-[#55776d]">Automated Resolution</p>
-                <p className="text-xl font-bold text-[#176e56] mt-1">92.4%</p>
-                <p className="text-[10px] text-[#77a193]">Zero staff intervention</p>
+              <div className="p-3.5 rounded-xl bg-[#f8faf8] border border-[#dbe9e0]">
+                <p className="text-xs text-[#55776d] font-medium">Automated Resolution</p>
+                <p className="text-2xl font-bold text-[#176e56] mt-1 tracking-tight">92.4%</p>
+                <p className="text-[10px] text-[#77a193] mt-0.5">Completed without staff</p>
               </div>
-              <div className="p-3 rounded-xl bg-[#f8faf8] border border-[#dbe9e0]">
-                <p className="text-xs text-[#55776d]">Human Takeover</p>
-                <p className="text-xl font-bold text-[#b91c1c] mt-1">7.6%</p>
-                <p className="text-[10px] text-[#77a193]">Complex triage / reception</p>
+              <div className="p-3.5 rounded-xl bg-[#f8faf8] border border-[#dbe9e0]">
+                <p className="text-xs text-[#55776d] font-medium">Human Handover</p>
+                <p className="text-2xl font-bold text-[#b91c1c] mt-1 tracking-tight">7.6%</p>
+                <p className="text-[10px] text-[#77a193] mt-0.5">Transferred to reception</p>
               </div>
-              <div className="p-3 rounded-xl bg-[#f8faf8] border border-[#dbe9e0]">
-                <p className="text-xs text-[#55776d]">Avg Reply Time</p>
-                <p className="text-xl font-bold text-[#173d37] mt-1">1.1 sec</p>
-                <p className="text-[10px] text-[#77a193]">Real-time WhatsApp</p>
+              <div className="p-3.5 rounded-xl bg-[#f8faf8] border border-[#dbe9e0]">
+                <p className="text-xs text-[#55776d] font-medium">Avg Response Speed</p>
+                <p className="text-2xl font-bold text-[#173d37] mt-1 tracking-tight">1.1s</p>
+                <p className="text-[10px] text-[#77a193] mt-0.5">Meta Graph API v20.0</p>
+              </div>
+            </div>
+
+            {/* Language distribution pills */}
+            <div className="mt-4 pt-3 border-t border-[#edf5f0] flex items-center justify-between text-xs text-[#55776d]">
+              <span>Active Languages:</span>
+              <div className="flex items-center gap-2 text-xs font-semibold">
+                <span className="px-2 py-0.5 rounded-full bg-[#eaf5ef] text-[#176e56]">
+                  English (52%)
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-[#eaf5ef] text-[#176e56]">
+                  मराठी (34%)
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-[#eaf5ef] text-[#176e56]">
+                  हिन्दी (14%)
+                </span>
               </div>
             </div>
           </div>
@@ -211,13 +218,13 @@ export const DashboardHomeView: React.FC<DashboardHomeViewProps> = ({
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-sm font-bold text-[#173d37]">Live Inquiries Stream</h3>
-                <p className="text-xs text-[#55776d]">Real-time patient WhatsApp messages</p>
+                <p className="text-xs text-[#55776d]">Recent patient WhatsApp messages</p>
               </div>
               <button
                 onClick={() => onNavigateTab('chats')}
                 className="text-xs font-bold text-[#176e56] hover:underline"
               >
-                View all chats
+                View all
               </button>
             </div>
 

@@ -230,23 +230,6 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
                       : 'bg-[#eaf5ef] border border-[#cbe4d5] text-[#173d37] rounded-tr-xs'
                   }`}
                 >
-                  {/* Sender Badge */}
-                  {!isPatient && (
-                    <div className="flex items-center gap-1.5 mb-1 text-[10px] font-bold text-[#176e56]">
-                      {isStaff ? (
-                        <>
-                          <User className="w-3 h-3" />
-                          <span>Staff Reply</span>
-                        </>
-                      ) : (
-                        <>
-                          <Bot className="w-3.5 h-3.5 text-[#54a987]" />
-                          <span>Svaasth Connect AI</span>
-                        </>
-                      )}
-                    </div>
-                  )}
-
                   <p className="whitespace-pre-wrap">{msg.text}</p>
 
                   <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-[#77a193]">
@@ -282,13 +265,6 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
             <span>Reply</span>
           </button>
         </div>
-
-        {isHandedOver && (
-          <span className="text-[11px] text-[#b91c1c] font-medium flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#b91c1c]"></span>
-            Bot Paused for Staff
-          </span>
-        )}
       </div>
 
       {/* Templates Drawer / Popover */}
