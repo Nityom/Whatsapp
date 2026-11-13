@@ -283,6 +283,7 @@ export const sendStaffMessage = mutation({
   args: {
     phoneNumber: v.string(),
     text: v.string(),
+    metadata: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -291,6 +292,7 @@ export const sendStaffMessage = mutation({
       sender: "staff",
       text: args.text,
       type: "staff_reply",
+      metadata: args.metadata,
       createdAt: now,
     });
 

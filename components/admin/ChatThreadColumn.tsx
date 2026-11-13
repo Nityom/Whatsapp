@@ -274,9 +274,21 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
                 >
                   <p className="whitespace-pre-wrap">{msg.text}</p>
 
-                  <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-[#77a193]">
-                    <span>{formatMessageTime(msg.createdAt)}</span>
-                    {!isPatient && <CheckCheck className="w-3.5 h-3.5 text-[#54a987]" />}
+                  <div className="flex items-center justify-end gap-1.5 mt-1.5 text-[10px]">
+                    <span className="text-[#77a193]">{formatMessageTime(msg.createdAt)}</span>
+                    {!isPatient &&
+                      (msg.metadata?.outside24h ? (
+                        <span
+                          className="flex items-center gap-1 text-[#b45309] bg-[#fef3c7] px-1.5 py-0.5 rounded text-[9px] font-semibold"
+                          title="Patient has not messaged in >24h. Plain text blocked by Meta until patient replies on WhatsApp."
+                        >
+                          <span>⚠️ 24h Blocked (Wait for reply)</span>
+                        </span>
+                      ) : (
+                        <span title="Delivered to WhatsApp">
+                          <CheckCheck className="w-3.5 h-3.5 text-[#54a987]" />
+                        </span>
+                      ))}
                   </div>
                 </div>
               </div>

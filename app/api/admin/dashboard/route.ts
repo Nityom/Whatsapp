@@ -56,23 +56,39 @@ export async function POST(request: NextRequest) {
       const cleanPhone = phoneNumber.replace(/\D/g, '');
       const waRecipient = formatWhatsAppRecipientPhone(cleanPhone);
 
+      // Check whether patient has sent an inbound message within the last 24 hours
+      const history = await convex.query(api.sessions.getChatHistory, { phoneNumber: cleanPhone });
+      const lastPatientMsg = [...history].reverse().find((m) => m.sender === 'patient');
+      const isOutside24h =
+        !lastPatientMsg || Date.now() - lastPatientMsg.createdAt > 24 * 60 * 60 * 1000;
+
       // 1. Dispatch real message via WhatsApp Business Cloud API (Meta)
-      console.log(`[Dashboard Outbound] Dispatching WhatsApp message to +${waRecipient}...`);
+      console.log(
+        `[Dashboard Outbound] Dispatching WhatsApp message to +${waRecipient}... (isOutside24h: ${isOutside24h})`
+      );
       const waResult = await sendWhatsAppMessage(waRecipient, text);
       console.log(`[Dashboard Outbound Result]`, waResult);
 
-      // 2. Persist to Convex database audit log
+      // 2. Persist to Convex database audit log with accurate metadata
       const res = await convex.mutation(api.sessions.sendStaffMessage, {
         phoneNumber: cleanPhone,
         text,
+        metadata: {
+          whatsappMessageId: waResult.messageId,
+          delivered: !isOutside24h && waResult.success,
+          outside24h: isOutside24h,
+        },
       });
 
       return NextResponse.json({
         success: true,
         res,
-        whatsappDelivered: waResult.success,
+        whatsappDelivered: !isOutside24h && waResult.success,
         whatsappMessageId: waResult.messageId,
-        whatsappError: waResult.error,
+        outside24h: isOutside24h,
+        whatsappError: isOutside24h
+          ? 'Patient outside 24h window. Meta policy blocks plain text until patient replies.'
+          : waResult.error,
       });
     }
 

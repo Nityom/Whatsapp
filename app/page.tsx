@@ -98,14 +98,14 @@ export default function AdminDashboardPage() {
     }
   }, [selectedPhone, fetchChatHistory]);
 
-  // Periodic poll to keep conversations reactive
+  // Periodic poll to keep conversations reactive & in real-time sync with WhatsApp
   useEffect(() => {
     const interval = setInterval(() => {
       fetchDashboardData();
       if (selectedPhone) {
         fetchChatHistory(selectedPhone);
       }
-    }, 6000);
+    }, 2000);
     return () => clearInterval(interval);
   }, [fetchDashboardData, fetchChatHistory, selectedPhone]);
 
