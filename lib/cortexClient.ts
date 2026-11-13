@@ -602,7 +602,7 @@ export async function rescheduleAppointment(
    4. PRESCRIPTIONS
    ========================================================================= */
 
-export async function getPatientPrescriptions(phoneOrUhid: string): Promise<PrescriptionRecord[]> {
+export async function getPatientPrescriptions(phoneOrUhid: string, patientName?: string): Promise<PrescriptionRecord[]> {
   try {
     const client = getCortexConvexClient();
     const patient = await findPatient(phoneOrUhid);
@@ -611,10 +611,20 @@ export async function getPatientPrescriptions(phoneOrUhid: string): Promise<Pres
     if (Array.isArray(all)) {
       const normalizedPhone = normalizePhone(phoneOrUhid);
       const refNumber = patient?.reference_number?.toUpperCase();
+      const targetName = (patientName || patient?.name || "").trim().toLowerCase();
 
       return all.filter((p) => {
-        if (refNumber && p.reference_number && p.reference_number.toUpperCase() === refNumber) {
-          return true;
+        const pRef = p.reference_number?.toUpperCase();
+        if (refNumber && pRef) {
+          return pRef === refNumber;
+        }
+        if (refNumber && !pRef) {
+          return false;
+        }
+        if (targetName) {
+          const pName = (p.patient_name || "").trim().toLowerCase();
+          const pPhone = p.phone_number ? normalizePhone(p.phone_number) : "";
+          return pPhone === normalizedPhone && (pName === targetName || pName.includes(targetName) || targetName.includes(pName));
         }
         if (p.phone_number && normalizePhone(p.phone_number) === normalizedPhone) {
           return true;
