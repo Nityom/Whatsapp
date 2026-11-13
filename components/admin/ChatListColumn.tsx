@@ -238,3 +238,4 @@ export const ChatListColumn: React.FC<ChatListColumnProps> = ({
     </div>
   );
 };
+

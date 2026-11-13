@@ -325,3 +325,4 @@ export const SimulatorDrawer: React.FC<SimulatorDrawerProps> = ({ onRefreshSessi
     </div>
   );
 };
+

@@ -15,6 +15,7 @@ import {
   Tag,
   UserCheck,
   ListPlus,
+  X,
 } from 'lucide-react';
 import { WhatsAppSession } from './types';
 
@@ -23,6 +24,7 @@ interface PatientDetailColumnProps {
   onOpenQuickAction: (action: 'appointment' | 'prescription' | 'bill' | 'reminder') => void;
   onUpdateNotes: (notes: string) => Promise<void>;
   onAddTag: (tag: string) => Promise<void>;
+  onClose?: () => void;
 }
 
 export const PatientDetailColumn: React.FC<PatientDetailColumnProps> = ({
@@ -30,6 +32,7 @@ export const PatientDetailColumn: React.FC<PatientDetailColumnProps> = ({
   onOpenQuickAction,
   onUpdateNotes,
   onAddTag,
+  onClose,
 }) => {
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
@@ -80,15 +83,26 @@ export const PatientDetailColumn: React.FC<PatientDetailColumnProps> = ({
   };
 
   return (
-    <div className="w-full lg:w-80 bg-white border border-[#dbe9e0] rounded-2xl h-[740px] flex flex-col shadow-xs overflow-y-auto">
+    <div className="w-full lg:w-80 bg-white border border-[#dbe9e0] rounded-2xl h-[740px] flex flex-col shadow-xs overflow-y-auto animate-in slide-in-from-right-2 duration-150 shrink-0">
       {/* Top Patient Profile Header */}
       <div className="p-5 border-b border-[#dbe9e0] flex flex-col items-center text-center relative">
-        <button
-          title="Edit Patient Details"
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-[#55776d] hover:text-[#176e56] hover:bg-[#f3f9f5] transition-colors"
-        >
-          <Edit2 className="w-4 h-4" />
-        </button>
+        <div className="absolute top-3.5 right-3.5 flex items-center gap-1">
+          <button
+            title="Edit Patient Details"
+            className="p-1.5 rounded-lg text-[#55776d] hover:text-[#176e56] hover:bg-[#f3f9f5] transition-colors"
+          >
+            <Edit2 className="w-4 h-4" />
+          </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              title="Close Profile Panel"
+              className="p-1.5 rounded-lg text-[#55776d] hover:text-[#b91c1c] hover:bg-[#fff5f5] transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
 
         {/* Large Avatar */}
         <div className="w-16 h-16 rounded-full bg-[#ede9fe] text-[#6d28d9] font-bold text-lg flex items-center justify-center shadow-xs">

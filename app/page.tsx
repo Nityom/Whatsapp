@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from '@/components/admin/Sidebar';
 import { Header } from '@/components/admin/Header';
 import { StatCards } from '@/components/admin/StatCards';
+import { DashboardHomeView } from '@/components/admin/DashboardHomeView';
 import { ChatListColumn } from '@/components/admin/ChatListColumn';
 import { ChatThreadColumn } from '@/components/admin/ChatThreadColumn';
 import { PatientDetailColumn } from '@/components/admin/PatientDetailColumn';
@@ -22,7 +23,7 @@ import {
 } from '@/components/admin/types';
 
 export default function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState<NavTab>('chats');
+  const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [dateRange, setDateRange] = useState('Last 7 Days');
   const [chatFilter, setChatFilter] = useState<ChatFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,6 +33,10 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+
+  // New UX state: minimize sidebar & toggle client profile drawer
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   // Modals state
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -238,15 +243,17 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#f8faf8] text-[#173d37] flex">
-      {/* 1. Left Persistent Sidebar */}
+      {/* 1. Left Persistent Sidebar with Minimize/Collapse */}
       <Sidebar
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         unreadCount={unreadTotal}
         isWhatsAppConnected={true}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
       />
 
-      {/* 2. Main Scrollable Dashboard Content */}
+      {/* 2. Main Dashboard Content */}
       <main className="flex-1 p-6 md:p-8 flex flex-col min-w-0 overflow-y-auto">
         {/* Top Header */}
         <Header
@@ -259,8 +266,23 @@ export default function AdminDashboardPage() {
         {/* 4 Stat Cards */}
         <StatCards stats={stats} />
 
-        {/* Dynamic Tab Body */}
-        {(activeTab === 'dashboard' || activeTab === 'chats') && (
+        {/* TAB 1: EXECUTIVE DASHBOARD VIEW */}
+        {activeTab === 'dashboard' && (
+          <DashboardHomeView
+            sessions={sessions}
+            stats={stats}
+            onOpenChat={(phone) => {
+              setSelectedPhone(phone);
+              setActiveTab('chats');
+            }}
+            onOpenBulkModal={() => setIsBulkModalOpen(true)}
+            onOpenQuickAction={(action) => setQuickActionType(action)}
+            onNavigateTab={setActiveTab}
+          />
+        )}
+
+        {/* TAB 2: DEDICATED CHATS WORKSPACE */}
+        {activeTab === 'chats' && (
           <div className="flex flex-col lg:flex-row gap-5 items-start mt-1">
             {/* Column 1: Conversations List */}
             <ChatListColumn
@@ -279,20 +301,25 @@ export default function AdminDashboardPage() {
               messages={messages}
               onSendMessage={handleSendMessage}
               onToggleBotHandover={handleToggleBotHandover}
+              onOpenProfile={() => setIsProfileOpen((prev) => !prev)}
+              isProfileOpen={isProfileOpen}
               isSending={isSendingMessage}
             />
 
-            {/* Column 3: Patient Profile & Quick Actions */}
-            <PatientDetailColumn
-              session={activeSession}
-              onOpenQuickAction={(action) => setQuickActionType(action)}
-              onUpdateNotes={handleUpdateNotes}
-              onAddTag={handleAddTag}
-            />
+            {/* Column 3: Patient Profile & Quick Actions (ONLY open when clicking profile header) */}
+            {isProfileOpen && (
+              <PatientDetailColumn
+                session={activeSession}
+                onOpenQuickAction={(action) => setQuickActionType(action)}
+                onUpdateNotes={handleUpdateNotes}
+                onAddTag={handleAddTag}
+                onClose={() => setIsProfileOpen(false)}
+              />
+            )}
           </div>
         )}
 
-        {/* Broadcast / Bulk View */}
+        {/* TAB 3: Broadcast / Bulk View */}
         {activeTab === 'broadcast' && (
           <div className="mt-4">
             <BroadcastView
@@ -302,7 +329,7 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* Templates View */}
+        {/* TAB 4: Templates View */}
         {activeTab === 'templates' && (
           <div className="mt-4">
             <TemplatesView
@@ -314,7 +341,7 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* Contacts Directory View */}
+        {/* TAB 5: Contacts Directory View with Pagination */}
         {activeTab === 'contacts' && (
           <div className="mt-4">
             <ContactsView
@@ -331,7 +358,7 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* Live Simulator View */}
+        {/* TAB 6: Live Simulator View */}
         {activeTab === 'simulator' && (
           <div className="mt-4">
             <SimulatorDrawer
@@ -343,7 +370,7 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* Automation View */}
+        {/* TAB 7: Automation View */}
         {activeTab === 'automation' && (
           <div className="mt-4 p-8 bg-white border border-[#dbe9e0] rounded-2xl shadow-xs text-center space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-[#eaf5ef] text-[#176e56] font-bold flex items-center justify-center mx-auto text-lg">
@@ -358,7 +385,7 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* Reports View */}
+        {/* TAB 8: Reports View */}
         {activeTab === 'reports' && (
           <div className="mt-4 p-8 bg-white border border-[#dbe9e0] rounded-2xl shadow-xs text-center space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-[#eaf5ef] text-[#176e56] font-bold flex items-center justify-center mx-auto text-lg">
@@ -372,7 +399,7 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* Settings View */}
+        {/* TAB 9: Settings View */}
         {activeTab === 'settings' && (
           <div className="mt-4 p-8 bg-white border border-[#dbe9e0] rounded-2xl shadow-xs space-y-4 max-w-xl">
             <h3 className="text-base font-bold text-[#173d37]">Svaasth Connect Settings</h3>

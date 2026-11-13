@@ -85,3 +85,4 @@ export interface QuickTemplate {
   category: 'appointment' | 'prescription' | 'billing' | 'reminder' | 'general';
   text: string;
 }
+

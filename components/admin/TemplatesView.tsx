@@ -143,3 +143,4 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({ onUseTemplate }) =
     </div>
   );
 };
+
