@@ -302,17 +302,142 @@ export async function sendWhatsAppLocation(
 }
 
 /**
- * Sends a document / PDF using WhatsApp Cloud API
+ * Upload binary media (Image, Document/PDF) directly to Meta WhatsApp Cloud API.
+ * Returns the Meta media ID which can be sent to patients without needing a public file hosting server.
+ */
+export async function uploadWhatsAppMedia(
+  fileBuffer: Buffer,
+  mimeType: string,
+  filename: string
+): Promise<{ success: boolean; mediaId?: string; error?: string }> {
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+  if (!token || !phoneNumberId) {
+    return { success: false, error: 'WhatsApp credentials not configured' };
+  }
+
+  try {
+    const blob = new Blob([new Uint8Array(fileBuffer)], { type: mimeType });
+    const formData = new FormData();
+    formData.append('messaging_product', 'whatsapp');
+    formData.append('file', blob, filename);
+    formData.append('type', mimeType);
+
+    const response = await fetch(
+      `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/media`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      }
+    );
+
+    const data = await response.json();
+    if (!response.ok || !data?.id) {
+      console.error('[Meta Media Upload Error]', data);
+      return {
+        success: false,
+        error: data?.error?.message || 'Failed to upload media to Meta Cloud API',
+      };
+    }
+
+    console.log(`[Meta Media Upload Success] Media ID: ${data.id} for ${filename}`);
+    return {
+      success: true,
+      mediaId: data.id,
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    return { success: false, error: msg };
+  }
+}
+
+/**
+ * Sends an image via WhatsApp Cloud API (supports either Meta mediaId or public link).
+ */
+export async function sendWhatsAppImage(
+  to: string,
+  imageSource: { id?: string; link?: string },
+  caption?: string
+): Promise<SendMessageResult> {
+  if (!isDevAllowedRecipient(to)) {
+    console.log(
+      `[Dev Guard: Simulated Outgoing Image for non-dev phone +${to}]\nCaption: ${caption}`
+    );
+    return { success: true, messageId: `sim_dev_img_${Date.now()}` };
+  }
+
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+  if (!token || !phoneNumberId) {
+    console.log(`[WhatsApp API Simulated Outgoing Image] To: ${to}\nCaption: ${caption}`);
+    return { success: true, messageId: `sim_img_${Date.now()}` };
+  }
+
+  const endpoint = `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`;
+  try {
+    const imagePayload: Record<string, any> = {};
+    if (imageSource.id) {
+      imagePayload.id = imageSource.id;
+    } else if (imageSource.link) {
+      imagePayload.link = imageSource.link;
+    }
+    if (caption) {
+      imagePayload.caption = caption;
+    }
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to,
+        type: 'image',
+        image: imagePayload,
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      console.error('[Meta Send Image Error]', data);
+      return {
+        success: false,
+        error: data?.error?.message || 'Failed to send image',
+      };
+    }
+
+    return {
+      success: true,
+      messageId: data?.messages?.[0]?.id,
+    };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Sends a document / PDF using WhatsApp Cloud API (supports either Meta mediaId or public link).
  */
 export async function sendWhatsAppDocument(
   to: string,
-  documentUrl: string,
+  documentSource: { id?: string; link?: string } | string,
   filename: string,
   caption?: string
 ): Promise<SendMessageResult> {
   if (!isDevAllowedRecipient(to)) {
     console.log(
-      `[Dev Guard: Simulated Outgoing Document for non-dev phone +${to}]\nFile: ${filename}\nLink: ${documentUrl}`
+      `[Dev Guard: Simulated Outgoing Document for non-dev phone +${to}]\nFile: ${filename}`
     );
     return {
       success: true,
@@ -325,7 +450,7 @@ export async function sendWhatsAppDocument(
 
   if (!token || !phoneNumberId) {
     console.log(
-      `[WhatsApp API Simulated Outgoing Document] To: ${to}\nFile: ${filename}\nLink: ${documentUrl}\nCaption: ${caption}\n`
+      `[WhatsApp API Simulated Outgoing Document] To: ${to}\nFile: ${filename}\nCaption: ${caption}\n`
     );
     return {
       success: true,
@@ -336,6 +461,25 @@ export async function sendWhatsAppDocument(
   const endpoint = `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`;
 
   try {
+    const documentPayload: Record<string, any> = {
+      filename: filename,
+      caption: caption || filename,
+    };
+
+    if (typeof documentSource === 'string') {
+      if (documentSource.startsWith('http')) {
+        documentPayload.link = documentSource;
+      } else {
+        documentPayload.id = documentSource;
+      }
+    } else {
+      if (documentSource.id) {
+        documentPayload.id = documentSource.id;
+      } else if (documentSource.link) {
+        documentPayload.link = documentSource.link;
+      }
+    }
+
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -347,11 +491,7 @@ export async function sendWhatsAppDocument(
         recipient_type: 'individual',
         to: to,
         type: 'document',
-        document: {
-          link: documentUrl,
-          caption: caption || filename,
-          filename: filename,
-        },
+        document: documentPayload,
       }),
     });
 
@@ -359,6 +499,7 @@ export async function sendWhatsAppDocument(
     return {
       success: response.ok,
       messageId: data?.messages?.[0]?.id,
+      error: data?.error?.message,
     };
   } catch (error: unknown) {
     return {

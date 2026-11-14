@@ -5,6 +5,8 @@ import {
   sendWhatsAppMessage,
   sendWhatsAppTemplate,
   sendWhatsAppDocument,
+  sendWhatsAppImage,
+  uploadWhatsAppMedia,
   WhatsAppTemplateComponent,
 } from '@/lib/whatsapp';
 import { getOpdWaitingQueue } from '@/lib/cortexClient';
@@ -65,28 +67,81 @@ export async function POST(request: NextRequest) {
       const waRecipient = formatWhatsAppRecipientPhone(cleanPhone);
 
       // Check whether patient has sent an inbound message within the last 24 hours
-      const history = await convex.query(api.sessions.getChatHistory, { phoneNumber: cleanPhone });
-      const lastPatientMsg = [...history].reverse().find((m) => m.sender === 'patient');
+      // Check both cleanPhone and 91+phone format to accurately reflect care window
+      const digits10 = cleanPhone.slice(-10);
+      const history1 = await convex.query(api.sessions.getChatHistory, { phoneNumber: cleanPhone });
+      const history2 =
+        cleanPhone !== `91${digits10}`
+          ? await convex.query(api.sessions.getChatHistory, { phoneNumber: `91${digits10}` })
+          : [];
+      const combinedHistory = [...history1, ...history2];
+      const lastPatientMsg = combinedHistory.reverse().find((m) => m.sender === 'patient');
       const isOutside24h =
         !lastPatientMsg || Date.now() - lastPatientMsg.createdAt > 24 * 60 * 60 * 1000;
 
       let waResult;
-      // If an attachment is provided, dispatch document via WhatsApp Cloud API
+      // If an attachment is provided, upload directly to Meta Media API and dispatch
       if (attachment && attachment.filename) {
         console.log(
-          `[Dashboard Outbound Attachment] Dispatching document to +${waRecipient}: ${attachment.filename}`
+          `[Dashboard Outbound Attachment] Preparing dispatch to +${waRecipient}: ${attachment.filename} (${attachment.mimeType})`
         );
-        const docLink =
-          attachment.fileUrl?.startsWith('http')
-            ? attachment.fileUrl
-            : `https://jovial-sheep-76.convex.site/print-prescription?ref=${encodeURIComponent(attachment.filename)}`;
+        let mediaId: string | undefined;
 
-        waResult = await sendWhatsAppDocument(
-          waRecipient,
-          docLink,
-          attachment.filename,
-          text || attachment.filename
-        );
+        // If fileUrl is a base64 Data URL, extract buffer and upload directly to Meta Cloud API
+        if (attachment.fileUrl?.startsWith('data:')) {
+          const commaIdx = attachment.fileUrl.indexOf(',');
+          if (commaIdx !== -1) {
+            const base64Data = attachment.fileUrl.slice(commaIdx + 1);
+            const buffer = Buffer.from(base64Data, 'base64');
+            const uploadRes = await uploadWhatsAppMedia(
+              buffer,
+              attachment.mimeType || 'image/png',
+              attachment.filename
+            );
+            if (uploadRes.success && uploadRes.mediaId) {
+              mediaId = uploadRes.mediaId;
+            } else {
+              console.error('[Attachment Upload to Meta Failed]', uploadRes.error);
+            }
+          }
+        }
+
+        const isImage =
+          attachment.mimeType?.startsWith('image/') ||
+          /\.(png|jpe?g|webp|gif)$/i.test(attachment.filename);
+
+        const captionText = text && !text.startsWith('📎 ') ? text : undefined;
+
+        if (isImage) {
+          if (mediaId) {
+            waResult = await sendWhatsAppImage(waRecipient, { id: mediaId }, captionText);
+          } else {
+            const link = attachment.fileUrl?.startsWith('http')
+              ? attachment.fileUrl
+              : 'https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=600&q=80';
+            waResult = await sendWhatsAppImage(waRecipient, { link }, captionText);
+          }
+        } else {
+          // Document / PDF
+          if (mediaId) {
+            waResult = await sendWhatsAppDocument(
+              waRecipient,
+              { id: mediaId },
+              attachment.filename,
+              captionText
+            );
+          } else {
+            const link = attachment.fileUrl?.startsWith('http')
+              ? attachment.fileUrl
+              : `https://jovial-sheep-76.convex.site/print-prescription?ref=${encodeURIComponent(attachment.filename)}`;
+            waResult = await sendWhatsAppDocument(
+              waRecipient,
+              { link },
+              attachment.filename,
+              captionText
+            );
+          }
+        }
       } else {
         // 1. Dispatch real message via WhatsApp Business Cloud API (Meta)
         console.log(
