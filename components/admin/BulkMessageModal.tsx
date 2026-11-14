@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   X,
   Send,
@@ -136,10 +136,18 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
     }
   }, [isOpen]);
 
-  // Initialize selected patients when modal opens or waiting list loads
+  // Initialize selected patients only ONCE when modal opens
+  const initializedOpenRef = useRef(false);
+
   useEffect(() => {
-    if (isOpen && waitingPatients.length > 0) {
+    if (!isOpen) {
+      initializedOpenRef.current = false;
+      return;
+    }
+    // Only initialize once per open when waitingPatients has data
+    if (!initializedOpenRef.current && waitingPatients.length > 0) {
       setSelectedPatientIds(new Set(waitingPatients.map((p) => p.id)));
+      initializedOpenRef.current = true;
     }
   }, [isOpen, waitingPatients]);
 

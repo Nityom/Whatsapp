@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   X,
   Send,
@@ -58,14 +58,21 @@ export const SendTemplateModal: React.FC<SendTemplateModalProps> = ({
     setIsSentSuccess(false);
   }, [templateText, isOpen]);
 
-  // If there's an activePhone, pre-select it when modal opens
+  // Pre-select active contact only ONCE per modal opening
+  const initializedOpenRef = useRef(false);
+
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) {
+      initializedOpenRef.current = false;
+      return;
+    }
+    if (!initializedOpenRef.current && (activePhone || sessions.length > 0)) {
       if (activePhone) {
         setSelectedPhones(new Set([activePhone.replace(/\D/g, '')]));
       } else if (sessions.length > 0) {
         setSelectedPhones(new Set([sessions[0].phoneNumber.replace(/\D/g, '')]));
       }
+      initializedOpenRef.current = true;
     }
   }, [isOpen, activePhone, sessions]);
 
