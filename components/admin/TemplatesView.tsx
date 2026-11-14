@@ -329,43 +329,39 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
         <div className="flex items-center gap-1.5 text-xs">
           <button
             onClick={() => setActiveTab('all')}
-            className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${
-              activeTab === 'all'
+            className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${activeTab === 'all'
                 ? 'bg-[#176e56] text-white shadow-xs'
                 : 'bg-white border border-[#dbe9e0] text-[#55776d] hover:bg-[#eaf5ef]'
-            }`}
+              }`}
           >
             All ({metaTemplates.length + quickReplies.length})
           </button>
           <button
             onClick={() => setActiveTab('meta_approved')}
-            className={`px-3.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all ${
-              activeTab === 'meta_approved'
+            className={`px-3.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all ${activeTab === 'meta_approved'
                 ? 'bg-[#176e56] text-white shadow-xs'
                 : 'bg-white border border-[#dbe9e0] text-[#176e56] hover:bg-[#eaf5ef]'
-            }`}
+              }`}
           >
             <CheckCircle2 className="w-3.5 h-3.5 text-[#54a987]" />
             Meta Approved ({approvedMeta.length})
           </button>
           <button
             onClick={() => setActiveTab('meta_pending')}
-            className={`px-3.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all ${
-              activeTab === 'meta_pending'
+            className={`px-3.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all ${activeTab === 'meta_pending'
                 ? 'bg-[#176e56] text-white shadow-xs'
                 : 'bg-white border border-[#dbe9e0] text-amber-700 hover:bg-amber-50'
-            }`}
+              }`}
           >
             <Clock className="w-3.5 h-3.5 text-amber-500" />
             Meta In-Review ({pendingMeta.length})
           </button>
           <button
             onClick={() => setActiveTab('quick_reply')}
-            className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${
-              activeTab === 'quick_reply'
+            className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${activeTab === 'quick_reply'
                 ? 'bg-[#176e56] text-white shadow-xs'
                 : 'bg-white border border-[#dbe9e0] text-[#55776d] hover:bg-[#eaf5ef]'
-            }`}
+              }`}
           >
             24h Chat Snippets ({quickReplies.length})
           </button>
@@ -416,11 +412,10 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1.5">
                           <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                              tmpl.category === 'UTILITY'
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${tmpl.category === 'UTILITY'
                                 ? 'bg-[#eaf5ef] text-[#176e56]'
                                 : 'bg-purple-50 text-purple-700'
-                            }`}
+                              }`}
                           >
                             {tmpl.category}
                           </span>
@@ -467,7 +462,7 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
                       {tmpl.status === 'PENDING' && (
                         <div className="mt-2 p-2 rounded-lg bg-amber-50/70 border border-amber-200/50 text-[11px] text-amber-800 flex items-center gap-1.5">
                           <Clock className="w-3.5 h-3.5 shrink-0" />
-                          <span>Submitted to Meta. Auto-verification in 1–5 mins.</span>
+                          <span>Submitted to Meta.</span>
                         </div>
                       )}
                     </div>
