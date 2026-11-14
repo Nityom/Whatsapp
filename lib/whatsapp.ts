@@ -450,19 +450,40 @@ export async function createWhatsAppTemplate(params: {
     });
   }
 
+  let processedBody = params.bodyText.trim();
+  // Meta Rule: Variables cannot be at the very start or very end of the template body
+  if (/^\{\{\d+\}\}/.test(processedBody)) {
+    processedBody = 'Dear ' + processedBody;
+  }
+  if (/\{\{\d+\}\}[.!?]?\s*$/.test(processedBody)) {
+    processedBody = processedBody + ' Thank you for choosing Svaasth Hospital.';
+  }
+
   // Count variables {{1}}, {{2}}, etc.
-  const variableMatches = params.bodyText.match(/\{\{(\d+)\}\}/g) || [];
+  const variableMatches = processedBody.match(/\{\{(\d+)\}\}/g) || [];
   const varCount = variableMatches.length;
 
   const bodyComponent: any = {
     type: "BODY",
-    text: params.bodyText,
+    text: processedBody,
   };
 
   if (varCount > 0) {
-    const samples = params.sampleValues && params.sampleValues.length >= varCount
-      ? params.sampleValues.slice(0, varCount)
-      : Array.from({ length: varCount }, (_, i) => `Sample ${i + 1}`);
+    const defaultSamples = [
+      'Valued Patient',
+      'Dr. Vipeen Raut',
+      'Tomorrow at 10:30 AM',
+      'OPD Consultation',
+      'Token #12',
+      'Svaasth Hospital',
+    ];
+    const samples =
+      params.sampleValues && params.sampleValues.length >= varCount
+        ? params.sampleValues.slice(0, varCount)
+        : Array.from(
+            { length: varCount },
+            (_, i) => defaultSamples[i] || `Sample ${i + 1}`
+          );
 
     bodyComponent.example = {
       body_text: [samples],

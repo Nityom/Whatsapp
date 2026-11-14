@@ -249,7 +249,12 @@ export default function AdminDashboardPage() {
     text: string,
     campaignTitle: string,
     targetAudience: string,
-    personalizedMessages?: Record<string, string>
+    personalizedMessages?: Record<string, string>,
+    templateMeta?: {
+      templateName?: string;
+      templateLanguage?: string;
+      personalizedTemplateParams?: Record<string, string[]>;
+    }
   ) => {
     try {
       await fetch('/api/admin/dashboard', {
@@ -262,6 +267,9 @@ export default function AdminDashboardPage() {
           campaignTitle,
           targetAudience,
           personalizedMessages,
+          templateName: templateMeta?.templateName,
+          templateLanguage: templateMeta?.templateLanguage,
+          personalizedTemplateParams: templateMeta?.personalizedTemplateParams,
         }),
       });
       await fetchDashboardData();

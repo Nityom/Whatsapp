@@ -547,7 +547,40 @@ export async function handleConversationTurn(
     };
   }
 
-  // 1c. If no language has been selected yet, prompt for language
+  // 1c. If user sends a greeting / help / menu or English text while in language prompt,
+  // do NOT repeatedly ask for language! Auto-default to English (or Hindi/Marathi for native greetings)
+  // and show the Main Menu directly.
+  if (
+    isLangStep &&
+    (isGreetingText(userText) ||
+      lower === "help" ||
+      lower === "menu" ||
+      lower === "main menu" ||
+      lower === "hi" ||
+      lower === "hello" ||
+      lower === "hey" ||
+      lower === "start" ||
+      lower === "restart")
+  ) {
+    const defaultedLang: "en" | "hi" | "mr" =
+      lower === "namaskar" ? "mr" : lower === "namaste" ? "hi" : "en";
+    return {
+      text:
+        mainMenu(defaultedLang) +
+        (defaultedLang === "en"
+          ? "\n\n_(Defaulted to English. Type *Language* anytime to switch to हिन्दी / मराठी)_"
+          : ""),
+      interactive: menuList(defaultedLang),
+      nextStep: "IDLE",
+      updatedContext: {
+        language: defaultedLang,
+        currentStep: "IDLE",
+        bookingDraft: undefined,
+      },
+    };
+  }
+
+  // 1d. If no language has been selected yet and no recognizable greeting, prompt for language
   if (isLangStep) {
     return {
       text: languagePrompt(),

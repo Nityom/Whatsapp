@@ -12,8 +12,37 @@ import {
   UserCheck,
   Filter,
   Check,
+  ShieldCheck,
+  RefreshCw,
+  Plus,
+  ExternalLink,
+  Megaphone,
+  FileText,
 } from 'lucide-react';
 import { WhatsAppSession, OpdWaitingPatient } from './types';
+
+interface MetaTemplateComponent {
+  type: 'HEADER' | 'BODY' | 'FOOTER' | 'BUTTONS';
+  format?: string;
+  text?: string;
+  example?: {
+    body_text?: string[][];
+  };
+  buttons?: Array<{
+    type: string;
+    text: string;
+    url?: string;
+  }>;
+}
+
+interface MetaTemplate {
+  id: string;
+  name: string;
+  category: 'UTILITY' | 'MARKETING' | 'AUTHENTICATION';
+  language: string;
+  status: 'APPROVED' | 'PENDING' | 'REJECTED' | 'PAUSED' | 'DISABLED';
+  components: MetaTemplateComponent[];
+}
 
 interface BulkMessageModalProps {
   isOpen: boolean;
@@ -25,7 +54,12 @@ interface BulkMessageModalProps {
     text: string,
     campaignTitle: string,
     targetAudience: string,
-    personalizedMessages?: Record<string, string>
+    personalizedMessages?: Record<string, string>,
+    templateMeta?: {
+      templateName?: string;
+      templateLanguage?: string;
+      personalizedTemplateParams?: Record<string, string[]>;
+    }
   ) => Promise<void>;
 }
 
@@ -36,15 +70,71 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
   waitingPatients = [],
   onSendBulk,
 }) => {
+  // Modal Mode: meta_approved (outside 24h capable), meta_create (auto-submit to Meta), custom_text (24h chat)
+  const [dispatchMode, setDispatchMode] = useState<'meta_approved' | 'meta_create' | 'custom_text'>('meta_approved');
   const [audience, setAudience] = useState<'opd_waiting' | 'all' | 'patients' | 'leads'>('opd_waiting');
   const [selectedDoctorFilter, setSelectedDoctorFilter] = useState<string>('all');
   const [selectedPatientIds, setSelectedPatientIds] = useState<Set<string>>(new Set());
   const [campaignTitle, setCampaignTitle] = useState('OPD Queue Update');
+
+  // Meta templates from live Meta Cloud API
+  const [metaTemplates, setMetaTemplates] = useState<MetaTemplate[]>([]);
+  const [isLoadingMeta, setIsLoadingMeta] = useState<boolean>(false);
+  const [selectedTemplateName, setSelectedTemplateName] = useState<string>('appointment_booked');
+  const [templateParams, setTemplateParams] = useState<Record<string, string>>({
+    '1': '{patient_name}',
+    '2': 'Svaasth Hospital',
+    '3': 'OPD Consultation',
+    '4': 'Today',
+    '5': '{slot_time}',
+  });
+
+  // Custom text fallback
   const [messageText, setMessageText] = useState(
     '🏥 *Svaasth Hospital OPD Notice*\n\nDear {patient_name}, Dr. {doctor_name} is currently examining emergency surgical cases. OPD appointments are running approximately 15 minutes behind schedule. Your slot ({slot_time}) will commence shortly. Thank you for your patience!'
   );
+
+  // Form State for submitting new template for Meta auto-approval
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [newCategory, setNewCategory] = useState<'UTILITY' | 'MARKETING'>('UTILITY');
+  const [newHeader, setNewHeader] = useState('Svaasth Hospital Notice');
+  const [newBody, setNewBody] = useState(
+    'Dear {{1}}, please note that our OPD clinic will remain closed on {{2}} on account of {{3}}. For emergency 24/7 care, contact +91 9373280505. Thank you for choosing Svaasth Hospital.'
+  );
+  const [newSamples, setNewSamples] = useState(['Valued Patient', 'Tomorrow', 'Public Holiday']);
+  const [isSubmittingTemplate, setIsSubmittingTemplate] = useState(false);
+  const [submitSuccessMsg, setSubmitSuccessMsg] = useState<string | null>(null);
+  const [submitErrorMsg, setSubmitErrorMsg] = useState<string | null>(null);
+
   const [isSending, setIsSending] = useState(false);
   const [sentSuccess, setSentSuccess] = useState(false);
+
+  // Fetch Meta templates from WABA API
+  const fetchMetaTemplates = async () => {
+    setIsLoadingMeta(true);
+    try {
+      const res = await fetch('/api/admin/templates');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.templates)) {
+        setMetaTemplates(data.templates);
+        // Default to first approved template if available
+        const approved = data.templates.find((t: MetaTemplate) => t.status === 'APPROVED');
+        if (approved) {
+          setSelectedTemplateName(approved.name);
+        }
+      }
+    } catch (err) {
+      console.error('[Fetch Meta Templates Error]', err);
+    } finally {
+      setIsLoadingMeta(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchMetaTemplates();
+    }
+  }, [isOpen]);
 
   // Initialize selected patients when modal opens or waiting list loads
   useEffect(() => {
@@ -74,7 +164,6 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
     });
   };
 
-  // Select / Deselect all
   const selectAllWaiting = () => {
     setSelectedPatientIds(new Set(filteredWaitingPatients.map((p) => p.id)));
   };
@@ -103,55 +192,39 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
   const recipientPhones = getRecipientPhones();
   const recipientCount = recipientPhones.length;
 
-  // Templates customized per audience
-  const opdWaitingTemplates = [
-    {
-      title: 'OPD Delay Notice',
-      text: '🏥 *Svaasth Hospital OPD Notice*\n\nDear {patient_name}, Dr. {doctor_name} is attending to an urgent case. OPD appointments are running ~15 mins delayed. Your slot ({slot_time}) will commence shortly. Thank you for your patience!',
-    },
-    {
-      title: 'Next in Line Call',
-      text: '🔔 *Next in Line – Svaasth Hospital*\n\nDear {patient_name}, your token #{token_no} for Dr. {doctor_name} is next! Please proceed to Consultation Room 1 with your medical files.',
-    },
-    {
-      title: 'Pre-Consultation Vitals',
-      text: '📋 *OPD Vitals Check – Svaasth Hospital*\n\nDear {patient_name}, please have your Blood Pressure and Weight recorded at the nurse triage station before your slot ({slot_time}) with Dr. {doctor_name}.',
-    },
-    {
-      title: 'Token Called Alert',
-      text: '📢 *Token Call – Svaasth Hospital*\n\nDear {patient_name}, Token #{token_no} has been called for Dr. {doctor_name}. Please report to the reception desk now.',
-    },
-  ];
+  // Find currently selected Meta template
+  const currentMetaTemplate = useMemo(() => {
+    return metaTemplates.find((t) => t.name === selectedTemplateName) || null;
+  }, [metaTemplates, selectedTemplateName]);
 
-  const generalTemplates = [
-    {
-      title: 'OPD Schedule Update',
-      text: '🏥 *Svaasth Hospital Announcement*\n\nDear {patient_name}, our regular OPD timings are:\n• Mon to Sat: 10:30 AM – 1:00 PM & 6:00 PM – 7:30 PM\n• Sunday: Closed (Emergency triage available)\n\nConsult Dr. Vipeen Raut (Orthopaedics) & Dr. Shillpa Raut (Gynecology).\nReply 1 to book your slot!',
-    },
-    {
-      title: 'Free Health Camp Alert',
-      text: '🌟 *Free Joint & Bone Health Checkup Camp*\n\nSvaasth Hospital is organizing a complimentary Joint & Bone Health Camp this Thursday from 6:00 PM to 7:30 PM at Aarti Chowk, Wardha.\n\nFree BMD screening & doctor consultation.\nReply YES to register for free!',
-    },
-    {
-      title: 'Holiday Notice',
-      text: '🏥 *Holiday Notice – Svaasth Hospital*\n\nDear patient, please note our OPD will remain closed tomorrow on account of public holiday. Emergency & Casualty services remain active 24/7 at +91 9373280505.\n\nWe wish you great health!',
-    },
-    {
-      title: 'Follow-up Care Reminder',
-      text: '🩺 *Health Reminder from Svaasth Hospital*\n\nDear {patient_name}, routine health checkups and timely follow-ups ensure faster healing and peace of mind. To review your prescription or consult Dr. Raut, reply to this message.',
-    },
-  ];
+  // Extract variables from current Meta template body
+  const metaVariables = useMemo(() => {
+    if (!currentMetaTemplate) return [];
+    const bodyComp = currentMetaTemplate.components.find((c) => c.type === 'BODY');
+    if (!bodyComp || !bodyComp.text) return [];
+    const matches = bodyComp.text.match(/\{\{(\d+)\}\}/g) || [];
+    return Array.from(new Set(matches.map((m) => m.replace(/\D/g, ''))));
+  }, [currentMetaTemplate]);
 
-  const activeTemplates = audience === 'opd_waiting' ? opdWaitingTemplates : generalTemplates;
-
-  const handleApplyTemplate = (tmpl: { title: string; text: string }) => {
-    setCampaignTitle(tmpl.title);
-    setMessageText(tmpl.text);
-  };
-
-  const insertVariable = (variable: string) => {
-    setMessageText((prev) => `${prev} ${variable}`);
-  };
+  // Set default param values when selected template changes
+  useEffect(() => {
+    if (currentMetaTemplate && metaVariables.length > 0) {
+      setTemplateParams((prev) => {
+        const next = { ...prev };
+        metaVariables.forEach((v, idx) => {
+          if (!next[v]) {
+            if (idx === 0) next[v] = '{patient_name}';
+            else if (idx === 1) next[v] = 'Svaasth Hospital';
+            else if (idx === 2) next[v] = 'OPD Consultation';
+            else if (idx === 3) next[v] = 'Today';
+            else if (idx === 4) next[v] = '{slot_time}';
+            else next[v] = `Param ${v}`;
+          }
+        });
+        return next;
+      });
+    }
+  }, [currentMetaTemplate, metaVariables]);
 
   // First sample waiting patient for live preview
   const samplePatient = useMemo(() => {
@@ -162,8 +235,31 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
     return null;
   }, [audience, waitingPatients, selectedPatientIds]);
 
-  // Live preview formatting with variable replacement
-  const previewText = useMemo(() => {
+  // Meta template formatted preview
+  const templatePreviewText = useMemo(() => {
+    if (!currentMetaTemplate) return messageText;
+    const bodyComp = currentMetaTemplate.components.find((c) => c.type === 'BODY');
+    if (!bodyComp || !bodyComp.text) return '';
+
+    let text = bodyComp.text;
+    metaVariables.forEach((v) => {
+      let val = templateParams[v] || `{{${v}}}`;
+      if (samplePatient) {
+        val = val
+          .replace(/{patient_name}/g, samplePatient.name)
+          .replace(/{doctor_name}/g, samplePatient.doctorName)
+          .replace(/{slot_time}/g, samplePatient.slotTime)
+          .replace(/{token_no}/g, String(samplePatient.tokenNo));
+      } else {
+        val = val.replace(/{patient_name}/g, 'Valued Patient');
+      }
+      text = text.replace(new RegExp(`\\{\\{${v}\\}\\}`, 'g'), val);
+    });
+    return text;
+  }, [currentMetaTemplate, metaVariables, templateParams, samplePatient, messageText]);
+
+  // Plain text preview
+  const plainPreviewText = useMemo(() => {
     if (audience === 'opd_waiting' && samplePatient) {
       return messageText
         .replace(/{patient_name}/g, samplePatient.name)
@@ -174,27 +270,134 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
     return messageText.replace(/{patient_name}/g, 'Rohit Patil');
   }, [messageText, audience, samplePatient]);
 
-  const handleSend = async () => {
-    if (!messageText.trim() || isSending || recipientCount === 0) return;
-    setIsSending(true);
+  // Submit new template to Meta for auto-approval
+  const handleSubmitNewTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTemplateName.trim() || !newBody.trim() || isSubmittingTemplate) return;
 
-    // Build personalized messages per patient if targeting OPD waiting queue
-    const personalizedMap: Record<string, string> = {};
-    if (audience === 'opd_waiting') {
-      for (const p of waitingPatients) {
-        if (selectedPatientIds.has(p.id) && p.phone) {
-          const personalized = messageText
-            .replace(/{patient_name}/g, p.name)
-            .replace(/{doctor_name}/g, p.doctorName)
-            .replace(/{slot_time}/g, p.slotTime)
-            .replace(/{token_no}/g, String(p.tokenNo));
-          personalizedMap[p.phone] = personalized;
-        }
-      }
-    }
+    setIsSubmittingTemplate(true);
+    setSubmitSuccessMsg(null);
+    setSubmitErrorMsg(null);
 
     try {
-      await onSendBulk(recipientPhones, messageText, campaignTitle, audience, personalizedMap);
+      const cleanName = newTemplateName
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, '_')
+        .replace(/_+/g, '_');
+
+      const res = await fetch('/api/admin/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: cleanName,
+          category: newCategory,
+          headerText: newHeader.trim() || undefined,
+          bodyText: newBody.trim(),
+          sampleValues: newSamples,
+          language: 'en_US',
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setSubmitErrorMsg(data.error || 'Failed to submit template to Meta.');
+      } else {
+        setSubmitSuccessMsg(
+          `🎉 Template "${cleanName}" submitted to Meta Cloud API! Review typically takes 1–5 minutes.`
+        );
+        await fetchMetaTemplates();
+        setSelectedTemplateName(cleanName);
+        setTimeout(() => {
+          setDispatchMode('meta_approved');
+        }, 2000);
+      }
+    } catch (err: unknown) {
+      setSubmitErrorMsg(err instanceof Error ? err.message : 'Network error');
+    } finally {
+      setIsSubmittingTemplate(false);
+    }
+  };
+
+  // Handle Send Broadcast
+  const handleSend = async () => {
+    if (isSending || recipientCount === 0) return;
+    setIsSending(true);
+
+    try {
+      if (dispatchMode === 'meta_approved' && currentMetaTemplate) {
+        // Build per-recipient template parameters
+        const personalizedTemplateParams: Record<string, string[]> = {};
+        const personalizedMap: Record<string, string> = {};
+
+        for (const phone of recipientPhones) {
+          const cleanPhone = phone.replace(/\D/g, '');
+          const patient = waitingPatients.find(
+            (p) => p.phone && p.phone.replace(/\D/g, '') === cleanPhone
+          );
+          const sess = sessions.find(
+            (s) => s.phoneNumber.replace(/\D/g, '') === cleanPhone
+          );
+
+          const patientName = patient?.name || sess?.patientName || 'Valued Patient';
+          const doctorName = patient?.doctorName || 'Dr. Vipeen Raut';
+          const slotTime = patient?.slotTime || '10:30 AM';
+          const tokenNo = patient?.tokenNo ? String(patient.tokenNo) : '1';
+
+          // Map each variable in order [v1, v2, v3, ...]
+          const paramValues = metaVariables.map((v) => {
+            const raw = templateParams[v] || '';
+            return raw
+              .replace(/{patient_name}/g, patientName)
+              .replace(/{doctor_name}/g, doctorName)
+              .replace(/{slot_time}/g, slotTime)
+              .replace(/{token_no}/g, tokenNo);
+          });
+
+          personalizedTemplateParams[cleanPhone] = paramValues;
+
+          // Also build preview string for Convex history
+          let rendered =
+            currentMetaTemplate.components.find((c) => c.type === 'BODY')?.text || '';
+          metaVariables.forEach((v, idx) => {
+            rendered = rendered.replace(
+              new RegExp(`\\{\\{${v}\\}\\}`, 'g'),
+              paramValues[idx] || ''
+            );
+          });
+          personalizedMap[cleanPhone] = rendered;
+        }
+
+        await onSendBulk(
+          recipientPhones,
+          templatePreviewText,
+          campaignTitle || `Meta Broadcast: ${currentMetaTemplate.name}`,
+          audience,
+          personalizedMap,
+          {
+            templateName: currentMetaTemplate.name,
+            templateLanguage: currentMetaTemplate.language || 'en_US',
+            personalizedTemplateParams,
+          }
+        );
+      } else {
+        // Plain text broadcast with personalized replacement
+        const personalizedMap: Record<string, string> = {};
+        if (audience === 'opd_waiting') {
+          for (const p of waitingPatients) {
+            if (selectedPatientIds.has(p.id) && p.phone) {
+              const personalized = messageText
+                .replace(/{patient_name}/g, p.name)
+                .replace(/{doctor_name}/g, p.doctorName)
+                .replace(/{slot_time}/g, p.slotTime)
+                .replace(/{token_no}/g, String(p.tokenNo));
+              personalizedMap[p.phone] = personalized;
+            }
+          }
+        }
+
+        await onSendBulk(recipientPhones, messageText, campaignTitle, audience, personalizedMap);
+      }
+
       setSentSuccess(true);
       setTimeout(() => {
         setSentSuccess(false);
@@ -209,24 +412,28 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
 
   if (!isOpen) return null;
 
+  const approvedTemplates = metaTemplates.filter((t) => t.status === 'APPROVED');
+  const pendingTemplates = metaTemplates.filter((t) => t.status === 'PENDING');
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-      <div className="bg-white border border-[#dbe9e0] rounded-3xl w-full max-w-4xl shadow-xl overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Modal Header */}
+      <div className="bg-white border border-[#dbe9e0] rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[94vh]">
+        {/* MODAL HEADER */}
         <div className="p-5 border-b border-[#dbe9e0] flex items-center justify-between bg-[#f8faf8]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#eaf5ef] text-[#176e56] flex items-center justify-center">
-              <Send className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-2xl bg-[#eaf5ef] text-[#176e56] flex items-center justify-center shadow-xs">
+              <Megaphone className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-[#173d37]">Send Bulk WhatsApp Broadcast</h2>
-                <span className="text-[10px] bg-[#eaf5ef] text-[#176e56] font-bold px-2 py-0.5 rounded-full border border-[#c2e4cf]">
-                  Svaasth Connect
+                <span className="text-[10px] bg-[#eaf5ef] text-[#176e56] font-bold px-2 py-0.5 rounded-full border border-[#c2e4cf] flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-[#176e56]" />
+                  Meta Official API
                 </span>
               </div>
               <p className="text-xs text-[#55776d] mt-0.5">
-                Broadcast official OPD queue updates, doctor notices, or clinic announcements to patients.
+                Send guaranteed broadcasts to all contacts outside 24h via Meta Templates, or auto-submit custom templates for instant approval.
               </p>
             </div>
           </div>
@@ -239,7 +446,67 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
           </button>
         </div>
 
-        {/* Modal Body */}
+        {/* BROADCAST CHANNEL MODE SELECTOR */}
+        <div className="px-6 py-2.5 bg-white border-b border-[#eaf2ed] flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => setDispatchMode('meta_approved')}
+              className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                dispatchMode === 'meta_approved'
+                  ? 'bg-[#176e56] text-white shadow-xs'
+                  : 'bg-[#f4f8f5] text-[#176e56] hover:bg-[#eaf5ef] border border-[#dbe9e0]'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Meta Approved Template ({approvedTemplates.length})</span>
+              <span className="text-[9px] bg-white/20 px-1.5 py-0.2 rounded-full font-mono">
+                Outside 24h Ready
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setDispatchMode('meta_create')}
+              className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                dispatchMode === 'meta_create'
+                  ? 'bg-[#176e56] text-white shadow-xs'
+                  : 'bg-[#f4f8f5] text-[#176e56] hover:bg-[#eaf5ef] border border-[#dbe9e0]'
+              }`}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Auto-Submit to Meta</span>
+              <span className="text-[9px] bg-amber-500 text-white px-1.5 py-0.2 rounded-full font-bold">
+                Auto-Review
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setDispatchMode('custom_text')}
+              className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                dispatchMode === 'custom_text'
+                  ? 'bg-[#176e56] text-white shadow-xs'
+                  : 'bg-[#f4f8f5] text-[#55776d] hover:bg-[#eaf5ef] border border-[#dbe9e0]'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Active 24h Chat Message</span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={fetchMetaTemplates}
+            disabled={isLoadingMeta}
+            className="flex items-center gap-1 text-[11px] text-[#176e56] font-semibold hover:underline cursor-pointer"
+          >
+            <RefreshCw className={`w-3 h-3 ${isLoadingMeta ? 'animate-spin' : ''}`} />
+            <span>Sync Meta Templates</span>
+          </button>
+        </div>
+
+        {/* MODAL BODY */}
         <div className="p-6 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-5 gap-6">
           {/* Left Form: 3 cols */}
           <div className="md:col-span-3 space-y-4">
@@ -249,13 +516,12 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
                 1. Select Target Audience
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {/* OPD Waiting Queue (Default / Primary Option) */}
+                {/* OPD Waiting Queue */}
                 <button
                   type="button"
                   onClick={() => {
                     setAudience('opd_waiting');
                     setCampaignTitle('OPD Queue Update');
-                    setMessageText(opdWaitingTemplates[0].text);
                   }}
                   className={`p-2.5 rounded-xl border text-xs font-semibold text-center transition-all cursor-pointer relative ${
                     audience === 'opd_waiting'
@@ -278,7 +544,6 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
                   onClick={() => {
                     setAudience('all');
                     setCampaignTitle('Hospital Announcement');
-                    setMessageText(generalTemplates[0].text);
                   }}
                   className={`p-2.5 rounded-xl border text-xs font-semibold text-center transition-all cursor-pointer ${
                     audience === 'all'
@@ -298,7 +563,6 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
                   onClick={() => {
                     setAudience('patients');
                     setCampaignTitle('Registered Patients Notice');
-                    setMessageText(generalTemplates[1].text);
                   }}
                   className={`p-2.5 rounded-xl border text-xs font-semibold text-center transition-all cursor-pointer ${
                     audience === 'patients'
@@ -318,7 +582,6 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
                   onClick={() => {
                     setAudience('leads');
                     setCampaignTitle('New Inquiries Update');
-                    setMessageText(generalTemplates[0].text);
                   }}
                   className={`p-2.5 rounded-xl border text-xs font-semibold text-center transition-all cursor-pointer ${
                     audience === 'leads'
@@ -334,7 +597,7 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
               </div>
             </div>
 
-            {/* LIVE OPD WAITING LIST TABLE (When OPD Waiting is selected) */}
+            {/* LIVE OPD WAITING LIST TABLE */}
             {audience === 'opd_waiting' && (
               <div className="rounded-2xl border border-[#c2e4cf] bg-[#f8fbf9] p-3.5 space-y-2.5 animate-in fade-in duration-200">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#dbe9e0] pb-2">
@@ -346,7 +609,6 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {/* Doctor Filter Pill Tabs */}
                     <div className="flex items-center bg-white border border-[#dbe9e0] rounded-lg p-0.5 text-[10px]">
                       <button
                         type="button"
@@ -402,7 +664,7 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
                 </div>
 
                 {/* Patient Queue Checklist Rows */}
-                <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1">
+                <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
                   {filteredWaitingPatients.length === 0 ? (
                     <p className="text-xs text-[#77a193] text-center py-4">
                       No OPD patients currently waiting for this selection.
@@ -410,9 +672,7 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
                   ) : (
                     filteredWaitingPatients.map((patient) => {
                       const isChecked = selectedPatientIds.has(patient.id);
-                      if (!isOpen) return null;
-
-  return (
+                      return (
                         <div
                           key={patient.id}
                           onClick={() => togglePatientSelection(patient.id)}
@@ -423,7 +683,6 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
                           }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
-                            {/* Checkbox */}
                             <div
                               className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-all ${
                                 isChecked
@@ -434,12 +693,10 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
                               {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
                             </div>
 
-                            {/* Token Badge */}
                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#f3f9f5] text-[#176e56] border border-[#dbe9e0] shrink-0">
                               #{patient.tokenNo}
                             </span>
 
-                            {/* Name & UHID */}
                             <div className="truncate">
                               <span className="font-bold text-[#173d37]">{patient.name}</span>
                               <span className="text-[10px] text-[#77a193] ml-1.5">({patient.uhid})</span>
@@ -447,7 +704,6 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0 text-[11px]">
-                            {/* Attending Doctor */}
                             <span
                               className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
                                 patient.doctorName.includes('Vipeen')
@@ -457,8 +713,6 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
                             >
                               {patient.doctorName}
                             </span>
-
-                            {/* Slot Time */}
                             <span className="text-[#55776d] font-mono text-[10px]">
                               {patient.slotTime}
                             </span>
@@ -471,7 +725,7 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
               </div>
             )}
 
-            {/* 2. Campaign Name */}
+            {/* Campaign Name */}
             <div>
               <label className="block text-xs font-bold text-[#173d37] uppercase tracking-wider mb-1.5">
                 2. Campaign Title
@@ -485,81 +739,264 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
               />
             </div>
 
-            {/* 3. Pre-Approved Templates */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-[#173d37] uppercase tracking-wider">
-                  3. Pre-Approved Message Templates
-                </label>
-                <span className="text-[11px] text-[#77a193]">Click to load</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {activeTemplates.map((t, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => handleApplyTemplate(t)}
-                    className="px-2.5 py-1 rounded-lg bg-[#f3f9f5] hover:bg-[#eaf5ef] text-[#176e56] text-[11px] font-semibold border border-[#dbe9e0] transition-colors cursor-pointer"
-                  >
-                    {t.title}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* MODE 1: META APPROVED TEMPLATES */}
+            {dispatchMode === 'meta_approved' && (
+              <div className="space-y-3 rounded-2xl bg-[#f7faf8] border border-[#c2e4cf] p-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[#176e56] uppercase tracking-wider flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-[#176e56]" />
+                    3. Select Meta Approved Template
+                  </label>
+                  <span className="text-[10px] text-[#176e56] font-semibold bg-[#eaf5ef] px-2 py-0.5 rounded-md border border-[#c2e4cf]">
+                    Reaches All Inactive &amp; Cold Contacts
+                  </span>
+                </div>
 
-            {/* 4. Message Content Composer */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-[#173d37] uppercase tracking-wider">
-                  4. Message Content
-                </label>
-                <span className="text-[11px] text-[#77a193]">{messageText.length} characters</span>
-              </div>
-              <textarea
-                rows={4}
-                value={messageText}
-                onChange={(e) => setMessageText(e.target.value)}
-                placeholder="Write your broadcast message..."
-                className="w-full p-3 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] text-xs text-[#173d37] focus:outline-none focus:border-[#54a987] focus:bg-white transition-all resize-none leading-relaxed"
-              />
+                {/* Template Cards Selection */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {approvedTemplates.length === 0 ? (
+                    <div className="col-span-2 p-3 text-center text-xs text-[#55776d] bg-white rounded-xl border border-[#dbe9e0]">
+                      No approved Meta templates found yet. You can submit one in the{' '}
+                      <strong>&quot;Auto-Submit to Meta&quot;</strong> tab.
+                    </div>
+                  ) : (
+                    approvedTemplates.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setSelectedTemplateName(t.name)}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          selectedTemplateName === t.name
+                            ? 'bg-white border-[#176e56] ring-2 ring-[#54a987]/30 shadow-xs'
+                            : 'bg-white/80 border-[#dbe9e0] hover:bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-mono font-bold text-xs text-[#173d37]">{t.name}</span>
+                          <span className="text-[9px] bg-[#eaf5ef] text-[#176e56] font-bold px-1.5 py-0.2 rounded-full">
+                            APPROVED
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[#55776d] line-clamp-2">
+                          {t.components.find((c) => c.type === 'BODY')?.text}
+                        </p>
+                      </button>
+                    ))
+                  )}
+                </div>
 
-              {/* Variable Chips */}
-              <div className="flex items-center flex-wrap gap-1.5 mt-2">
-                <span className="text-[11px] text-[#55776d] mr-1">Insert Tags:</span>
-                <button
-                  type="button"
-                  onClick={() => insertVariable('{patient_name}')}
-                  className="px-2 py-0.5 rounded bg-[#f3f9f5] text-[#176e56] text-[10px] font-mono font-bold hover:bg-[#eaf5ef] border border-[#dbe9e0] cursor-pointer"
-                >
-                  {'{patient_name}'}
-                </button>
-                {audience === 'opd_waiting' && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => insertVariable('{doctor_name}')}
-                      className="px-2 py-0.5 rounded bg-[#f3f9f5] text-[#176e56] text-[10px] font-mono font-bold hover:bg-[#eaf5ef] border border-[#dbe9e0] cursor-pointer"
-                    >
-                      {'{doctor_name}'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => insertVariable('{slot_time}')}
-                      className="px-2 py-0.5 rounded bg-[#f3f9f5] text-[#176e56] text-[10px] font-mono font-bold hover:bg-[#eaf5ef] border border-[#dbe9e0] cursor-pointer"
-                    >
-                      {'{slot_time}'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => insertVariable('{token_no}')}
-                      className="px-2 py-0.5 rounded bg-[#f3f9f5] text-[#176e56] text-[10px] font-mono font-bold hover:bg-[#eaf5ef] border border-[#dbe9e0] cursor-pointer"
-                    >
-                      {'{token_no}'}
-                    </button>
-                  </>
+                {/* Variable Parameter Inputs */}
+                {currentMetaTemplate && metaVariables.length > 0 && (
+                  <div className="pt-2 border-t border-[#dbe9e0] space-y-2">
+                    <label className="text-[11px] font-bold text-[#173d37] uppercase tracking-wider block">
+                      Template Variables ({metaVariables.length} Parameters)
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {metaVariables.map((v) => (
+                        <div key={v} className="bg-white p-2 rounded-xl border border-[#dbe9e0]">
+                          <div className="flex items-center justify-between text-[10px] text-[#77a193] font-mono mb-1">
+                            <span>Placeholder: {`{{${v}}}`}</span>
+                            <span className="text-[#176e56] font-semibold">Auto-injected</span>
+                          </div>
+                          <input
+                            type="text"
+                            value={templateParams[v] || ''}
+                            onChange={(e) =>
+                              setTemplateParams((prev) => ({ ...prev, [v]: e.target.value }))
+                            }
+                            placeholder={`Value for {{${v}}}`}
+                            className="w-full text-xs text-[#173d37] font-medium focus:outline-none"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px] text-[#55776d] flex-wrap">
+                      <span>Available Tags:</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          metaVariables[0] &&
+                          setTemplateParams((prev) => ({ ...prev, [metaVariables[0]]: '{patient_name}' }))
+                        }
+                        className="px-1.5 py-0.5 rounded bg-white text-[#176e56] font-mono border border-[#dbe9e0] hover:bg-[#eaf5ef]"
+                      >
+                        {'{patient_name}'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          metaVariables[1] &&
+                          setTemplateParams((prev) => ({ ...prev, [metaVariables[1]]: '{doctor_name}' }))
+                        }
+                        className="px-1.5 py-0.5 rounded bg-white text-[#176e56] font-mono border border-[#dbe9e0] hover:bg-[#eaf5ef]"
+                      >
+                        {'{doctor_name}'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          metaVariables[3] &&
+                          setTemplateParams((prev) => ({ ...prev, [metaVariables[3]]: '{slot_time}' }))
+                        }
+                        className="px-1.5 py-0.5 rounded bg-white text-[#176e56] font-mono border border-[#dbe9e0] hover:bg-[#eaf5ef]"
+                      >
+                        {'{slot_time}'}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
-            </div>
+            )}
+
+            {/* MODE 2: AUTO-SUBMIT TO META FOR APPROVAL */}
+            {dispatchMode === 'meta_create' && (
+              <form
+                onSubmit={handleSubmitNewTemplate}
+                className="space-y-3 rounded-2xl bg-amber-50/50 border border-amber-200 p-4"
+              >
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-amber-600" />
+                    Submit Custom Notice for Meta Auto-Approval
+                  </label>
+                  <span className="text-[10px] text-amber-800 font-semibold bg-amber-100 px-2 py-0.5 rounded-md">
+                    Instant AI Review (1–5 mins)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] font-bold text-[#55776d] block mb-1">
+                      Template Name (lowercase &amp; underscores)
+                    </label>
+                    <input
+                      type="text"
+                      value={newTemplateName}
+                      onChange={(e) => setNewTemplateName(e.target.value)}
+                      placeholder="e.g. svaasth_holiday_notice"
+                      className="w-full px-3 py-1.5 rounded-xl bg-white border border-[#dbe9e0] text-xs font-mono"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-[#55776d] block mb-1">Category</label>
+                    <select
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value as 'UTILITY' | 'MARKETING')}
+                      className="w-full px-3 py-1.5 rounded-xl bg-white border border-[#dbe9e0] text-xs font-medium"
+                    >
+                      <option value="UTILITY">UTILITY (Recommended - Faster Review)</option>
+                      <option value="MARKETING">MARKETING</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-[#55776d] block mb-1">Header Title (Optional)</label>
+                  <input
+                    type="text"
+                    value={newHeader}
+                    onChange={(e) => setNewHeader(e.target.value)}
+                    placeholder="e.g. Svaasth Hospital Notice"
+                    className="w-full px-3 py-1.5 rounded-xl bg-white border border-[#dbe9e0] text-xs font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-[#55776d] block mb-1">
+                    Body Text with Placeholders: {'{{1}}'}, {'{{2}}'}, etc.
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={newBody}
+                    onChange={(e) => setNewBody(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-white border border-[#dbe9e0] text-xs leading-relaxed resize-none font-sans"
+                    required
+                  />
+                </div>
+
+                {submitSuccessMsg && (
+                  <div className="p-2.5 rounded-xl bg-[#eaf5ef] border border-[#77d1a5] text-[#176e56] text-xs flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 shrink-0" />
+                    <span>{submitSuccessMsg}</span>
+                  </div>
+                )}
+
+                {submitErrorMsg && (
+                  <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{submitErrorMsg}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingTemplate || !newTemplateName.trim() || !newBody.trim()}
+                  className="w-full py-2.5 rounded-xl bg-[#176e56] hover:bg-[#125844] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>
+                    {isSubmittingTemplate ? 'Submitting to Meta...' : 'Submit to Meta Cloud API for Auto-Approval'}
+                  </span>
+                </button>
+              </form>
+            )}
+
+            {/* MODE 3: ACTIVE 24H CHAT MESSAGE */}
+            {dispatchMode === 'custom_text' && (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-[#173d37] uppercase tracking-wider">
+                    3. Message Content
+                  </label>
+                  <span className="text-[11px] text-[#77a193]">{messageText.length} characters</span>
+                </div>
+                <textarea
+                  rows={4}
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  placeholder="Write your broadcast message..."
+                  className="w-full p-3 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] text-xs text-[#173d37] focus:outline-none focus:border-[#54a987] focus:bg-white transition-all resize-none leading-relaxed"
+                />
+
+                <div className="flex items-center flex-wrap gap-1.5 mt-2">
+                  <span className="text-[11px] text-[#55776d] mr-1">Insert Tags:</span>
+                  <button
+                    type="button"
+                    onClick={() => setMessageText((prev) => `${prev} {patient_name}`)}
+                    className="px-2 py-0.5 rounded bg-[#f3f9f5] text-[#176e56] text-[10px] font-mono font-bold hover:bg-[#eaf5ef] border border-[#dbe9e0] cursor-pointer"
+                  >
+                    {'{patient_name}'}
+                  </button>
+                  {audience === 'opd_waiting' && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setMessageText((prev) => `${prev} {doctor_name}`)}
+                        className="px-2 py-0.5 rounded bg-[#f3f9f5] text-[#176e56] text-[10px] font-mono font-bold hover:bg-[#eaf5ef] border border-[#dbe9e0] cursor-pointer"
+                      >
+                        {'{doctor_name}'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMessageText((prev) => `${prev} {slot_time}`)}
+                        className="px-2 py-0.5 rounded bg-[#f3f9f5] text-[#176e56] text-[10px] font-mono font-bold hover:bg-[#eaf5ef] border border-[#dbe9e0] cursor-pointer"
+                      >
+                        {'{slot_time}'}
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                <div className="mt-2.5 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+                  <span>
+                    Free-form messages only reach active chats inside Meta&apos;s 24-hour window. Recipients outside 24h will auto-fallback to an approved Meta template.
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Live WhatsApp Preview: 2 cols */}
@@ -570,42 +1007,82 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
               </label>
               {audience === 'opd_waiting' && samplePatient && (
                 <span className="text-[10px] text-[#176e56] bg-[#eaf5ef] px-2 py-0.5 rounded-full font-semibold">
-                  Preview: #{samplePatient.tokenNo} {samplePatient.name}
+                  #{samplePatient.tokenNo} {samplePatient.name}
                 </span>
               )}
             </div>
 
             <div className="flex-1 rounded-2xl bg-[#f4f7f5] border border-[#dbe9e0] p-4 flex flex-col justify-between shadow-inner">
-              <div className="bg-white rounded-2xl p-3.5 border border-[#dbe9e0] shadow-xs text-xs leading-relaxed text-[#173d37] rounded-tl-xs">
-                <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#176e56] mb-1.5">
-                  <Sparkles className="w-3 h-3 text-[#54a987]" />
-                  <span>Svaasth Hospital Broadcast</span>
+              <div className="bg-white rounded-2xl p-4 border border-[#dbe9e0] shadow-xs text-xs leading-relaxed text-[#173d37] rounded-tl-xs space-y-2">
+                {/* Header preview */}
+                <div className="flex items-center justify-between border-b border-[#f0f4f1] pb-2 text-[11px] font-bold text-[#176e56]">
+                  <div className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#54a987]" />
+                    <span>
+                      {dispatchMode === 'meta_approved' && currentMetaTemplate
+                        ? currentMetaTemplate.components.find((c) => c.type === 'HEADER')?.text ||
+                          'Official Hospital Notification'
+                        : 'Svaasth Hospital Broadcast'}
+                    </span>
+                  </div>
+                  {dispatchMode === 'meta_approved' && (
+                    <span className="text-[9px] bg-[#eaf5ef] text-[#176e56] font-mono px-1.5 py-0.2 rounded">
+                      Meta Template
+                    </span>
+                  )}
                 </div>
-                <p className="whitespace-pre-wrap">{previewText}</p>
-                <div className="flex items-center justify-end text-[10px] text-[#77a193] mt-2">
-                  <span>Just now</span>
+
+                {/* Body Text */}
+                <p className="whitespace-pre-wrap text-xs text-[#173d37] leading-relaxed">
+                  {dispatchMode === 'meta_approved' ? templatePreviewText : plainPreviewText}
+                </p>
+
+                {/* Interactive button preview */}
+                {dispatchMode === 'meta_approved' && currentMetaTemplate?.components?.find((c) => c.type === 'BUTTONS') && (
+                  <div className="pt-2 border-t border-[#f0f4f1] space-y-1">
+                    {currentMetaTemplate.components
+                      .find((c) => c.type === 'BUTTONS')
+                      ?.buttons?.map((b, i) => (
+                        <div
+                          key={i}
+                          className="w-full py-1.5 px-3 rounded-lg bg-[#f4f8f5] text-[#176e56] text-[11px] font-semibold text-center border border-[#dbe9e0] flex items-center justify-center gap-1"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>{b.text}</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end text-[10px] text-[#77a193] pt-1">
+                  <span>Just now • Delivered</span>
                 </div>
               </div>
 
-              {/* Recipient summary card */}
-              <div className="mt-4 p-3.5 rounded-xl bg-white border border-[#dbe9e0] text-center shadow-xs">
-                <p className="text-xs font-semibold text-[#55776d]">Broadcast Recipients</p>
-                <p className="text-2xl font-bold text-[#176e56] mt-0.5">{recipientCount}</p>
-                <p className="text-[10px] text-[#77a193] mt-0.5">
-                  {audience === 'opd_waiting'
-                    ? `Selected from live OPD queue`
-                    : `Verified WhatsApp contacts`}
-                </p>
+              {/* Delivery Guarantee Card */}
+              <div className="mt-4 p-3.5 rounded-xl bg-white border border-[#dbe9e0] space-y-2 shadow-xs">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-[#55776d]">Recipients Target</span>
+                  <span className="font-bold text-[#176e56] text-sm">{recipientCount} Patients</span>
+                </div>
+                <div className="text-[10px] text-[#55776d] flex items-start gap-1.5 bg-[#f7faf8] p-2 rounded-lg border border-[#e2ece5]">
+                  <ShieldCheck className="w-4 h-4 text-[#176e56] shrink-0 mt-0.5" />
+                  <span>
+                    {dispatchMode === 'meta_approved'
+                      ? 'Guaranteed Delivery: Reaches all patients, even if they have not chatted within 24 hours.'
+                      : 'Active 24h Chat Mode: Outside 24h contacts will auto-fallback to an approved template.'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Modal Footer */}
+        {/* MODAL FOOTER */}
         <div className="p-4 border-t border-[#dbe9e0] bg-[#f8faf8] flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs text-[#55776d]">
             <AlertCircle className="w-4 h-4 text-[#54a987]" />
-            <span>Messages are logged to individual chat threads.</span>
+            <span>Developer Mode: Outbound Meta API restricted to +91 7796308778.</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -619,20 +1096,29 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
 
             <button
               onClick={handleSend}
-              disabled={isSending || recipientCount === 0 || !messageText.trim()}
+              disabled={
+                isSending ||
+                recipientCount === 0 ||
+                (dispatchMode === 'meta_approved' && !currentMetaTemplate) ||
+                (dispatchMode === 'custom_text' && !messageText.trim())
+              }
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#176e56] hover:bg-[#125643] text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
             >
               {sentSuccess ? (
                 <>
                   <CheckCircle className="w-4 h-4 text-[#77d1a5]" />
-                  <span>Broadcast Sent!</span>
+                  <span>Broadcast Dispatched!</span>
                 </>
               ) : isSending ? (
-                <span>Sending to {recipientCount} patients...</span>
+                <span>Dispatching to {recipientCount} patients...</span>
               ) : (
                 <>
                   <Send className="w-4 h-4" />
-                  <span>Send Broadcast to {recipientCount} Patients</span>
+                  <span>
+                    {dispatchMode === 'meta_approved'
+                      ? `Send Meta Template to ${recipientCount} Patients`
+                      : `Send Broadcast to ${recipientCount} Patients`}
+                  </span>
                 </>
               )}
             </button>

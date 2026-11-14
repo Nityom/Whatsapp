@@ -155,6 +155,10 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
 
   useEffect(() => {
     fetchMetaTemplates();
+    const interval = setInterval(() => {
+      fetchMetaTemplates();
+    }, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   // Update sample count automatically when {{n}} tags in formBody change
@@ -488,21 +492,43 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
                       </button>
 
                       {tmpl.status === 'APPROVED' ? (
-                        <button
-                          onClick={() => {
-                            setSendModalConfig({
-                              isOpen: true,
-                              text: bodyText,
-                              title: `Meta: ${tmpl.name}`,
-                            });
-                          }}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#176e56] hover:bg-[#125844] text-white text-xs font-bold transition-all shadow-xs"
-                        >
-                          <Send className="w-3 h-3" />
-                          <span>Use in Chat</span>
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => {
+                              setSendModalConfig({
+                                isOpen: true,
+                                text: bodyText,
+                                title: `Meta: ${tmpl.name}`,
+                              });
+                            }}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#176e56] hover:bg-[#125844] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                          >
+                            <Send className="w-3 h-3" />
+                            <span>Use in Chat</span>
+                          </button>
+                          {onOpenBroadcast && (
+                            <button
+                              onClick={onOpenBroadcast}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#eaf5ef] hover:bg-[#d5ece0] text-[#176e56] text-xs font-bold transition-all border border-[#c2e4cf] cursor-pointer"
+                              title="Broadcast this template to multiple patients or live queue"
+                            >
+                              <Megaphone className="w-3 h-3" />
+                              <span>Broadcast</span>
+                            </button>
+                          )}
+                        </div>
                       ) : (
-                        <span className="text-[11px] text-amber-700 font-medium">Awaiting Meta Approval</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-amber-700 font-medium">Awaiting Meta Approval</span>
+                          <button
+                            onClick={fetchMetaTemplates}
+                            disabled={isLoadingMeta}
+                            className="p-1 text-amber-700 hover:text-amber-900 rounded hover:bg-amber-100 transition-colors cursor-pointer"
+                            title="Check Status Now"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${isLoadingMeta ? 'animate-spin' : ''}`} />
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>

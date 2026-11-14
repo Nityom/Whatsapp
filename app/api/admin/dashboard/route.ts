@@ -150,16 +150,76 @@ export async function POST(request: NextRequest) {
         campaignTitle,
         targetAudience,
         personalizedMessages = {},
+        templateName,
+        templateLanguage = 'en_US',
+        templateComponents,
+        personalizedTemplateParams = {},
       } = body;
 
-      // 1. Dispatch real WhatsApp message to each recipient
+      // 1. Dispatch WhatsApp message or Meta template to each recipient
       const deliveryResults = [];
       for (const phone of phoneNumbers) {
         const cleanPhone = phone.replace(/\D/g, '');
         const waRecipient = formatWhatsAppRecipientPhone(cleanPhone);
         if (waRecipient) {
-          const msgToSend = personalizedMessages[cleanPhone] || text;
-          const sendRes = await sendWhatsAppMessage(waRecipient, msgToSend);
+          let sendRes;
+
+          // If official Meta Template is chosen:
+          if (templateName) {
+            let components: WhatsAppTemplateComponent[] | undefined = templateComponents;
+            if (personalizedTemplateParams[cleanPhone]) {
+              const params = personalizedTemplateParams[cleanPhone];
+              components = [
+                {
+                  type: 'body',
+                  parameters: params.map((p: string) => ({ type: 'text', text: p })),
+                },
+              ];
+            }
+            sendRes = await sendWhatsAppTemplate(
+              waRecipient,
+              templateName,
+              templateLanguage,
+              components
+            );
+          } else {
+            // Freeform text message
+            const msgToSend = personalizedMessages[cleanPhone] || text;
+            sendRes = await sendWhatsAppMessage(waRecipient, msgToSend);
+
+            // Auto-fallback: If Meta rejects free-form text because the 24-hour service window elapsed
+            // (Meta Graph API Error 131047: "Message failed to send because more than 24 hours have elapsed..."),
+            // automatically fall back to an approved Meta template so non-active ("non whatsapp") contacts also receive the broadcast!
+            const is24hExpired =
+              !sendRes.success &&
+              (sendRes.error?.includes('24 hours') ||
+                sendRes.error?.includes('131047') ||
+                sendRes.error?.includes('Re-engagement') ||
+                sendRes.error?.includes('service window'));
+
+            if (is24hExpired) {
+              console.log(
+                `[Meta 24h Window Expired for +${waRecipient}]: Auto-fallback to official Meta Template appointment_booked`
+              );
+              sendRes = await sendWhatsAppTemplate(
+                waRecipient,
+                'appointment_booked',
+                'en_US',
+                [
+                  {
+                    type: 'body',
+                    parameters: [
+                      { type: 'text', text: 'Valued Patient' },
+                      { type: 'text', text: 'Svaasth Hospital' },
+                      { type: 'text', text: campaignTitle || 'OPD Update' },
+                      { type: 'text', text: 'Today' },
+                      { type: 'text', text: 'Active' },
+                    ],
+                  },
+                ]
+              );
+            }
+          }
           deliveryResults.push({ phone: waRecipient, ...sendRes });
         }
       }
