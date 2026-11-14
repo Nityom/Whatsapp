@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Calendar, Bell, Plus, ChevronDown, Check } from 'lucide-react';
+import { Calendar, Plus, ChevronDown, Check } from 'lucide-react';
 
 interface HeaderProps {
   userName?: string;
@@ -74,14 +74,6 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Notifications Bell */}
-        <button
-          className="relative p-2.5 rounded-xl bg-white border border-[#dbe9e0] text-[#55776d] hover:text-[#176e56] hover:bg-[#f3f9f5] transition-all shadow-xs"
-          title="Notifications"
-        >
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#176e56]"></span>
-        </button>
 
         {/* Primary "+ Send Bulk Message" Button */}
         <button

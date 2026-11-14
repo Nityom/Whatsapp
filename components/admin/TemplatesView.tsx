@@ -275,54 +275,8 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
         </div>
       </div>
 
-      {/* Educational Banner on How Meta Approvals Work */}
-      {showGuide && (
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-[#eaf5ef] to-[#f4faf6] border border-[#77d1a5]/50 relative">
-          <button
-            onClick={() => setShowGuide(false)}
-            className="absolute top-3 right-3 text-[#55776d] hover:text-[#173d37] p-1 rounded-lg"
-            title="Dismiss guide"
-          >
-            <X className="w-4 h-4" />
-          </button>
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-xl bg-[#176e56] text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div className="space-y-1.5 text-xs text-[#173d37] pr-6">
-              <h4 className="font-bold text-sm text-[#176e56]">
-                How WhatsApp Template Approvals Work Outside the 24-Hour Window
-              </h4>
-              <p className="text-[#3b5e54] leading-relaxed">
-                WhatsApp allows free conversational replies for <strong>24 hours</strong> after a patient messages you.
-                To start a conversation or broadcast after 24 hours, WhatsApp Cloud API requires a <strong>Meta-Approved Template</strong>.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-1.5">
-                <div className="p-2.5 rounded-xl bg-white/80 border border-[#dbe9e0]">
-                  <strong className="text-[#176e56] block">1. Category Selection</strong>
-                  Use <strong>UTILITY</strong> for reminders, delay alerts &amp; holiday notices (approved by Meta AI in <strong>1 to 5 minutes</strong>).
-                </div>
-                <div className="p-2.5 rounded-xl bg-white/80 border border-[#dbe9e0]">
-                  <strong className="text-[#176e56] block">2. Variables &amp; Samples</strong>
-                  Use sequential placeholders like <code className="bg-white px-1 py-0.5 rounded border border-[#dbe9e0]">{'{{1}}'}</code>, <code className="bg-white px-1 py-0.5 rounded border border-[#dbe9e0]">{'{{2}}'}</code> with real sample values.
-                </div>
-                <div className="p-2.5 rounded-xl bg-white/80 border border-[#dbe9e0]">
-                  <strong className="text-[#176e56] block">3. One-Click Meta Submit</strong>
-                  Click <strong>&quot;+ Create Meta Template&quot;</strong> above to submit directly, or manage templates in{' '}
-                  <a
-                    href="https://business.facebook.com/wa/manage/home/"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline text-[#176e56] font-semibold inline-flex items-center gap-0.5"
-                  >
-                    Meta WhatsApp Manager <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
+
 
       {/* Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#dbe9e0] pb-2">
@@ -330,8 +284,8 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
           <button
             onClick={() => setActiveTab('all')}
             className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${activeTab === 'all'
-                ? 'bg-[#176e56] text-white shadow-xs'
-                : 'bg-white border border-[#dbe9e0] text-[#55776d] hover:bg-[#eaf5ef]'
+              ? 'bg-[#176e56] text-white shadow-xs'
+              : 'bg-white border border-[#dbe9e0] text-[#55776d] hover:bg-[#eaf5ef]'
               }`}
           >
             All ({metaTemplates.length + quickReplies.length})
@@ -339,8 +293,8 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
           <button
             onClick={() => setActiveTab('meta_approved')}
             className={`px-3.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all ${activeTab === 'meta_approved'
-                ? 'bg-[#176e56] text-white shadow-xs'
-                : 'bg-white border border-[#dbe9e0] text-[#176e56] hover:bg-[#eaf5ef]'
+              ? 'bg-[#176e56] text-white shadow-xs'
+              : 'bg-white border border-[#dbe9e0] text-[#176e56] hover:bg-[#eaf5ef]'
               }`}
           >
             <CheckCircle2 className="w-3.5 h-3.5 text-[#54a987]" />
@@ -349,8 +303,8 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
           <button
             onClick={() => setActiveTab('meta_pending')}
             className={`px-3.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all ${activeTab === 'meta_pending'
-                ? 'bg-[#176e56] text-white shadow-xs'
-                : 'bg-white border border-[#dbe9e0] text-amber-700 hover:bg-amber-50'
+              ? 'bg-[#176e56] text-white shadow-xs'
+              : 'bg-white border border-[#dbe9e0] text-amber-700 hover:bg-amber-50'
               }`}
           >
             <Clock className="w-3.5 h-3.5 text-amber-500" />
@@ -359,8 +313,8 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
           <button
             onClick={() => setActiveTab('quick_reply')}
             className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${activeTab === 'quick_reply'
-                ? 'bg-[#176e56] text-white shadow-xs'
-                : 'bg-white border border-[#dbe9e0] text-[#55776d] hover:bg-[#eaf5ef]'
+              ? 'bg-[#176e56] text-white shadow-xs'
+              : 'bg-white border border-[#dbe9e0] text-[#55776d] hover:bg-[#eaf5ef]'
               }`}
           >
             24h Chat Snippets ({quickReplies.length})
@@ -413,8 +367,8 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
                         <div className="flex items-center gap-1.5">
                           <span
                             className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${tmpl.category === 'UTILITY'
-                                ? 'bg-[#eaf5ef] text-[#176e56]'
-                                : 'bg-purple-50 text-purple-700'
+                              ? 'bg-[#eaf5ef] text-[#176e56]'
+                              : 'bg-purple-50 text-purple-700'
                               }`}
                           >
                             {tmpl.category}

@@ -3,17 +3,12 @@
 import React, { useState, useMemo } from 'react';
 import {
   MessageSquare,
-  Send,
   Calendar,
   Clock,
   Sparkles,
-  ArrowRight,
   TrendingUp,
   Activity,
   CheckCircle2,
-  FileText,
-  Users,
-  Smartphone,
   Bot,
   Zap,
   PieChart,
@@ -108,74 +103,7 @@ export const DashboardHomeView: React.FC<DashboardHomeViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* 1. Quick Launchpad Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <button
-          onClick={onOpenBulkModal}
-          className="p-4 rounded-2xl bg-white border border-[#dbe9e0] hover:border-[#176e56] hover:shadow-xs text-left transition-all group flex items-center justify-between"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#eaf5ef] text-[#176e56] flex items-center justify-center group-hover:scale-105 transition-transform">
-              <Send className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-[#173d37]">Send Bulk Broadcast</p>
-              <p className="text-[11px] text-[#55776d]">Reach all contacts</p>
-            </div>
-          </div>
-          <ArrowRight className="w-4 h-4 text-[#77a193] group-hover:text-[#176e56] transition-colors" />
-        </button>
-
-        <button
-          onClick={() => onNavigateTab('templates')}
-          className="p-4 rounded-2xl bg-white border border-[#dbe9e0] hover:border-[#176e56] hover:shadow-xs text-left transition-all group flex items-center justify-between"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#eaf5ef] text-[#176e56] flex items-center justify-center group-hover:scale-105 transition-transform">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-[#173d37]">Message Templates</p>
-              <p className="text-[11px] text-[#55776d]">Pre-approved texts</p>
-            </div>
-          </div>
-          <ArrowRight className="w-4 h-4 text-[#77a193] group-hover:text-[#176e56] transition-colors" />
-        </button>
-
-        <button
-          onClick={() => onNavigateTab('contacts')}
-          className="p-4 rounded-2xl bg-white border border-[#dbe9e0] hover:border-[#176e56] hover:shadow-xs text-left transition-all group flex items-center justify-between"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#eaf5ef] text-[#176e56] flex items-center justify-center group-hover:scale-105 transition-transform">
-              <Users className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-[#173d37]">Contacts Directory</p>
-              <p className="text-[11px] text-[#55776d]">Patient database</p>
-            </div>
-          </div>
-          <ArrowRight className="w-4 h-4 text-[#77a193] group-hover:text-[#176e56] transition-colors" />
-        </button>
-
-        <button
-          onClick={() => onNavigateTab('simulator')}
-          className="p-4 rounded-2xl bg-white border border-[#dbe9e0] hover:border-[#176e56] hover:shadow-xs text-left transition-all group flex items-center justify-between"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#eaf5ef] text-[#176e56] flex items-center justify-center group-hover:scale-105 transition-transform">
-              <Smartphone className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-[#173d37]">Live Bot Simulator</p>
-              <p className="text-[11px] text-[#55776d]">Test AI interactions</p>
-            </div>
-          </div>
-          <ArrowRight className="w-4 h-4 text-[#77a193] group-hover:text-[#176e56] transition-colors" />
-        </button>
-      </div>
-
-      {/* 2. Middle Grid: Chatbot Analytics & Live Conversations */}
+      {/* Middle Grid: Chatbot Analytics & Live Conversations */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Left 3 Cols: Chatbot Engagement & AI Performance */}
         <div className="lg:col-span-3 space-y-6">
