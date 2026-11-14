@@ -123,15 +123,26 @@ export default function AdminDashboardPage() {
     null;
 
   // Handle staff reply
-  const handleSendMessage = async (text: string) => {
-    if (!selectedPhone || !text.trim()) return;
+  const handleSendMessage = async (
+    text: string,
+    attachment?: {
+      fileUrl: string;
+      filename: string;
+      mimeType: string;
+      fileSize?: string;
+    }
+  ) => {
+    if (!selectedPhone || (!text.trim() && !attachment)) return;
     setIsSendingMessage(true);
+
+    const messageText = text || (attachment ? `📎 ${attachment.filename}` : '');
 
     // Optimistic UI update
     const optimisticMsg: ChatMessage = {
       phoneNumber: selectedPhone,
       sender: 'staff',
-      text,
+      text: messageText,
+      metadata: attachment ? { ...attachment, isAttachment: true } : undefined,
       createdAt: Date.now(),
     };
     setMessages((prev) => [...prev, optimisticMsg]);
@@ -143,7 +154,8 @@ export default function AdminDashboardPage() {
         body: JSON.stringify({
           action: 'send_staff_reply',
           phoneNumber: selectedPhone,
-          text,
+          text: messageText,
+          attachment,
         }),
       });
       await fetchChatHistory(selectedPhone);

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConvexClient } from '@/lib/conversation';
 import { api } from '@/convex/_generated/api';
-import { sendWhatsAppMessage, sendWhatsAppTemplate, WhatsAppTemplateComponent } from '@/lib/whatsapp';
+import {
+  sendWhatsAppMessage,
+  sendWhatsAppTemplate,
+  sendWhatsAppDocument,
+  WhatsAppTemplateComponent,
+} from '@/lib/whatsapp';
 import { getOpdWaitingQueue } from '@/lib/cortexClient';
 
 /**
@@ -55,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'send_staff_reply') {
-      const { phoneNumber, text } = body;
+      const { phoneNumber, text, attachment } = body;
       const cleanPhone = phoneNumber.replace(/\D/g, '');
       const waRecipient = formatWhatsAppRecipientPhone(cleanPhone);
 
@@ -65,18 +70,38 @@ export async function POST(request: NextRequest) {
       const isOutside24h =
         !lastPatientMsg || Date.now() - lastPatientMsg.createdAt > 24 * 60 * 60 * 1000;
 
-      // 1. Dispatch real message via WhatsApp Business Cloud API (Meta)
-      console.log(
-        `[Dashboard Outbound] Dispatching WhatsApp message to +${waRecipient}... (isOutside24h: ${isOutside24h})`
-      );
-      const waResult = await sendWhatsAppMessage(waRecipient, text);
+      let waResult;
+      // If an attachment is provided, dispatch document via WhatsApp Cloud API
+      if (attachment && attachment.filename) {
+        console.log(
+          `[Dashboard Outbound Attachment] Dispatching document to +${waRecipient}: ${attachment.filename}`
+        );
+        const docLink =
+          attachment.fileUrl?.startsWith('http')
+            ? attachment.fileUrl
+            : `https://jovial-sheep-76.convex.site/print-prescription?ref=${encodeURIComponent(attachment.filename)}`;
+
+        waResult = await sendWhatsAppDocument(
+          waRecipient,
+          docLink,
+          attachment.filename,
+          text || attachment.filename
+        );
+      } else {
+        // 1. Dispatch real message via WhatsApp Business Cloud API (Meta)
+        console.log(
+          `[Dashboard Outbound] Dispatching WhatsApp message to +${waRecipient}... (isOutside24h: ${isOutside24h})`
+        );
+        waResult = await sendWhatsAppMessage(waRecipient, text);
+      }
       console.log(`[Dashboard Outbound Result]`, waResult);
 
       // 2. Persist to Convex database audit log with accurate metadata
       const res = await convex.mutation(api.sessions.sendStaffMessage, {
         phoneNumber: cleanPhone,
-        text,
+        text: text || (attachment ? `📎 ${attachment.filename}` : ''),
         metadata: {
+          ...(attachment ? { ...attachment, isAttachment: true } : {}),
           whatsappMessageId: waResult.messageId,
           delivered: !isOutside24h && waResult.success,
           outside24h: isOutside24h,

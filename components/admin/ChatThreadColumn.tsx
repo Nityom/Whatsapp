@@ -17,13 +17,26 @@ import {
   Play,
   Pause,
   UserCircle,
+  X,
+  Download,
+  ExternalLink,
+  Image as ImageIcon,
+  Check,
 } from 'lucide-react';
 import { WhatsAppSession, ChatMessage, QuickTemplate } from './types';
 
 interface ChatThreadColumnProps {
   session?: WhatsAppSession | null;
   messages: ChatMessage[];
-  onSendMessage: (text: string) => Promise<void>;
+  onSendMessage: (
+    text: string,
+    attachment?: {
+      fileUrl: string;
+      filename: string;
+      mimeType: string;
+      fileSize?: string;
+    }
+  ) => Promise<void>;
   onSendTemplate?: (templateName: string, parameters: string[]) => Promise<void>;
   onToggleBotHandover: () => Promise<void>;
   onOpenProfile?: () => void;
@@ -43,12 +56,59 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
 }) => {
   const [inputText, setInputText] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [activeEmojiTab, setActiveEmojiTab] = useState<'medical' | 'courtesies' | 'expressions' | 'admin'>('medical');
+  const [selectedAttachment, setSelectedAttachment] = useState<{
+    file: File;
+    name: string;
+    size: string;
+    type: string;
+    dataUrl: string;
+  } | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Calculate whether contact is outside Meta's 24-hour service window
   const lastPatientMessage = [...messages].reverse().find((m) => m.sender === 'patient');
   const lastPatientTime = lastPatientMessage?.createdAt;
   const isOutside24Hours = !lastPatientTime || Date.now() - lastPatientTime > 24 * 60 * 60 * 1000;
+
+  // Multi-Category Emojis
+  const emojiCategories = {
+    medical: {
+      label: '🏥 Medical',
+      emojis: [
+        '🏥', '🩺', '💊', '💉', '🩹', '👨‍⚕️', '👩‍⚕️', '🚑', '📋', '🩻',
+        '🦷', '🧬', '🌡️', '🩸', '🧴', '🧑‍⚕️', '🩼', '🦽', '♿', '🫀', '🫁', '🧠', '👁️'
+      ],
+    },
+    courtesies: {
+      label: '👋 Courtesies',
+      emojis: [
+        '👋', '🙏', '👍', '🤝', '❤️', '😊', '👏', '💐', '✨', '🌟',
+        '💡', '📢', '🔔', '📞', '✉️', '📍', '🏠', '⏰', '🗓️', '📅', '⏳', '🎯', '💯'
+      ],
+    },
+    expressions: {
+      label: '😊 Expressions',
+      emojis: [
+        '😊', '😄', '😃', '😁', '😇', '🥰', '🤗', '😌', '😷', '🤒',
+        '🤕', '🥺', '🤲', '🤍', '💚', '💙', '💛', '🧡', '💜', '💖', '🕊️', '☀️', '🌸'
+      ],
+    },
+    admin: {
+      label: '🧾 Clinic & Billing',
+      emojis: [
+        '🧾', '💳', '💵', '💰', '✅', '❌', '⚠️', 'ℹ️', '🔒', '🏷️',
+        '📌', '🔗', '📲', '💬', '🗨️', '🆗', '🆒', '🆙', '🆓', '🆕', '🔢', '🆔'
+      ],
+    },
+  };
+
+  const quickEmojis = ['👋', '🙏', '👍', '❤️', '🩺', '💊', '✅', '🏥', '📅', '🧾'];
 
   const quickTemplates: QuickTemplate[] = [
     {
@@ -88,17 +148,71 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Click outside listener for Emoji Picker
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showEmojiPicker]);
+
+  // File selection handler
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const sizeInKb = Math.round(file.size / 1024);
+    const sizeStr = sizeInKb > 1024 ? `${(sizeInKb / 1024).toFixed(1)} MB` : `${sizeInKb} KB`;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSelectedAttachment({
+        file,
+        name: file.name,
+        size: sizeStr,
+        type: file.type || 'application/octet-stream',
+        dataUrl: reader.result as string,
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleInsertEmoji = (emoji: string) => {
+    setInputText((prev) => prev + emoji);
+    inputRef.current?.focus();
+  };
+
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!inputText.trim() || isSending) return;
+    if ((!inputText.trim() && !selectedAttachment) || isSending) return;
+
     const textToSend = inputText.trim();
+    const attachmentToSend = selectedAttachment
+      ? {
+          fileUrl: selectedAttachment.dataUrl,
+          filename: selectedAttachment.name,
+          mimeType: selectedAttachment.type,
+          fileSize: selectedAttachment.size,
+        }
+      : undefined;
+
     setInputText('');
-    await onSendMessage(textToSend);
+    setSelectedAttachment(null);
+    setShowEmojiPicker(false);
+
+    await onSendMessage(textToSend, attachmentToSend);
   };
 
   const handleSelectTemplate = (templateText: string) => {
     setInputText(templateText);
     setShowTemplates(false);
+    inputRef.current?.focus();
   };
 
   const formatMessageTime = (timestamp?: number) => {
@@ -115,7 +229,7 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
         </div>
         <h3 className="text-lg font-bold text-[#173d37]">Select a Conversation</h3>
         <p className="text-xs text-[#55776d] mt-1 max-w-sm">
-          Pick a chat from the left panel to review messages, reply directly, or manage the patient.
+          Pick a chat from the left panel to review messages, reply directly, attach files, or manage patient care.
         </p>
       </div>
     );
@@ -129,12 +243,21 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
 
   return (
     <div className="flex-1 bg-white border border-[#dbe9e0] rounded-2xl flex flex-col h-[740px] shadow-xs overflow-hidden relative">
+      {/* Hidden File Input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+        className="hidden"
+      />
+
       {/* Header: Clickable Profile Trigger */}
       <div className="p-3.5 border-b border-[#dbe9e0] flex items-center justify-between bg-white shrink-0">
         <button
           type="button"
           onClick={onOpenProfile}
-          className="flex items-center gap-3 text-left p-1.5 -ml-1.5 rounded-xl hover:bg-[#f3f9f5] transition-all group"
+          className="flex items-center gap-3 text-left p-1.5 -ml-1.5 rounded-xl hover:bg-[#f3f9f5] transition-all group cursor-pointer"
           title="Click to view patient profile & actions"
         >
           <div className="w-10 h-10 rounded-full bg-[#ede9fe] text-[#6d28d9] font-bold text-xs flex items-center justify-center shrink-0 group-hover:ring-2 group-hover:ring-[#54a987] transition-all">
@@ -152,69 +275,57 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
                     : 'bg-[#eaf5ef] text-[#176e56] group-hover:bg-[#176e56] group-hover:text-white'
                 }`}
               >
-                Profile {isProfileOpen ? '✕' : '↗'}
+                {isProfileOpen ? 'Profile Open ▾' : 'View Profile ▸'}
               </span>
             </div>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="w-2 h-2 rounded-full bg-[#176e56]"></span>
-              <span className="text-[11px] font-medium text-[#55776d]">
-                WhatsApp Customer • +{session.phoneNumber}
-              </span>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-xs text-[#55776d] font-mono">+{session.phoneNumber}</span>
+              {session.patientReference && (
+                <span className="text-[10px] text-[#77a193] font-mono">
+                  • {session.patientReference}
+                </span>
+              )}
             </div>
           </div>
         </button>
 
-        {/* Action Controls */}
+        {/* Bot Handover Switch Button */}
         <div className="flex items-center gap-2">
-          {/* Bot / Handover Toggle Pill */}
           <button
             onClick={onToggleBotHandover}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-xs cursor-pointer ${
               isHandedOver
-                ? 'bg-[#fff5f5] text-[#b91c1c] border-[#fecaca] hover:bg-[#fee2e2]'
-                : 'bg-[#eaf5ef] text-[#176e56] border-[#c2e4cf] hover:bg-[#d9efe2]'
+                ? 'bg-[#fee2e2] text-[#991b1b] border-[#fca5a5] hover:bg-[#fecaca]'
+                : 'bg-[#eaf5ef] text-[#176e56] border-[#a3e2c3] hover:bg-[#d5ece0]'
             }`}
-            title={isHandedOver ? 'Click to resume AI Bot' : 'Click to pause AI Bot and take over'}
+            title={
+              isHandedOver
+                ? 'Staff is currently handling this chat. Click to resume AI Bot.'
+                : 'AI Bot is actively answering. Click to take over as human staff.'
+            }
           >
             {isHandedOver ? (
               <>
-                <Pause className="w-3.5 h-3.5" />
-                <span>Bot Paused (Staff)</span>
+                <UserCheck className="w-4 h-4 text-[#dc2626]" />
+                <span>Staff Active</span>
+                <span className="w-2 h-2 rounded-full bg-[#dc2626] animate-pulse"></span>
               </>
             ) : (
               <>
-                <Bot className="w-3.5 h-3.5" />
-                <span>Bot Active</span>
+                <Bot className="w-4 h-4 text-[#176e56]" />
+                <span>AI Bot Active</span>
+                <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse"></span>
               </>
             )}
-          </button>
-
-          <button
-            title="Archive"
-            className="p-2 rounded-lg text-[#55776d] hover:text-[#176e56] hover:bg-[#f3f9f5] transition-colors"
-          >
-            <FolderArchive className="w-4 h-4" />
-          </button>
-          <button
-            title="Assign agent"
-            className="p-2 rounded-lg text-[#55776d] hover:text-[#176e56] hover:bg-[#f3f9f5] transition-colors"
-          >
-            <UserCheck className="w-4 h-4" />
-          </button>
-          <button
-            title="More options"
-            className="p-2 rounded-lg text-[#55776d] hover:text-[#176e56] hover:bg-[#f3f9f5] transition-colors"
-          >
-            <MoreVertical className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* WhatsApp 24-Hour Care Window Status Banner */}
+      {/* Meta 24-Hour Policy Indicator Bar */}
       <div
-        className={`px-3.5 py-2 flex items-center justify-between text-[11px] border-b ${
+        className={`px-4 py-2 border-b flex items-center justify-between text-xs transition-colors shrink-0 ${
           isOutside24Hours
-            ? 'bg-[#fffbeb] border-[#fde68a] text-[#92400e]'
+            ? 'bg-[#fffbeb] border-[#fef3c7] text-[#92400e]'
             : 'bg-[#f0fdf4] border-[#dcfce7] text-[#166534]'
         }`}
       >
@@ -226,11 +337,11 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
           />
           {isOutside24Hours ? (
             <span>
-              <strong>Outside 24-Hour Window:</strong> Meta policy requires an Approved Template to deliver outbound messages. Freeform texts won&apos;t reach WhatsApp until the patient messages <strong>+91 80107 72998</strong>.
+              <strong>Outside 24-Hour Window:</strong> Plain messages are restricted by Meta policy until patient replies.
             </span>
           ) : (
             <span>
-              <strong>24-Hour Care Window Active:</strong> Normal text replies and staff messages deliver directly to the patient&apos;s WhatsApp.
+              <strong>24-Hour Care Window Active:</strong> Normal text replies and staff attachments deliver directly to WhatsApp.
             </span>
           )}
         </div>
@@ -238,7 +349,7 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
           <button
             type="button"
             onClick={() => setShowTemplates(true)}
-            className="text-[10px] bg-[#fef3c7] hover:bg-[#fde68a] text-[#78350f] px-2.5 py-1 rounded-lg font-bold transition-colors shrink-0 ml-2 shadow-2xs border border-[#fcd34d]"
+            className="text-[10px] bg-[#fef3c7] hover:bg-[#fde68a] text-[#78350f] px-2.5 py-1 rounded-lg font-bold transition-colors shrink-0 ml-2 shadow-2xs border border-[#fcd34d] cursor-pointer"
           >
             Send Approved Template ⚡
           </button>
@@ -250,13 +361,13 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center text-xs text-[#77a193]">
             <p>No messages recorded yet for this session.</p>
-            <p className="mt-1">Send a message below to begin the conversation.</p>
+            <p className="mt-1">Send a message or attachment below to begin the conversation.</p>
           </div>
         ) : (
           messages.map((msg, idx) => {
             const isPatient = msg.sender === 'patient';
             const isStaff = msg.sender === 'staff';
-            const isAssistant = msg.sender === 'assistant';
+            const isAttachment = msg.metadata?.isAttachment || msg.metadata?.fileUrl;
 
             return (
               <div
@@ -264,7 +375,7 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
                 className={`flex flex-col ${isPatient ? 'items-start' : 'items-end'}`}
               >
                 <div
-                  className={`max-w-[78%] rounded-2xl p-3.5 shadow-2xs text-xs leading-relaxed relative ${
+                  className={`max-w-[82%] rounded-2xl p-3.5 shadow-2xs text-xs leading-relaxed relative ${
                     isPatient
                       ? 'bg-white border border-[#dbe9e0] text-[#173d37] rounded-tl-xs'
                       : isStaff
@@ -272,7 +383,71 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
                       : 'bg-[#eaf5ef] border border-[#cbe4d5] text-[#173d37] rounded-tr-xs'
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{msg.text}</p>
+                  {/* ATTACHMENT CARD (If present in message) */}
+                  {isAttachment && (
+                    <div className="mb-2">
+                      {msg.metadata?.mimeType?.startsWith('image/') ||
+                      msg.metadata?.fileUrl?.startsWith('data:image/') ? (
+                        <div className="rounded-xl overflow-hidden border border-[#bde5cf] bg-white">
+                          <img
+                            src={msg.metadata.fileUrl}
+                            alt={msg.metadata.filename || 'Image Attachment'}
+                            className="max-h-56 w-full object-cover"
+                          />
+                          <div className="p-2 flex items-center justify-between text-[11px] bg-white/90">
+                            <span className="font-semibold text-[#173d37] truncate">
+                              {msg.metadata.filename || 'Image'}
+                            </span>
+                            {msg.metadata.fileUrl && (
+                              <a
+                                href={msg.metadata.fileUrl}
+                                download={msg.metadata.filename || 'image'}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-1 hover:bg-[#eaf5ef] rounded text-[#176e56]"
+                                title="Open / Download"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-2.5 rounded-xl bg-white/95 border border-[#bde5cf] flex items-center justify-between gap-3 shadow-2xs">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-lg bg-[#fef2f2] border border-[#fecdd3] text-[#e11d48] flex items-center justify-center shrink-0">
+                              <FileText className="w-4 h-4" />
+                            </div>
+                            <div className="truncate">
+                              <p className="font-bold text-[#173d37] truncate text-xs">
+                                {msg.metadata?.filename || 'Document.pdf'}
+                              </p>
+                              <p className="text-[10px] text-[#77a193]">
+                                {msg.metadata?.fileSize || 'PDF Document'}
+                              </p>
+                            </div>
+                          </div>
+                          {msg.metadata?.fileUrl && (
+                            <a
+                              href={msg.metadata.fileUrl}
+                              download={msg.metadata.filename || 'document'}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1.5 rounded-lg bg-[#eaf5ef] hover:bg-[#d5ece0] text-[#176e56] transition-colors shrink-0"
+                              title="Download Attachment"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Message Text (Hide if identical to filename tag) */}
+                  {msg.text && !msg.text.startsWith('📎 ') && (
+                    <p className="whitespace-pre-wrap">{msg.text}</p>
+                  )}
 
                   <div className="flex items-center justify-end gap-1.5 mt-1.5 text-[10px]">
                     <span className="text-[#77a193]">{formatMessageTime(msg.createdAt)}</span>
@@ -280,9 +455,9 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
                       (msg.metadata?.outside24h ? (
                         <span
                           className="flex items-center gap-1 text-[#b45309] bg-[#fef3c7] px-1.5 py-0.5 rounded text-[9px] font-semibold"
-                          title="Patient has not messaged in >24h. Plain text blocked by Meta until patient replies on WhatsApp."
+                          title="Patient has not messaged in >24h. Plain text blocked by Meta."
                         >
-                          <span>⚠️ 24h Blocked (Wait for reply)</span>
+                          <span>⚠️ 24h Blocked</span>
                         </span>
                       ) : (
                         <span title="Delivered to WhatsApp">
@@ -299,73 +474,46 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
       </div>
 
       {/* Quick Action Bar (Reply & Templates) */}
-      <div className="px-3.5 py-2 bg-white border-t border-[#dbe9e0] flex items-center justify-between gap-2 shrink-0">
+      <div className="px-3.5 py-1.5 bg-white border-t border-[#edf5f0] flex items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowTemplates(!showTemplates)}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f3f9f5] hover:bg-[#eaf5ef] text-[#176e56] text-xs font-semibold transition-all border border-[#dbe9e0]"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f3f9f5] hover:bg-[#eaf5ef] text-[#176e56] text-xs font-semibold transition-all border border-[#dbe9e0] cursor-pointer"
           >
             <FileText className="w-3.5 h-3.5" />
             <span>Templates</span>
           </button>
+        </div>
 
-          <button
-            onClick={() => {
-              setInputText('Sure! ');
-            }}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f3f9f5] hover:bg-[#eaf5ef] text-[#176e56] text-xs font-semibold transition-all border border-[#dbe9e0]"
-          >
-            <Reply className="w-3.5 h-3.5" />
-            <span>Reply</span>
-          </button>
+        {/* Quick Reaction Emojis Row (1-click insert) */}
+        <div className="flex items-center gap-1 overflow-x-auto py-0.5">
+          {quickEmojis.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              onClick={() => handleInsertEmoji(emoji)}
+              className="w-7 h-7 flex items-center justify-center hover:bg-[#f3f9f5] rounded-lg text-sm transition-transform hover:scale-120 cursor-pointer"
+              title={`Insert ${emoji}`}
+            >
+              {emoji}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Templates Drawer / Popover */}
+      {/* Quick Templates Drawer */}
       {showTemplates && (
-        <div className="p-3.5 bg-[#f8faf8] border-t border-[#dbe9e0] space-y-2.5 max-h-56 overflow-y-auto">
-          <div className="flex items-center justify-between text-xs font-bold text-[#173d37] pb-1">
-            <span>Select a Message Template:</span>
+        <div className="p-3 bg-[#f8faf8] border-t border-[#dbe9e0] space-y-2 max-h-56 overflow-y-auto animate-in slide-in-from-bottom-2 duration-150 shrink-0">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#173d37] uppercase tracking-wider">
+              Quick Reply Templates
+            </span>
             <button
               onClick={() => setShowTemplates(false)}
-              className="text-[#77a193] hover:text-[#173d37]"
+              className="text-[#77a193] hover:text-[#173d37] text-xs cursor-pointer"
             >
               Close
             </button>
-          </div>
-
-          {/* Official Meta Template (Bypasses 24h window) */}
-          <div className="p-3 rounded-xl bg-[#eaf5ef] border border-[#bde5cf] flex items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#176e56] text-white">META APPROVED</span>
-                <span className="text-xs font-bold text-[#173d37]">appointment_booked</span>
-              </div>
-              <p className="text-[11px] text-[#3e6057] mt-0.5 leading-snug">
-                Bypasses Meta&apos;s 24-hour restriction! Delivers official appointment confirmation directly to WhatsApp anytime.
-              </p>
-            </div>
-            {onSendTemplate && (
-              <button
-                type="button"
-                disabled={isSending}
-                onClick={async () => {
-                  const patientName = session.patientName || 'Patient';
-                  const doc = session.bookingDraft?.doctorName || 'Dr. Vipeen Raut';
-                  const date = session.bookingDraft?.date || 'Tomorrow';
-                  const time = session.bookingDraft?.slotTime || '10:30 AM';
-                  await onSendTemplate('appointment_booked', [patientName, 'Svaasth Connect', doc, date, time]);
-                  setShowTemplates(false);
-                }}
-                className="px-3 py-1.5 rounded-lg bg-[#176e56] hover:bg-[#125643] text-white text-xs font-bold shrink-0 transition-colors shadow-2xs cursor-pointer"
-              >
-                Send via Meta ⚡
-              </button>
-            )}
-          </div>
-
-          <div className="text-[11px] font-semibold text-[#55776d] pt-1">
-            Standard Quick Replies (Delivered when 24h care window is active):
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -385,41 +533,144 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
         </div>
       )}
 
+      {/* MULTI-CATEGORY EMOJI PICKER POPOVER */}
+      {showEmojiPicker && (
+        <div
+          ref={emojiPickerRef}
+          className="absolute bottom-16 left-4 z-50 bg-white border border-[#c2e4cf] rounded-2xl shadow-xl w-72 sm:w-80 overflow-hidden animate-in zoom-in-95 duration-150"
+        >
+          {/* Header & Tabs */}
+          <div className="p-2.5 bg-[#f8faf8] border-b border-[#e2ece5] flex items-center justify-between">
+            <div className="flex items-center gap-1 text-[11px] font-bold text-[#176e56]">
+              <Smile className="w-3.5 h-3.5" />
+              <span>Choose Emoji</span>
+            </div>
+            <button
+              onClick={() => setShowEmojiPicker(false)}
+              className="p-1 rounded-md text-[#55776d] hover:bg-[#eaf5ef] cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Category Tabs */}
+          <div className="grid grid-cols-4 p-1 bg-[#f4f8f5] border-b border-[#e2ece5] text-[10px]">
+            {(Object.keys(emojiCategories) as Array<keyof typeof emojiCategories>).map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setActiveEmojiTab(cat)}
+                className={`py-1 rounded-md font-semibold text-center transition-colors cursor-pointer ${
+                  activeEmojiTab === cat
+                    ? 'bg-white text-[#176e56] shadow-2xs'
+                    : 'text-[#55776d] hover:text-[#173d37]'
+                }`}
+              >
+                {emojiCategories[cat].label.split(' ')[0]}
+              </button>
+            ))}
+          </div>
+
+          {/* Emojis Grid */}
+          <div className="p-3 max-h-48 overflow-y-auto">
+            <p className="text-[10px] font-bold text-[#77a193] uppercase tracking-wider mb-2">
+              {emojiCategories[activeEmojiTab].label}
+            </p>
+            <div className="grid grid-cols-6 sm:grid-cols-7 gap-1">
+              {emojiCategories[activeEmojiTab].emojis.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => handleInsertEmoji(emoji)}
+                  className="w-8 h-8 rounded-lg hover:bg-[#eaf5ef] flex items-center justify-center text-lg transition-transform hover:scale-120 cursor-pointer"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ATTACHMENT PREVIEW CHIP (Above Input Bar) */}
+      {selectedAttachment && (
+        <div className="p-2.5 px-4 bg-[#eaf5ef] border-t border-[#c2e4cf] flex items-center justify-between text-xs animate-in slide-in-from-bottom-2 duration-150 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-white border border-[#c2e4cf] flex items-center justify-center text-[#176e56] shrink-0 shadow-2xs">
+              {selectedAttachment.type.startsWith('image/') ? (
+                <ImageIcon className="w-4 h-4 text-[#176e56]" />
+              ) : (
+                <FileText className="w-4 h-4 text-[#e11d48]" />
+              )}
+            </div>
+            <div className="truncate">
+              <p className="font-bold text-[#173d37] truncate">{selectedAttachment.name}</p>
+              <p className="text-[10px] text-[#55776d]">
+                {selectedAttachment.size} • Attached for WhatsApp
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setSelectedAttachment(null)}
+            className="p-1 rounded-lg text-[#55776d] hover:text-[#b91c1c] hover:bg-white transition-colors cursor-pointer"
+            title="Remove attachment"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Bottom Message Input Bar */}
       <form
         onSubmit={handleSend}
         className="p-3 bg-white border-t border-[#dbe9e0] flex items-center gap-2 shrink-0"
       >
+        {/* Emoji Button */}
         <button
           type="button"
-          title="Insert emoji"
-          onClick={() => setInputText((prev) => prev + ' 👋')}
-          className="p-2 text-[#55776d] hover:text-[#176e56] hover:bg-[#f3f9f5] rounded-xl transition-colors"
+          title="Open Emoji Picker"
+          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          className={`p-2 rounded-xl transition-colors cursor-pointer ${
+            showEmojiPicker
+              ? 'bg-[#176e56] text-white shadow-2xs'
+              : 'text-[#55776d] hover:text-[#176e56] hover:bg-[#f3f9f5]'
+          }`}
         >
           <Smile className="w-5 h-5" />
         </button>
 
+        {/* Paperclip Attachment Button */}
         <button
           type="button"
-          title="Attach file"
-          className="p-2 text-[#55776d] hover:text-[#176e56] hover:bg-[#f3f9f5] rounded-xl transition-colors"
+          title="Attach Document or Image"
+          onClick={() => fileInputRef.current?.click()}
+          className={`p-2 rounded-xl transition-colors cursor-pointer ${
+            selectedAttachment
+              ? 'bg-[#eaf5ef] text-[#176e56] ring-2 ring-[#54a987]'
+              : 'text-[#55776d] hover:text-[#176e56] hover:bg-[#f3f9f5]'
+          }`}
         >
           <Paperclip className="w-5 h-5" />
         </button>
 
+        {/* Text Input */}
         <input
+          ref={inputRef}
           type="text"
-          placeholder="Type a message..."
+          placeholder={selectedAttachment ? 'Add a caption for this file (optional)...' : 'Type a message...'}
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
-          className="flex-1 px-4 py-2.5 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] text-xs text-[#173d37] placeholder-[#77a193] focus:outline-none focus:border-[#54a987] focus:bg-white transition-all"
+          className="flex-1 px-4 py-2.5 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] text-xs text-[#173d37] placeholder-[#77a193] focus:outline-none focus:border-[#54a987] focus:bg-white transition-all font-medium"
         />
 
+        {/* Send Button */}
         <button
           type="submit"
-          disabled={!inputText.trim() || isSending}
-          className="w-10 h-10 rounded-xl bg-[#176e56] hover:bg-[#125643] disabled:opacity-50 text-white flex items-center justify-center transition-all shadow-xs shrink-0"
-          title="Send message"
+          disabled={(!inputText.trim() && !selectedAttachment) || isSending}
+          className="w-10 h-10 rounded-xl bg-[#176e56] hover:bg-[#125643] disabled:opacity-50 text-white flex items-center justify-center transition-all shadow-xs shrink-0 cursor-pointer"
+          title="Send message or attachment"
         >
           <Send className="w-4 h-4" />
         </button>
