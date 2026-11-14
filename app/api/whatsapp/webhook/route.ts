@@ -172,11 +172,13 @@ export async function POST(request: NextRequest) {
             longitude,
           });
 
-          // Send text reply via WhatsApp Business Cloud API
+          // Send text reply via WhatsApp Business Cloud API only if text or interactive is present
           if (result.interactive) {
             const sent = await sendWhatsAppInteractive(sender, result.interactive);
-            if (!sent.success) await sendWhatsAppMessage(sender, result.text);
-          } else {
+            if (!sent.success && result.text && result.text.trim().length > 0) {
+              await sendWhatsAppMessage(sender, result.text);
+            }
+          } else if (result.text && result.text.trim().length > 0) {
             await sendWhatsAppMessage(sender, result.text);
           }
 

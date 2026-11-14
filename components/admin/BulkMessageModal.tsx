@@ -48,10 +48,10 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
 
   // Initialize selected patients when modal opens or waiting list loads
   useEffect(() => {
-    if (waitingPatients.length > 0) {
+    if (isOpen && waitingPatients.length > 0) {
       setSelectedPatientIds(new Set(waitingPatients.map((p) => p.id)));
     }
-  }, [waitingPatients]);
+  }, [isOpen, waitingPatients]);
 
   // Filtered waiting patients by doctor
   const filteredWaitingPatients = useMemo(() => {
@@ -60,8 +60,6 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
       p.doctorName.toLowerCase().includes(selectedDoctorFilter.toLowerCase())
     );
   }, [waitingPatients, selectedDoctorFilter]);
-
-  if (!isOpen) return null;
 
   // Toggle individual patient selection
   const togglePatientSelection = (id: string) => {
@@ -208,6 +206,8 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
       setIsSending(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-200">
@@ -410,7 +410,9 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
                   ) : (
                     filteredWaitingPatients.map((patient) => {
                       const isChecked = selectedPatientIds.has(patient.id);
-                      return (
+                      if (!isOpen) return null;
+
+  return (
                         <div
                           key={patient.id}
                           onClick={() => togglePatientSelection(patient.id)}

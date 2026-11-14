@@ -63,6 +63,8 @@ export async function processIncomingMessage(
     pendingAction: sessionDoc?.pendingAction,
     isHandedOver: sessionDoc?.isHandedOver ?? false,
     handoverReason: sessionDoc?.handoverReason,
+    lastBookedDoctor: sessionDoc?.lastBookedDoctor,
+    lastBookedDate: sessionDoc?.lastBookedDate,
     bookingDraft: sessionDoc?.bookingDraft,
   };
 
@@ -114,22 +116,26 @@ export async function processIncomingMessage(
       pendingAction: updatedContext.pendingAction,
       isHandedOver: updatedContext.isHandedOver,
       handoverReason: updatedContext.handoverReason,
+      lastBookedDoctor: updatedContext.lastBookedDoctor,
+      lastBookedDate: updatedContext.lastBookedDate,
       bookingDraft: updatedContext.bookingDraft,
     });
   } catch (err) {
     console.error("[Session Save Error]", err);
   }
 
-  // 6. Log outgoing assistant message
-  try {
-    await convex.mutation(api.sessions.logChatMessage, {
-      phoneNumber: phone,
-      sender: "assistant",
-      text: agentResponse.text,
-      type: agentResponse.nativeLocation ? "location_reply" : "text",
-    });
-  } catch (err) {
-    console.warn("[Chat Log Warning]", err);
+  // 6. Log outgoing assistant message (only if agent produced non-empty text)
+  if (agentResponse.text && agentResponse.text.trim().length > 0) {
+    try {
+      await convex.mutation(api.sessions.logChatMessage, {
+        phoneNumber: phone,
+        sender: "assistant",
+        text: agentResponse.text,
+        type: agentResponse.nativeLocation ? "location_reply" : "text",
+      });
+    } catch (err) {
+      console.warn("[Chat Log Warning]", err);
+    }
   }
 
   return {

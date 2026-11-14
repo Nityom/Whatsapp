@@ -473,14 +473,29 @@ export async function getAvailableSlots(dateStr: string, doctorName?: string): P
   };
 }
 
-export async function getPatientAppointments(phone: string): Promise<AppointmentRecord[]> {
+export async function getPatientAppointments(
+  phone: string,
+  patientName?: string,
+  patientReference?: string
+): Promise<AppointmentRecord[]> {
   try {
     const client = getCortexConvexClient();
     const all = (await client.query("appointments:list" as any)) as AppointmentRecord[];
     if (Array.isArray(all)) {
       const normalized = normalizePhone(phone);
+      const targetName = (patientName || "").trim().toLowerCase();
+      const targetRef = (patientReference || "").trim().toUpperCase();
+
       return all
-        .filter((a) => a.phone && normalizePhone(a.phone) === normalized)
+        .filter((a) => {
+          if (!a.phone || normalizePhone(a.phone) !== normalized) return false;
+          if (targetRef && a.notes && a.notes.toUpperCase().includes(targetRef)) return true;
+          if (targetName) {
+            const aName = (a.name || "").trim().toLowerCase();
+            return aName === targetName || aName.includes(targetName) || targetName.includes(aName);
+          }
+          return true;
+        })
         .sort((a, b) => ((b.date || "") + (b.time || "")).localeCompare((a.date || "") + (a.time || "")));
     }
   } catch (err) {
@@ -602,33 +617,55 @@ export async function rescheduleAppointment(
    4. PRESCRIPTIONS
    ========================================================================= */
 
-export async function getPatientPrescriptions(phoneOrUhid: string, patientName?: string): Promise<PrescriptionRecord[]> {
+export async function getPatientPrescriptions(
+  phoneOrUhid: string,
+  patientName?: string,
+  patientReference?: string
+): Promise<PrescriptionRecord[]> {
   try {
     const client = getCortexConvexClient();
-    const patient = await findPatient(phoneOrUhid);
-
     const all = (await client.query("prescriptions:list" as any)) as PrescriptionRecord[];
     if (Array.isArray(all)) {
       const normalizedPhone = normalizePhone(phoneOrUhid);
-      const refNumber = patient?.reference_number?.toUpperCase();
-      const targetName = (patientName || patient?.name || "").trim().toLowerCase();
+      const targetRef = (
+        patientReference ||
+        (phoneOrUhid.trim().toUpperCase().startsWith("CRX") ? phoneOrUhid.trim() : "")
+      ).toUpperCase();
+      const targetName = (patientName || "").trim().toLowerCase();
 
       return all.filter((p) => {
-        const pRef = p.reference_number?.toUpperCase();
-        if (refNumber && pRef) {
-          return pRef === refNumber;
+        const pRef = (p.reference_number || "").trim().toUpperCase();
+        const pName = (p.patient_name || "").trim().toLowerCase();
+        const pPhone = p.phone_number ? normalizePhone(p.phone_number) : "";
+
+        // 1. Exact match on reference number if provided
+        if (targetRef && pRef) {
+          return pRef === targetRef;
         }
-        if (refNumber && !pRef) {
-          return false;
+
+        // 2. Match by both phone number AND patient name
+        if (targetName && normalizedPhone) {
+          const nameMatches =
+            pName === targetName ||
+            pName.includes(targetName) ||
+            targetName.includes(pName);
+          return pPhone === normalizedPhone && nameMatches;
         }
+
+        // 3. Match by name alone if reference/phone missing
         if (targetName) {
-          const pName = (p.patient_name || "").trim().toLowerCase();
-          const pPhone = p.phone_number ? normalizePhone(p.phone_number) : "";
-          return pPhone === normalizedPhone && (pName === targetName || pName.includes(targetName) || targetName.includes(pName));
+          return (
+            pName === targetName ||
+            pName.includes(targetName) ||
+            targetName.includes(pName)
+          );
         }
-        if (p.phone_number && normalizePhone(p.phone_number) === normalizedPhone) {
-          return true;
+
+        // 4. Fallback: match by phone number alone
+        if (normalizedPhone && pPhone) {
+          return pPhone === normalizedPhone;
         }
+
         return false;
       });
     }
@@ -642,30 +679,52 @@ export async function getPatientPrescriptions(phoneOrUhid: string, patientName?:
    5. BILLS & INVOICES
    ========================================================================= */
 
-export async function getPatientBills(phoneOrUhid: string): Promise<BillRecord[]> {
+export async function getPatientBills(
+  phoneOrUhid: string,
+  patientName?: string,
+  patientReference?: string
+): Promise<BillRecord[]> {
   try {
     const client = getCortexConvexClient();
-    const patient = await findPatient(phoneOrUhid);
-
     const allBills = (await client.query("bills:list" as any, {})) as BillRecord[];
     if (Array.isArray(allBills)) {
-      const refNumber = patient?.reference_number?.toUpperCase();
-      const patientId = patient?._id;
+      const targetRef = (
+        patientReference ||
+        (phoneOrUhid.trim().toUpperCase().startsWith("CRX") ? phoneOrUhid.trim() : "")
+      ).toUpperCase();
+      const targetName = (patientName || "").trim().toLowerCase();
 
-      return allBills
-        .filter((b) => {
-          if (refNumber && b.reference_number && b.reference_number.toUpperCase() === refNumber) {
-            return true;
-          }
-          if (patientId && b.patient_id === patientId) {
-            return true;
-          }
-          return false;
-        })
-        .map((b) => ({
-          ...b,
-          patient_name: patient?.name,
-        }));
+      // Find all patient IDs / references under this phone number if needed
+      let allowedRefs: Set<string> | null = null;
+      let allowedIds: Set<string> | null = null;
+      if (!targetRef && !targetName) {
+        const patients = await findPatientsByPhone(phoneOrUhid);
+        allowedRefs = new Set(patients.map((p) => (p.reference_number || "").toUpperCase()).filter(Boolean));
+        allowedIds = new Set(patients.map((p) => p._id).filter(Boolean));
+      }
+
+      return allBills.filter((b) => {
+        const bRef = (b.reference_number || "").trim().toUpperCase();
+        const bName = (b.patient_name || "").trim().toLowerCase();
+
+        if (targetRef && bRef) {
+          return bRef === targetRef;
+        }
+        if (targetName && bName) {
+          return (
+            bName === targetName ||
+            bName.includes(targetName) ||
+            targetName.includes(bName)
+          );
+        }
+        if (allowedRefs && bRef && allowedRefs.has(bRef)) {
+          return true;
+        }
+        if (allowedIds && b.patient_id && allowedIds.has(b.patient_id)) {
+          return true;
+        }
+        return false;
+      });
     }
   } catch (err) {
     console.error("[Cortex PMS] getPatientBills error:", err);
@@ -677,18 +736,47 @@ export async function getPatientBills(phoneOrUhid: string): Promise<BillRecord[]
    6. FOLLOW-UPS
    ========================================================================= */
 
-export async function getPatientFollowups(phoneOrUhid: string): Promise<FollowupRecord[]> {
+export async function getPatientFollowups(
+  phoneOrUhid: string,
+  patientName?: string,
+  patientReference?: string
+): Promise<FollowupRecord[]> {
   try {
     const client = getCortexConvexClient();
-    const patient = await findPatient(phoneOrUhid);
-    const normalized = normalizePhone(phoneOrUhid);
-    const ref = patient?.reference_number?.toUpperCase();
+    const normalizedPhone = normalizePhone(phoneOrUhid);
+    const targetRef = (
+      patientReference ||
+      (phoneOrUhid.trim().toUpperCase().startsWith("CRX") ? phoneOrUhid.trim() : "")
+    ).toUpperCase();
+    const targetName = (patientName || "").trim().toLowerCase();
 
     const allFollowups = (await client.query("registers:listFollowups" as any, {})) as FollowupRecord[];
     if (Array.isArray(allFollowups)) {
       return allFollowups.filter((f) => {
-        if (ref && f.reference_number && f.reference_number.toUpperCase() === ref) return true;
-        if (f.phone_number && normalizePhone(f.phone_number) === normalized) return true;
+        const fRef = (f.reference_number || "").trim().toUpperCase();
+        const fName = (f.patient_name || "").trim().toLowerCase();
+        const fPhone = f.phone_number ? normalizePhone(f.phone_number) : "";
+
+        if (targetRef && fRef) {
+          return fRef === targetRef;
+        }
+        if (targetName && normalizedPhone) {
+          const nameMatches =
+            fName === targetName ||
+            fName.includes(targetName) ||
+            targetName.includes(fName);
+          return fPhone === normalizedPhone && nameMatches;
+        }
+        if (targetName) {
+          return (
+            fName === targetName ||
+            fName.includes(targetName) ||
+            targetName.includes(fName)
+          );
+        }
+        if (normalizedPhone && fPhone) {
+          return fPhone === normalizedPhone;
+        }
         return false;
       });
     }
@@ -702,18 +790,43 @@ export async function getPatientFollowups(phoneOrUhid: string): Promise<Followup
    7. LABORATORY REPORTS / INVESTIGATIONS
    ========================================================================= */
 
-export async function getPatientInvestigations(phoneOrUhid: string): Promise<InvestigationRecord[]> {
+export async function getPatientInvestigations(
+  phoneOrUhid: string,
+  patientName?: string,
+  patientReference?: string
+): Promise<InvestigationRecord[]> {
   try {
     const client = getCortexConvexClient();
-    const patient = await findPatient(phoneOrUhid);
-    const normalized = normalizePhone(phoneOrUhid);
-    const ref = patient?.reference_number?.toUpperCase();
+    const normalizedPhone = normalizePhone(phoneOrUhid);
+    const targetRef = (
+      patientReference ||
+      (phoneOrUhid.trim().toUpperCase().startsWith("CRX") ? phoneOrUhid.trim() : "")
+    ).toUpperCase();
+    const targetName = (patientName || "").trim().toLowerCase();
 
     const all = (await client.query("investigations:list" as any, {})) as InvestigationRecord[];
     if (Array.isArray(all)) {
       return all.filter((i) => {
-        if (ref && i.reference_number && i.reference_number.toUpperCase() === ref) return true;
-        if (i.phone_number && normalizePhone(i.phone_number) === normalized) return true;
+        const iRef = (i.reference_number || "").trim().toUpperCase();
+        const iName = (i.patient_name || "").trim().toLowerCase();
+        const iPhone = i.phone_number ? normalizePhone(i.phone_number) : "";
+
+        if (targetRef && iRef) return iRef === targetRef;
+        if (targetName && normalizedPhone) {
+          const nameMatches =
+            iName === targetName ||
+            iName.includes(targetName) ||
+            targetName.includes(iName);
+          return iPhone === normalizedPhone && nameMatches;
+        }
+        if (targetName) {
+          return (
+            iName === targetName ||
+            iName.includes(targetName) ||
+            targetName.includes(iName)
+          );
+        }
+        if (normalizedPhone && iPhone) return iPhone === normalizedPhone;
         return false;
       });
     }

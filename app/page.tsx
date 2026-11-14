@@ -14,6 +14,8 @@ import { TemplatesView } from '@/components/admin/TemplatesView';
 import { BroadcastView } from '@/components/admin/BroadcastView';
 import { ContactsView } from '@/components/admin/ContactsView';
 import { SimulatorDrawer } from '@/components/admin/SimulatorDrawer';
+import { ReportsView } from '@/components/admin/ReportsView';
+import { AutomationView } from '@/components/admin/AutomationView';
 import {
   NavTab,
   ChatFilter,
@@ -271,6 +273,71 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // Handle template dispatch to one or multiple selected contacts
+  const handleSendTemplateToContacts = async (
+    phoneNumbers: string[],
+    text: string,
+    openFirstChat: boolean = false
+  ) => {
+    if (phoneNumbers.length === 0) return;
+
+    if (phoneNumbers.length === 1) {
+      const targetPhone = phoneNumbers[0];
+      const targetSession = sessions.find(
+        (s) => s.phoneNumber.replace(/\D/g, '') === targetPhone
+      );
+      const personalized = text
+        .replace(/{patient_name}/g, targetSession?.patientName || 'Valued Patient')
+        .replace(/{reference}/g, targetSession?.patientReference || '');
+
+      await fetch('/api/admin/dashboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send_staff_reply',
+          phoneNumber: targetPhone,
+          text: personalized,
+        }),
+      });
+
+      setSelectedPhone(targetPhone);
+      await fetchChatHistory(targetPhone);
+      await fetchDashboardData();
+
+      if (openFirstChat) {
+        setActiveTab('chats');
+      }
+    } else {
+      const personalizedMap: Record<string, string> = {};
+      phoneNumbers.forEach((p) => {
+        const sess = sessions.find((s) => s.phoneNumber.replace(/\D/g, '') === p);
+        personalizedMap[p] = text
+          .replace(/{patient_name}/g, sess?.patientName || 'Valued Patient')
+          .replace(/{reference}/g, sess?.patientReference || '');
+      });
+
+      await fetch('/api/admin/dashboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send_bulk',
+          phoneNumbers,
+          text,
+          campaignTitle: 'Template Message Broadcast',
+          targetAudience: 'Selected Contacts',
+          personalizedMessages: personalizedMap,
+        }),
+      });
+
+      await fetchDashboardData();
+      if (openFirstChat && phoneNumbers.length > 0) {
+        setSelectedPhone(phoneNumbers[0]);
+        await fetchChatHistory(phoneNumbers[0]);
+        setActiveTab('chats');
+      }
+    }
+  };
+
   const unreadTotal = sessions.reduce((acc, s) => acc + (s.unreadCount || 0), 0);
 
   return (
@@ -295,8 +362,8 @@ export default function AdminDashboardPage() {
           onOpenBulkModal={() => setIsBulkModalOpen(true)}
         />
 
-        {/* 4 Stat Cards */}
-        <StatCards stats={stats} />
+        {/* 4 Stat Cards (Displayed on Executive Dashboard Overview) */}
+        {activeTab === 'dashboard' && <StatCards stats={stats} />}
 
         {/* TAB 1: EXECUTIVE DASHBOARD VIEW */}
         {activeTab === 'dashboard' && (
@@ -352,8 +419,8 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* TAB 3: Broadcast / Bulk View */}
-        {activeTab === 'broadcast' && (
+        {/* TAB 3: Broadcast & Campaigns View (Serves both 'broadcast' and 'campaigns' tabs) */}
+        {(activeTab === 'broadcast' || activeTab === 'campaigns') && (
           <div className="mt-4">
             <BroadcastView
               campaigns={stats?.campaigns}
@@ -367,6 +434,14 @@ export default function AdminDashboardPage() {
         {activeTab === 'templates' && (
           <div className="mt-4">
             <TemplatesView
+              sessions={sessions}
+              selectedPhone={selectedPhone}
+              onSendToContacts={handleSendTemplateToContacts}
+              onOpenChat={(phone) => {
+                setSelectedPhone(phone);
+                setActiveTab('chats');
+              }}
+              onOpenBroadcast={() => setIsBulkModalOpen(true)}
               onUseTemplate={(text) => {
                 setActiveTab('chats');
                 handleSendMessage(text);
@@ -404,67 +479,60 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* TAB 7: Automation View */}
+        {/* TAB 7: Hospital Automation Workflows View */}
         {activeTab === 'automation' && (
-          <div className="mt-4 p-8 bg-white border border-[#dbe9e0] rounded-2xl shadow-xs text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#eaf5ef] text-[#176e56] font-bold flex items-center justify-center mx-auto text-lg">
-              🤖
-            </div>
-            <h3 className="text-base font-bold text-[#173d37]">Svaasth Connect AI Automation</h3>
-            <p className="text-xs text-[#55776d] max-w-md mx-auto">
-              Smart rules are active: Automated triage, instant multi-lingual responses in English,
-              Hindi, and Marathi, auto-booking with 15-minute slot checks, and seamless human
-              takeover.
-            </p>
+          <div className="mt-4">
+            <AutomationView />
           </div>
         )}
 
-        {/* TAB 8: Reports View */}
+        {/* TAB 8: Reports & Hospital Analytics View */}
         {activeTab === 'reports' && (
-          <div className="mt-4 p-8 bg-white border border-[#dbe9e0] rounded-2xl shadow-xs text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#eaf5ef] text-[#176e56] font-bold flex items-center justify-center mx-auto text-lg">
-              📊
-            </div>
-            <h3 className="text-base font-bold text-[#173d37]">Conversation & OPD Analytics</h3>
-            <p className="text-xs text-[#55776d] max-w-md mx-auto">
-              Average response time is under 1.2 seconds. 94% of appointment inquiries completed
-              without human intervention.
-            </p>
+          <div className="mt-4">
+            <ReportsView
+              stats={stats}
+              sessions={sessions}
+              dateRange={dateRange}
+            />
           </div>
         )}
 
         {/* TAB 9: Settings View */}
         {activeTab === 'settings' && (
-          <div className="mt-4 p-8 bg-white border border-[#dbe9e0] rounded-2xl shadow-xs space-y-4 max-w-xl">
-            <h3 className="text-base font-bold text-[#173d37]">Svaasth Connect Settings</h3>
+          <div className="mt-4 p-6 bg-white border border-[#dbe9e0] rounded-2xl shadow-xs space-y-4 max-w-2xl">
+            <div>
+              <h3 className="text-base font-bold text-[#173d37]">Svaasth Connect System Settings</h3>
+              <p className="text-xs text-[#55776d] mt-0.5">Configuration and integration health for WhatsApp Business API and Cortex PMS.</p>
+            </div>
+
             <div className="space-y-3 text-xs">
-              <div className="p-3.5 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] flex items-center justify-between">
                 <div>
                   <p className="font-bold text-[#173d37]">WhatsApp Cloud API</p>
-                  <p className="text-[#55776d]">Connected via Meta Graph API v20.0</p>
+                  <p className="text-[#55776d] mt-0.5">Meta Graph API v21.0 • WABA ID: 479847545221049</p>
                 </div>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#eaf5ef] text-[#176e56] font-bold">
-                  Active
+                <span className="px-2.5 py-1 rounded-full bg-[#eaf5ef] text-[#176e56] font-bold border border-[#c2e4cf]">
+                  Connected ✓
                 </span>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] flex items-center justify-between">
                 <div>
                   <p className="font-bold text-[#173d37]">Hospital PMS Integration</p>
-                  <p className="text-[#55776d]">Convex dev:jovial-sheep-76</p>
+                  <p className="text-[#55776d] mt-0.5">Cortex PMS (Appointments, Prescriptions, Billing, Patients)</p>
                 </div>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#eaf5ef] text-[#176e56] font-bold">
-                  Synced
+                <span className="px-2.5 py-1 rounded-full bg-[#eaf5ef] text-[#176e56] font-bold border border-[#c2e4cf]">
+                  Synced ✓
                 </span>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-[#f0fdf4] border border-[#bbf7d0] flex items-center justify-between">
                 <div>
-                  <p className="font-bold text-[#173d37]">AI Engine Model</p>
-                  <p className="text-[#55776d]">Gemini 2.5 Flash with Function Calling</p>
+                  <p className="font-bold text-[#166534]">Development Guardrail Active</p>
+                  <p className="text-[#15803d] mt-0.5">Target Developer Phone: +91 7796308778 (Other numbers are simulated safely)</p>
                 </div>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#eaf5ef] text-[#176e56] font-bold">
-                  Healthy
+                <span className="px-2.5 py-1 rounded-full bg-[#dcfce7] text-[#166534] font-bold">
+                  Enforced
                 </span>
               </div>
             </div>

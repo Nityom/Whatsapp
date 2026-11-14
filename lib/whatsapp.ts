@@ -6,6 +6,22 @@
 
 const GRAPH_API_VERSION = process.env.GRAPH_API_VERSION || 'v21.0';
 
+/**
+ * Developer Guard:
+ * Safety safeguard: ONLY dispatch real outbound WhatsApp messages to the developer's
+ * verified test number: 7796308778 (e.g. 917796308778 / +917796308778 / 07796308778).
+ * ALL OTHER phone numbers are automatically simulated to prevent messaging real patients during development.
+ */
+export function isDevAllowedRecipient(to: string): boolean {
+  if (!to) return false;
+  const digits = to.replace(/\D/g, '');
+  return (
+    digits === '7796308778' ||
+    digits === '917796308778' ||
+    digits === '07796308778'
+  );
+}
+
 export interface SendMessageResult {
   success: boolean;
   messageId?: string;
@@ -17,6 +33,11 @@ export type WhatsAppInteractive =
   | { kind: "list"; body: string; buttonText: string; sections: Array<{ title: string; rows: Array<{ id: string; title: string; description?: string }> }> };
 
 export async function sendWhatsAppInteractive(to: string, interactive: WhatsAppInteractive): Promise<SendMessageResult> {
+  if (!isDevAllowedRecipient(to)) {
+    console.log(`[Dev Guard: Simulated Interactive for non-dev phone +${to}]`, JSON.stringify(interactive));
+    return { success: true, messageId: `sim_dev_int_${Date.now()}` };
+  }
+
   const token = process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   if (!token || !phoneNumberId) {
@@ -65,6 +86,11 @@ export async function sendWhatsAppTemplate(
   languageCode: string = "en_US",
   components?: WhatsAppTemplateComponent[]
 ): Promise<SendMessageResult> {
+  if (!isDevAllowedRecipient(to)) {
+    console.log(`[Dev Guard: Simulated Template for non-dev phone +${to}] Template: ${templateName}`);
+    return { success: true, messageId: `sim_dev_tpl_${Date.now()}` };
+  }
+
   const token = process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
 
@@ -129,6 +155,14 @@ export async function sendWhatsAppTemplate(
  * @param message - Text content to send
  */
 export async function sendWhatsAppMessage(to: string, message: string): Promise<SendMessageResult> {
+  if (!isDevAllowedRecipient(to)) {
+    console.log(`[Dev Guard: Simulated Outgoing Text for non-dev phone +${to}]\nMessage: ${message}`);
+    return {
+      success: true,
+      messageId: `sim_dev_msg_${Date.now()}`,
+    };
+  }
+
   const token = process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
 
@@ -197,6 +231,16 @@ export async function sendWhatsAppLocation(
   to: string,
   location: WhatsAppLocationPayload
 ): Promise<SendMessageResult> {
+  if (!isDevAllowedRecipient(to)) {
+    console.log(
+      `[Dev Guard: Simulated Outgoing Location for non-dev phone +${to}]\nName: ${location.name}\nAddress: ${location.address}`
+    );
+    return {
+      success: true,
+      messageId: `sim_dev_loc_${Date.now()}`,
+    };
+  }
+
   const token = process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
 
@@ -266,6 +310,16 @@ export async function sendWhatsAppDocument(
   filename: string,
   caption?: string
 ): Promise<SendMessageResult> {
+  if (!isDevAllowedRecipient(to)) {
+    console.log(
+      `[Dev Guard: Simulated Outgoing Document for non-dev phone +${to}]\nFile: ${filename}\nLink: ${documentUrl}`
+    );
+    return {
+      success: true,
+      messageId: `sim_dev_doc_${Date.now()}`,
+    };
+  }
+
   const token = process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
 

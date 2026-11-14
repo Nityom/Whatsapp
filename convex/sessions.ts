@@ -26,6 +26,8 @@ export const saveWhatsAppSession = mutation({
     isHandedOver: v.optional(v.boolean()),
     handoverReason: v.optional(v.string()),
     handoverTimestamp: v.optional(v.number()),
+    lastBookedDoctor: v.optional(v.string()),
+    lastBookedDate: v.optional(v.string()),
     bookingDraft: v.optional(
       v.object({
         doctorName: v.optional(v.string()),
@@ -82,6 +84,8 @@ export const saveWhatsAppSession = mutation({
         isHandedOver: args.isHandedOver ?? existing.isHandedOver,
         handoverReason: args.handoverReason ?? existing.handoverReason,
         handoverTimestamp: args.handoverTimestamp ?? existing.handoverTimestamp,
+        lastBookedDoctor: args.lastBookedDoctor ?? existing.lastBookedDoctor,
+        lastBookedDate: args.lastBookedDate ?? existing.lastBookedDate,
         bookingDraft: mergedDraft,
         updatedAt: now,
       });
@@ -103,6 +107,8 @@ export const saveWhatsAppSession = mutation({
       isHandedOver: args.isHandedOver ?? false,
       handoverReason: args.handoverReason,
       handoverTimestamp: args.handoverTimestamp,
+      lastBookedDoctor: args.lastBookedDoctor,
+      lastBookedDate: args.lastBookedDate,
       bookingDraft: args.bookingDraft,
       createdAt: now,
       updatedAt: now,
@@ -303,6 +309,7 @@ export const sendStaffMessage = mutation({
 
     if (existing) {
       await ctx.db.patch(existing._id, {
+        currentStep: "HANDED_OVER",
         isHandedOver: true,
         handoverReason: "Staff reply sent from Svaasth Connect Dashboard",
         handoverTimestamp: now,
@@ -367,6 +374,9 @@ export const sendBulkMessage = mutation({
 
       if (existing) {
         await ctx.db.patch(existing._id, {
+          isHandedOver: true,
+          currentStep: "HANDED_OVER",
+          handoverReason: "Staff template / broadcast sent",
           lastMessage: args.text,
           lastMessageTimestamp: now,
           updatedAt: now,
@@ -374,7 +384,9 @@ export const sendBulkMessage = mutation({
       } else {
         await ctx.db.insert("whatsappSessions", {
           phoneNumber: cleanPhone,
-          currentStep: "IDLE",
+          currentStep: "HANDED_OVER",
+          isHandedOver: true,
+          handoverReason: "Staff template / broadcast sent",
           lastMessage: args.text,
           lastMessageTimestamp: now,
           createdAt: now,

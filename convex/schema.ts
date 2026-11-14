@@ -17,6 +17,8 @@ export default defineSchema({
     isHandedOver: v.optional(v.boolean()),
     handoverReason: v.optional(v.string()),
     handoverTimestamp: v.optional(v.number()),
+    lastBookedDoctor: v.optional(v.string()),
+    lastBookedDate: v.optional(v.string()),
     bookingDraft: v.optional(
       v.object({
         doctorName: v.optional(v.string()),

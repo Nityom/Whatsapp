@@ -21,7 +21,8 @@ import {
   Eye,
   Megaphone,
 } from 'lucide-react';
-import { QuickTemplate } from './types';
+import { QuickTemplate, WhatsAppSession } from './types';
+import { SendTemplateModal } from './SendTemplateModal';
 
 interface MetaTemplateComponent {
   type: 'HEADER' | 'BODY' | 'FOOTER' | 'BUTTONS';
@@ -47,11 +48,22 @@ interface MetaTemplate {
 }
 
 interface TemplatesViewProps {
-  onUseTemplate: (text: string) => void;
+  onUseTemplate?: (text: string) => void;
   onOpenBroadcast?: () => void;
+  sessions?: WhatsAppSession[];
+  selectedPhone?: string | null;
+  onSendToContacts?: (phoneNumbers: string[], text: string, openFirstChat?: boolean) => Promise<void>;
+  onOpenChat?: (phoneNumber: string) => void;
 }
 
-export const TemplatesView: React.FC<TemplatesViewProps> = ({ onUseTemplate, onOpenBroadcast }) => {
+export const TemplatesView: React.FC<TemplatesViewProps> = ({
+  onUseTemplate,
+  onOpenBroadcast,
+  sessions = [],
+  selectedPhone,
+  onSendToContacts,
+  onOpenChat,
+}) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'meta_approved' | 'meta_pending' | 'quick_reply'>('all');
   const [metaTemplates, setMetaTemplates] = useState<MetaTemplate[]>([]);
@@ -59,6 +71,17 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({ onUseTemplate, onO
   const [metaError, setMetaError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [showGuide, setShowGuide] = useState<boolean>(true);
+
+  // Send Template Modal State
+  const [sendModalConfig, setSendModalConfig] = useState<{
+    isOpen: boolean;
+    text: string;
+    title?: string;
+  }>({
+    isOpen: false,
+    text: '',
+    title: '',
+  });
 
   // Form State for creating a new Meta template
   const [formName, setFormName] = useState('');
@@ -466,11 +489,17 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({ onUseTemplate, onO
 
                       {tmpl.status === 'APPROVED' ? (
                         <button
-                          onClick={() => onUseTemplate(bodyText)}
+                          onClick={() => {
+                            setSendModalConfig({
+                              isOpen: true,
+                              text: bodyText,
+                              title: `Meta: ${tmpl.name}`,
+                            });
+                          }}
                           className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#176e56] hover:bg-[#125844] text-white text-xs font-bold transition-all shadow-xs"
                         >
                           <Send className="w-3 h-3" />
-                          <span>Send to Patient</span>
+                          <span>Use in Chat</span>
                         </button>
                       ) : (
                         <span className="text-[11px] text-amber-700 font-medium">Awaiting Meta Approval</span>
@@ -532,7 +561,13 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({ onUseTemplate, onO
                   </button>
 
                   <button
-                    onClick={() => onUseTemplate(tmpl.text)}
+                    onClick={() => {
+                      setSendModalConfig({
+                        isOpen: true,
+                        text: tmpl.text,
+                        title: tmpl.title,
+                      });
+                    }}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#eaf5ef] hover:bg-[#176e56] hover:text-white text-[#176e56] text-xs font-bold transition-all"
                   >
                     <Send className="w-3 h-3" />
@@ -759,6 +794,23 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({ onUseTemplate, onO
           </div>
         </div>
       )}
+
+      {/* SEND TEMPLATE MODAL WITH WHERE-TO-SEND & RECENT CONTACTS LIST */}
+      <SendTemplateModal
+        isOpen={sendModalConfig.isOpen}
+        onClose={() => setSendModalConfig((prev) => ({ ...prev, isOpen: false }))}
+        templateText={sendModalConfig.text}
+        templateTitle={sendModalConfig.title}
+        sessions={sessions || []}
+        activePhone={selectedPhone}
+        onSend={async (phoneNumbers, text, openFirstChat) => {
+          if (onSendToContacts) {
+            await onSendToContacts(phoneNumbers, text, openFirstChat);
+          } else if (onUseTemplate) {
+            onUseTemplate(text);
+          }
+        }}
+      />
     </div>
   );
 };

@@ -44,6 +44,8 @@ export interface AgentContext {
   isHandedOver?: boolean;
   handoverReason?: string;
   handoverTimestamp?: number;
+  lastBookedDoctor?: string;
+  lastBookedDate?: string;
   bookingDraft?: {
     doctorName?: string;
     specialty?: string;
@@ -203,8 +205,8 @@ export function isLanguageChangeQuery(text: string): boolean {
   const clean = (text || "").toLowerCase().trim();
   const normalized = clean.startsWith("menu_") ? clean.replace("menu_", "") : clean;
 
-  if (normalized === "10" || normalized === "10.") return true;
-  if (/^10\.\s*(change language|भाषा|language)/i.test(clean)) return true;
+  if (normalized === "9" || normalized === "9.") return true;
+  if (/^9\.\s*(change language|भाषा|language)/i.test(clean)) return true;
   if (clean.includes("change language") || clean.includes("language") || clean === "lang") return true;
   if (
     clean.includes("भाषा") ||
@@ -333,8 +335,9 @@ export function mainMenu(language: string): string {
 7️⃣ 📍 अस्पताल का पता और स्थान
 8️⃣ ☎️ रिसेप्शन से बात करें
 9️⃣ 🌐 भाषा बदलें (Change Language)
+🔟 👤 परिजन प्रोफाइल (Switch / Add Member)
 
-आपका स्वास्थ्य और सुविधा हमारी प्राथमिकता है। ❤️`;
+आपकी सेहत और सुविधा हमारी प्राथमिकता है। ❤️`;
   }
 
   if (language === "mr") {
@@ -342,7 +345,7 @@ export function mainMenu(language: string): string {
 नमस्कार! 👋 मी आपला डिजिटल हॉस्पिटल सहाय्यक आहे.
 
 मी आपली काय मदत करू शकतो?
-👇 *खालील पर्यायावर टॅप करा किंवा 1 ते 9 मधील क्रमांक पाठवा:*
+👇 *खालील पर्यायावर टॅप करा किंवा 1 ते 10 मधील क्रमांक पाठवा:*
 
 1️⃣ 🏥 नवीन अपॉइंटमेंट बुक करा
 2️⃣ 📅 माझी अपॉइंटमेंट
@@ -353,6 +356,7 @@ export function mainMenu(language: string): string {
 7️⃣ 📍 हॉस्पिटलचा पत्ता
 8️⃣ ☎️ रिसेप्शनशी बोला
 9️⃣ 🌐 भाषा बदला (Change Language)
+🔟 👤 कुटुंब प्रोफाइल (Switch / Add Member)
 
 आपले आरोग्य आणि सोय हीच आमची प्राथमिकता आहे. ❤️`;
   }
@@ -361,7 +365,7 @@ export function mainMenu(language: string): string {
 Hello! 👋 I am your virtual hospital assistant, available 24/7.
 
 How can I assist you today?
-👇 *Tap an option below or reply with a number from 1 to 9:*
+👇 *Tap an option below or reply with a number from 1 to 10:*
 
 1️⃣ 🏥 Book an Appointment
 2️⃣ 📅 My Appointments
@@ -372,6 +376,7 @@ How can I assist you today?
 7️⃣ 📍 Hospital Address & Location
 8️⃣ ☎️ Talk to Reception
 9️⃣ 🌐 Change Language
+🔟 👤 Family Profiles (Switch / Add Member)
 
 Your health and comfort are our highest priority. ❤️`;
 }
@@ -391,6 +396,7 @@ export function menuList(language: string): WhatsAppInteractive {
         { id: "menu_7", title: "7. अस्पताल का पता" },
         { id: "menu_8", title: "8. रिसेप्शन से बात करें" },
         { id: "menu_9", title: "9. भाषा बदलें" },
+        { id: "menu_10", title: "10. परिजन प्रोफाइल" },
       ]
     : isMr
     ? [
@@ -403,6 +409,7 @@ export function menuList(language: string): WhatsAppInteractive {
         { id: "menu_7", title: "7. हॉस्पिटलचा पत्ता" },
         { id: "menu_8", title: "8. रिसेप्शनशी बोला" },
         { id: "menu_9", title: "9. भाषा बदला" },
+        { id: "menu_10", title: "10. कुटुंब प्रोफाइल" },
       ]
     : [
         { id: "menu_1", title: "1. Book Appointment" },
@@ -414,6 +421,7 @@ export function menuList(language: string): WhatsAppInteractive {
         { id: "menu_7", title: "7. Hospital Address" },
         { id: "menu_8", title: "8. Talk to Reception" },
         { id: "menu_9", title: "9. Change Language" },
+        { id: "menu_10", title: "10. Family Profiles" },
       ];
 
   const bodyText = isHi
@@ -467,6 +475,48 @@ export async function handleConversationTurn(
     ? lower.replace("menu_", "")
     : lower;
 
+  // 0. Human Handover / Staff Conversation Guard
+  // When staff is managing this chat or bot is paused (isHandedOver === true or currentStep === "HANDED_OVER"),
+  // the automated assistant MUST REMAIN COMPLETELY SILENT!
+  // All patient messages pass quietly to the staff dashboard without automated bot interruptions.
+  if (context.isHandedOver || context.currentStep === "HANDED_OVER") {
+    const isExplicitResume =
+      lower === "#bot" ||
+      lower === "#resume" ||
+      lower === "/bot" ||
+      lower === "resume bot" ||
+      lower === "start bot";
+
+    if (isExplicitResume) {
+      const activeLang = context.language || "en";
+      return {
+        text: inLanguage(
+          activeLang,
+          `🤖 *AI Assistant Resumed*\n\nWelcome back to Svaasth Connect! How can I help you today?\n\nType *Menu* to see available options.`,
+          `🤖 *AI सहायक पुनः सक्रिय*\n\nस्वास्थ कनेक्ट में आपका स्वागत है! मैं आपकी क्या सहायता कर सकता हूँ?\n\nउपलब्ध विकल्प देखने के लिए *Menu* लिखें।`,
+          `🤖 *AI सहाय्यक पुन्हा सुरू झाला*\n\nस्वास्थ कनेक्ट मध्ये आपले स्वागत आहे! मी आपल्याला कशी मदत करू शकतो?\n\nपुन्हा मेनू पाहण्यासाठी *Menu* पाठवा.`
+        ),
+        interactive: menuList(activeLang),
+        nextStep: "IDLE",
+        updatedContext: {
+          isHandedOver: false,
+          handoverReason: undefined,
+          currentStep: "IDLE",
+        },
+      };
+    }
+
+    // Keep bot 100% silent - patient message will be visible to staff on dashboard
+    return {
+      text: "",
+      nextStep: "HANDED_OVER",
+      updatedContext: {
+        isHandedOver: true,
+        currentStep: "HANDED_OVER",
+      },
+    };
+  }
+
   const isLangStep =
     !context.language ||
     context.currentStep === "WELCOME" ||
@@ -508,30 +558,6 @@ export async function handleConversationTurn(
   }
 
   const lang = context.language || "en";
-
-  // 2. Human Handover Management (Section 11)
-  if (context.isHandedOver) {
-    if (isGreetingText(userText) || lower === "resume" || lower === "menu" || lower === "start") {
-      return {
-        text: languagePrompt(),
-        interactive: languageButtons(),
-        nextStep: "LANGUAGE_SELECT",
-        updatedContext: {
-          isHandedOver: false,
-          handoverReason: undefined,
-          currentStep: "LANGUAGE_SELECT",
-        },
-      };
-    }
-    return {
-      text: inLanguage(
-        lang,
-        `Staff is currently managing this conversation. A hospital receptionist will reply to you soon.\n\nType *Menu* or *Hi* to resume AI assistance.`,
-        `अस्पताल के कर्मचारी इस बातचीत को संभाल रहे हैं। रिसेप्शनिस्ट आपसे जल्द ही संपर्क करेंगे।\n\nAI सहायक पुनः शुरू करने के लिए *Menu* या *Hi* लिखें।`,
-        `हॉस्पिटल कर्मचारी या संभाषणावर काम करत आहेत. रिसेप्शनिस्ट लवकरच आपल्याला उत्तर देतील.\n\nपुन्हा AI सहाय्यक सुरू करण्यासाठी *Menu* किंवा *Hi* पाठवा.`
-      ),
-    };
-  }
 
   // 3. User says "Hi", "Hello", "Menu", "Start" while language IS ALREADY SELECTED ->
   // Show Main Menu directly in their selected language! DO NOT ask for language again!
@@ -587,9 +613,9 @@ export async function handleConversationTurn(
     return {
       text: inLanguage(
         lang,
-        `☎️ *Connecting to Svaasth Hospital Reception*\n\nOur receptionist will be happy to assist you directly!\n\n🏥 *Reception Helplines:*\n📞 Landline: *07152-255795*\n📱 Mobile / WhatsApp: *+91 9373280505*\n⏰ Timings: 10:00 AM – 1:00 PM & 6:00 PM – 8:00 PM\n\nWe have transferred your chat context to the front desk.\nAutomated messages are now paused so staff can assist you.\n\n_(Type *Menu* or *Hi* whenever you wish to resume virtual assistance.)_`,
-        `☎️ *Svaasth Hospital रिसेप्शन से संपर्क*\n\nहमारे रिसेप्शनिस्ट आपकी सीधी सहायता करेंगे!\n\n🏥 *हेल्पलाइन नंबर:*\n📞 लैंडलाइन: *07152-255795*\n📱 मोबाइल / WhatsApp: *+91 9373280505*\n⏰ समय: सुबह 10:00 – दोपहर 1:00 व शाम 6:00 – रात 8:00\n\nआपकी चैट रिसेप्शन को भेज दी गई है।\n\n_(वर्चुअल असिस्टेंट पुनः शुरू करने के लिए कभी भी *Menu* लिखें।)_`,
-        `☎️ *Svaasth Hospital रिसेप्शनशी संपर्क*\n\nआमचे रिसेप्शनिस्ट आपल्याला थेट मदत करतील!\n\n🏥 *हेल्पलाइन क्रमांक:*\n📞 लँडलाइन: *07152-255795*\n📱 मोबाइल / WhatsApp: *+91 9373280505*\n⏰ वेळ: सकाळी 10:00 ते दुपारी 1:00 आणि संध्याकाळी 6:00 ते रात्री 8:00\n\nआपले संभाषण फ्रंट डेस्ककडे पाठवले आहे.\n\n_(पुन्हा व्हर्च्युअल असिस्टंट सुरू करण्यासाठी कधीही *Menu* लिहा.)_`
+        `☎️ *Connecting to Svaasth Hospital Reception*\n\nOur receptionist will be happy to assist you directly!\n\n🏥 *Reception Helplines:*\n📞 Landline: *07152-255795*\n📱 Mobile / WhatsApp: *+91 9373280505*\n⏰ Timings: 10:00 AM – 1:00 PM & 6:00 PM – 8:00 PM\n\nWe have transferred your chat context to the front desk.\nAutomated messages are now paused so staff can assist you.\n\n_(Type *#bot* whenever you wish to resume virtual assistance.)_`,
+        `☎️ *Svaasth Hospital रिसेप्शन से संपर्क*\n\nहमारे रिसेप्शनिस्ट आपकी सीधी सहायता करेंगे!\n\n🏥 *हेल्पलाइन नंबर:*\n📞 लैंडलाइन: *07152-255795*\n📱 मोबाइल / WhatsApp: *+91 9373280505*\n⏰ समय: सुबह 10:00 – दोपहर 1:00 व शाम 6:00 – रात 8:00\n\nआपकी चैट रिसेप्शन को भेज दी गई है। ऑटोमेटेड संदेश रोक दिए गए हैं ताकि स्टाफ आपकी सहायता कर सके।\n\n_(वर्चुअल असिस्टेंट पुनः शुरू करने के लिए *#bot* लिखें।)_`,
+        `☎️ *Svaasth Hospital रिसेप्शनशी संपर्क*\n\nआमचे रिसेप्शनिस्ट आपल्याला थेट मदत करतील!\n\n🏥 *हेल्पलाइन क्रमांक:*\n📞 लँडलाइन: *07152-255795*\n📱 मोबाइल / WhatsApp: *+91 9373280505*\n⏰ वेळ: सकाळी 10:00 ते दुपारी 1:00 आणि संध्याकाळी 6:00 ते रात्री 8:00\n\nआपले संभाषण फ्रंट डेस्ककडे पाठवले आहे. ऑटोमेटेड संदेश थांबवले आहेत.\n\n_(पुन्हा व्हर्च्युअल असिस्टंट सुरू करण्यासाठी *#bot* लिहा.)_`
       ),
       nextStep: "HANDED_OVER",
       updatedContext: {
@@ -714,6 +740,24 @@ export async function handleConversationTurn(
   if (context.currentStep === "BOOKING_SELECT_PROFILE") {
     return await handleBookingSelectProfile(userText, context);
   }
+  if (context.currentStep === "VIEW_APPOINTMENTS_SELECT_PROFILE") {
+    return await handleAppointmentsSelectProfile(userText, context);
+  }
+  if (context.currentStep === "VIEW_PRESCRIPTION_SELECT_PROFILE") {
+    return await handlePrescriptionSelectProfile(userText, context);
+  }
+  if (context.currentStep === "VIEW_PRESCRIPTION_SEARCH_REF") {
+    return await displayPrescriptionForPatient(context.phoneNumber, userText, userText.toUpperCase().startsWith("CRX") ? userText : undefined, context);
+  }
+  if (context.currentStep === "VIEW_BILL_SELECT_PROFILE") {
+    return await handleBillSelectProfile(userText, context);
+  }
+  if (context.currentStep === "VIEW_FOLLOWUP_SELECT_PROFILE") {
+    return await handleFollowupSelectProfile(userText, context);
+  }
+  if (context.currentStep === "MANAGE_PROFILES_ACTION") {
+    return await handleManageProfilesAction(userText, context);
+  }
   if (context.currentStep === "REGISTER_NAME") {
     return await handleRegisterName(userText, context);
   }
@@ -730,6 +774,88 @@ export async function handleConversationTurn(
   // 9. Top-Level Intent Routing
   const matchedDoc = matchDoctorByName(normalizedText);
   const parsedDate = parseDateInput(userText);
+
+  // 0: Family Profiles / Switch Profile / Add Member (Option 10 or keywords)
+  if (
+    normalizedText === "10" ||
+    lower === "switch" ||
+    lower === "profile" ||
+    lower === "profiles" ||
+    lower.includes("switch profile") ||
+    lower.includes("change profile") ||
+    lower.includes("switch patient") ||
+    lower.includes("change patient") ||
+    lower.includes("change name") ||
+    lower.includes("change my name") ||
+    lower.includes("wrong name") ||
+    lower.includes("another person") ||
+    lower.includes("other person") ||
+    lower.includes("someone else") ||
+    lower.includes("family profile") ||
+    lower.includes("family member") ||
+    lower.includes("add family") ||
+    lower.includes("add profile") ||
+    lower.includes("add member") ||
+    lower.includes("add patient") ||
+    lower.includes("new profile") ||
+    lower.includes("new patient") ||
+    lower.includes("other profile") ||
+    lower.includes("naam badal") ||
+    lower.includes("naam change") ||
+    lower.includes("nav badal")
+  ) {
+    return await handleManageProfiles(input.phoneNumber, context);
+  }
+
+  // 1b: User wants to book for another family member / 2nd person (Consecutive booking)
+  if (
+    choiceId === "book_another_member" ||
+    lower.includes("another person") ||
+    lower.includes("another member") ||
+    lower.includes("another patient") ||
+    lower.includes("second person") ||
+    lower.includes("2nd person") ||
+    lower.includes("book another") ||
+    lower.includes("more than 1") ||
+    lower.includes("2 people") ||
+    lower.includes("two people") ||
+    lower.includes("2 patients") ||
+    lower.includes("two patients") ||
+    lower.includes("dusra patient") ||
+    lower.includes("dusre patient") ||
+    lower.includes("dusri appointment") ||
+    lower.includes("aankhi ek") ||
+    lower.includes("dusryasathi")
+  ) {
+    if (context.lastBookedDate && context.lastBookedDoctor) {
+      const docName = context.lastBookedDoctor;
+      const dateStr = context.lastBookedDate;
+      const slotView = await showAvailableSlotsForSession(
+        dateStr,
+        docName,
+        "morning",
+        {
+          doctorName: docName,
+          date: dateStr,
+          dateLabel: formatDisplayDate(dateStr),
+          session: "morning",
+        },
+        context
+      );
+
+      return {
+        ...slotView,
+        text: inLanguage(
+          lang,
+          `👥 *Booking for Second Patient / Family Member*\n━━━━━━━━━━━━━━━━━━━━━\nHere are the adjacent slots with *${docName}* on *${formatDisplayDate(dateStr)}*:\n\n${slotView.text}`,
+          `👥 *दूसरे मरीज / परिजन के लिए बुकिंग*\n━━━━━━━━━━━━━━━━━━━━━\n*${formatDisplayDate(dateStr)}* को *${docName}* के साथ उपलब्ध समय:\n\n${slotView.text}`,
+          `👥 *दुसऱ्या रुग्णासाठी / कुटुंब सदस्यासाठी बुकिंग*\n━━━━━━━━━━━━━━━━━━━━━\n*${formatDisplayDate(dateStr)}* रोजी *${docName}* यांच्याकडे उपलब्ध वेळा:\n\n${slotView.text}`
+        ),
+      };
+    }
+
+    return await initiateAppointmentBooking(userText, context);
+  }
 
   // 1: Book Appointment
   if (
@@ -864,10 +990,9 @@ export async function handleConversationTurn(
     return await handleHospitalInfoQuery(userText, context);
   }
 
-  // 9: Change Language (bhasha badle / भाषा बदलें) (Option 9 or 10)
+  // 9: Change Language (bhasha badle / भाषा बदलें) (Option 9)
   if (
     normalizedText === "9" ||
-    normalizedText === "10" ||
     isLanguageChangeQuery(userText) ||
     isLanguageChangeQuery(normalizedText)
   ) {
@@ -912,11 +1037,19 @@ async function initiateAppointmentBooking(
   const matchedDoc = matchDoctorByName(userText);
   const parsedDate = parseDateInput(userText);
 
-  const draft = {
-    ...(context.bookingDraft || {}),
+  // Check if user explicitly specified a patient name in their message (e.g. "for Rahul", "book for Priya")
+  let explicitPatientName: string | undefined;
+  const forMatch = userText.match(/(?:for|ke liye|chya sathi|sathi)\s+([A-Za-z\u0900-\u097F\s]{2,30})/i);
+  if (forMatch && !forMatch[1].toLowerCase().includes("appointment") && !forMatch[1].toLowerCase().includes("dr")) {
+    explicitPatientName = forMatch[1].trim();
+  }
+
+  const draft: Record<string, any> = {
     doctorName: matchedDoc ? matchedDoc.name : undefined,
     specialty: matchedDoc ? matchedDoc.specialty : undefined,
     date: parsedDate || undefined,
+    patientName: explicitPatientName,
+    explicitNameRequested: Boolean(explicitPatientName),
   };
 
   // Step 1: If doctor not specified, ask doctor
@@ -1174,8 +1307,8 @@ async function proceedToPatientRegistration(
   // Find all registered profiles under this WhatsApp phone number
   const profiles = await findPatientsByPhone(context.phoneNumber);
 
-  // If user already specified a name (e.g. "for Nityom" or "for my sister Priya")
-  if (updatedDraft.patientName) {
+  // If user explicitly specified a name in their message (e.g. "for Rahul" or "for my sister Priya")
+  if (updatedDraft.explicitNameRequested && updatedDraft.patientName) {
     const matchedProfile = profiles.find(
       (p) =>
         p.name.toLowerCase() === updatedDraft.patientName.toLowerCase() ||
@@ -1890,11 +2023,30 @@ async function handleRegisterAddress(
     console.warn("[Cortex PMS] Patient registration/update non-fatal error:", err);
   }
 
-  // 2. Book appointment in Cortex PMS
-  return await executeBookingCreation(draft, context, {
-    name: draft.patientName || context.patientName || "Patient",
-    reference_number: createdPatientRef,
-  });
+  // 2. If user was booking an appointment, complete the booking
+  if (draft.date && draft.slot) {
+    return await executeBookingCreation(draft, context, {
+      name: draft.patientName || context.patientName || "Patient",
+      reference_number: createdPatientRef,
+    });
+  }
+
+  // 3. Otherwise, confirm new family profile creation
+  const lang = context.language || "en";
+  return {
+    text: inLanguage(
+      lang,
+      `✅ *Family Member Profile Registered!*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *Name:* ${draft.patientName}\n🎂 *Age:* ${draft.patientAge || "N/A"} yrs (${draft.sex || "Male"})\n🏠 *Address:* ${address}\n🆔 *UHID / Ref:* \`${createdPatientRef || "CRX"}\`\n\nHow would you like to proceed for *${draft.patientName}*?\n1️⃣ Book an Appointment\n2️⃣ View Appointments\n3️⃣ Main Menu`,
+      `✅ *नया परिजन प्रोफ़ाइल दर्ज हो गया!*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *नाम:* ${draft.patientName}\n🎂 *उम्र:* ${draft.patientAge || "N/A"} वर्ष (${draft.sex === "Female" ? "महिला" : "पुरुष"})\n🏠 *पता:* ${address}\n🆔 *UHID / Ref:* \`${createdPatientRef || "CRX"}\`\n\n*${draft.patientName}* के लिए आप क्या करना चाहते हैं?\n1️⃣ अपॉइंटमेंट बुक करें\n2️⃣ अपॉइंटमेंट देखें\n3️⃣ मुख्य मेनू`,
+      `✅ *नवीन कुटुंब सदस्य प्रोफाइल नोंदवले गेले!*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *नाव:* ${draft.patientName}\n🎂 *वय:* ${draft.patientAge || "N/A"} वर्षे (${draft.sex === "Female" ? "महिला" : "पुरुष"})\n🏠 *पत्ता:* ${address}\n🆔 *UHID / Ref:* \`${createdPatientRef || "CRX"}\`\n\n*${draft.patientName}* यांच्यासाठी आपण काय करू इच्छिता?\n1️⃣ अपॉइंटमेंट बुक करा\n2️⃣ अपॉइंटमेंट्स पहा\n3️⃣ मुख्य मेनू`
+    ),
+    nextStep: "IDLE",
+    updatedContext: {
+      bookingDraft: undefined,
+      patientName: draft.patientName,
+      patientReference: createdPatientRef,
+    },
+  };
 }
 
 async function executeBookingCreation(
@@ -1990,8 +2142,33 @@ Your health matters to us. We look forward to serving you! ❤️`,
     return {
       text: confirmationText,
       nextStep: "IDLE",
+      interactive: {
+        kind: "buttons",
+        body: inLanguage(
+          lang,
+          `👥 Need to book an appointment for another family member or second patient?`,
+          `👥 क्या आप परिवार के किसी अन्य सदस्य या दूसरे मरीज के लिए भी अपॉइंटमेंट बुक करना चाहते हैं?`,
+          `👥 आपण कुटुंबातील दुसऱ्या व्यक्तीसाठी अपॉइंटमेंट बुक करू इच्छिता का?`
+        ),
+        buttons: [
+          {
+            id: "book_another_member",
+            title: inLanguage(lang, "➕ Book 2nd Person", "➕ दूसरा मरीज जोड़ें", "➕ आणखी एक व्यक्ती"),
+          },
+          {
+            id: "menu_2",
+            title: inLanguage(lang, "📅 View Appointments", "📅 अपॉइंटमेंट देखें", "📅 अपॉइंटमेंट्स पहा"),
+          },
+          {
+            id: "menu_start",
+            title: inLanguage(lang, "🏠 Main Menu", "🏠 मुख्य मेनू", "🏠 मुख्य मेनू"),
+          },
+        ],
+      },
       updatedContext: {
         bookingDraft: undefined,
+        lastBookedDoctor: draft.doctorName,
+        lastBookedDate: draft.date,
         patientName: draft.patientName,
         patientReference: patientInfo?.reference_number,
       },
@@ -2053,7 +2230,58 @@ Your health matters to us. We look forward to serving you! ❤️`,
 }
 
 /* =========================================================================
-   MY APPOINTMENTS (Section 2)
+   FAMILY PROFILE HELPER
+   ========================================================================= */
+
+function matchProfileFromInput(
+  cleanInput: string,
+  profiles: PatientRecord[]
+): PatientRecord | undefined {
+  const lower = cleanInput.toLowerCase().trim();
+
+  // 1. Numeric index e.g. "1", "2"
+  const numIndex = parseInt(cleanInput, 10);
+  if (!isNaN(numIndex) && numIndex >= 1 && numIndex <= profiles.length) {
+    return profiles[numIndex - 1];
+  }
+
+  // 2. Button IDs like "profile_1", "rx_profile_1", "appt_profile_1", etc.
+  const btnMatch = lower.match(/(?:profile|rx_profile|appt_profile|bill_profile|followup_profile|manage_profile)_(\d+)/);
+  if (btnMatch) {
+    const pIdx = parseInt(btnMatch[1], 10);
+    if (!isNaN(pIdx) && pIdx >= 1 && pIdx <= profiles.length) {
+      return profiles[pIdx - 1];
+    }
+  }
+
+  // 3. Self aliases
+  if (
+    lower === "myself" ||
+    lower === "me" ||
+    lower === "self" ||
+    lower === "खुद" ||
+    lower === "स्वयं" ||
+    lower === "स्वतः"
+  ) {
+    return profiles[0];
+  }
+
+  // 4. Match by name or UHID
+  return profiles.find((p) => {
+    const pName = (p.name || "").toLowerCase();
+    const pRef = (p.reference_number || "").toLowerCase();
+    return (
+      pName === lower ||
+      pName.includes(lower) ||
+      lower.includes(pName) ||
+      pRef === lower ||
+      (pRef && lower.includes(pRef))
+    );
+  });
+}
+
+/* =========================================================================
+   MY APPOINTMENTS (Section 2) – Multi-Profile Enabled
    ========================================================================= */
 
 async function handleMyAppointments(
@@ -2062,22 +2290,130 @@ async function handleMyAppointments(
   context: AgentContext
 ): Promise<AgentResponse> {
   const lang = context.language || "en";
-  const appts = await getPatientAppointments(phoneNumber);
+  const profiles = await findPatientsByPhone(phoneNumber);
 
-  if (appts.length === 0) {
+  // If multiple patient profiles exist under this phone number, ask whose appointments to view
+  if (profiles.length > 1) {
+    const listLines = profiles
+      .slice(0, 4)
+      .map(
+        (p, idx) =>
+          `*${idx + 1}️⃣ ${p.name}* (${p.reference_number || "CRX"}, ${p.age || "N/A"} yrs)`
+      )
+      .join("\n");
+    const allOptionNum = Math.min(profiles.length, 4) + 1;
+    const newOptionNum = allOptionNum + 1;
+
+    const buttons = profiles.slice(0, 2).map((p, idx) => ({
+      id: `appt_profile_${idx + 1}`,
+      title: `${idx + 1}. ${p.name.slice(0, 16)}`,
+    }));
+    buttons.push({
+      id: "appt_profile_all",
+      title: inLanguage(lang, `${allOptionNum}. All Patients`, `${allOptionNum}. सभी मरीज`, `${allOptionNum}. सर्व रुग्ण`),
+    });
+
     return {
       text: inLanguage(
         lang,
-        `📅 No upcoming or previous appointments found for +${phoneNumber}.\n\nWould you like to schedule one now?\nReply *1* to Book a New Appointment.`,
-        `📅 +${phoneNumber} के लिए कोई आगामी अपॉइंटमेंट दर्ज नहीं है।\n\nक्या आप अभी अपॉइंटमेंट बुक करना चाहते हैं?\nनया अपॉइंटमेंट बुक करने के लिए *1* भेजें।`,
-        `📅 +${phoneNumber} या नंबरवर कोणतीही अपॉइंटमेंट नोंदवलेली नाही.\n\nआपण नवीन अपॉइंटमेंट घेऊ इच्छिता का?\nनवीन अपॉइंटमेंटसाठी *1* पाठवा.`
+        `📋 *Whose appointments would you like to view?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${allOptionNum}️⃣ 👥 All Appointments (Combined)*\n*${newOptionNum}️⃣ ➕ Book for Someone Else*\n\n👉 *Reply with a number (1, 2, 3...) or type the patient's name:*`,
+        `📋 *आप किसकी अपॉइंटमेंट देखना चाहते हैं?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${allOptionNum}️⃣ 👥 सभी अपॉइंटमेंट (एक साथ)*\n*${newOptionNum}️⃣ ➕ किसी अन्य के लिए बुक करें*\n\n👉 *नंबर (1, 2, 3...) भेजें या मरीज का नाम लिखें:*`,
+        `📋 *आपण कोणाच्या अपॉइंटमेंट्स पाहू इच्छिता?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${allOptionNum}️⃣ 👥 सर्व अपॉइंटमेंट्स (एकत्र)*\n*${newOptionNum}️⃣ ➕ इतर व्यक्तीसाठी बुक करा*\n\n👉 *नंबर (1, 2, 3...) पाठवा किंवा रुग्णाचे नाव लिहा:*`
+      ),
+      nextStep: "VIEW_APPOINTMENTS_SELECT_PROFILE",
+      interactive: {
+        kind: "buttons",
+        body: inLanguage(lang, "Select patient profile:", "मरीज चुनें:", "रुग्ण निवडा:"),
+        buttons,
+      },
+    };
+  }
+
+  // 1 or 0 profiles: Show directly
+  const pName = profiles[0]?.name;
+  const pRef = profiles[0]?.reference_number;
+  return await displayAppointmentsForPatient(phoneNumber, pName, pRef, userText, context);
+}
+
+async function handleAppointmentsSelectProfile(
+  userText: string,
+  context: AgentContext
+): Promise<AgentResponse> {
+  const lang = context.language || "en";
+  const profiles = await findPatientsByPhone(context.phoneNumber);
+  const cleanInput = userText.trim();
+  const lower = cleanInput.toLowerCase();
+
+  const allOptionNum = Math.min(profiles.length, 4) + 1;
+  const newOptionNum = allOptionNum + 1;
+
+  if (
+    lower === "appt_profile_all" ||
+    lower === String(allOptionNum) ||
+    lower.includes("all") ||
+    lower.includes("सभी") ||
+    lower.includes("सर्व")
+  ) {
+    return await displayAppointmentsForPatient(context.phoneNumber, undefined, undefined, userText, context);
+  }
+
+  if (
+    lower === "appt_profile_new" ||
+    lower === String(newOptionNum) ||
+    lower.includes("someone else") ||
+    lower.includes("other") ||
+    lower.includes("new")
+  ) {
+    return await initiateAppointmentBooking("book", context);
+  }
+
+  const selected = matchProfileFromInput(cleanInput, profiles);
+  if (selected) {
+    return await displayAppointmentsForPatient(
+      context.phoneNumber,
+      selected.name,
+      selected.reference_number,
+      userText,
+      context
+    );
+  }
+
+  return {
+    text: inLanguage(
+      lang,
+      "Please select a valid patient number from the list or write their name:",
+      "कृपया सूची में से सही मरीज का नंबर चुनें या नाम लिखें:",
+      "कृपया यादीतील योग्य रुग्णाचा नंबर निवडा किंवा नाव लिहा:"
+    ),
+    nextStep: "VIEW_APPOINTMENTS_SELECT_PROFILE",
+  };
+}
+
+async function displayAppointmentsForPatient(
+  phoneNumber: string,
+  patientName?: string,
+  patientReference?: string,
+  userText?: string,
+  context?: AgentContext
+): Promise<AgentResponse> {
+  const lang = context?.language || "en";
+  const appts = await getPatientAppointments(phoneNumber, patientName, patientReference);
+
+  if (appts.length === 0) {
+    const targetLabel = patientName ? ` for *${patientName}*` : ` for +${phoneNumber}`;
+    return {
+      text: inLanguage(
+        lang,
+        `📅 No appointments found${targetLabel}.\n\nWould you like to schedule one now?\nReply *1* to Book an Appointment.\n_(Reply *Switch* to view another family member's records)_`,
+        `📅${patientName ? ` *${patientName}* के लिए` : ""} कोई अपॉइंटमेंट दर्ज नहीं है।\n\nक्या आप अभी अपॉइंटमेंट बुक करना चाहते हैं?\nनया अपॉइंटमेंट बुक करने के लिए *1* भेजें।\n_(अन्य परिजन के लिए *Switch* लिखें)_`,
+        `📅${patientName ? ` *${patientName}* यांच्यासाठी` : ""} कोणतीही अपॉइंटमेंट नोंदवलेली नाही.\n\nनवीन अपॉइंटमेंटसाठी *1* पाठवा.\n_(दुसऱ्या व्यक्तीसाठी *Switch* लिहा)_`
       ),
       nextStep: "IDLE",
     };
   }
 
   // Check if user wants to cancel an appointment
-  if (userText.toLowerCase().includes("cancel")) {
+  if (userText && userText.toLowerCase().includes("cancel")) {
     const active = appts.find((a) => a.status !== "CANCELLED");
     if (active) {
       const ok = await cancelAppointment(active._id);
@@ -2085,9 +2421,9 @@ async function handleMyAppointments(
         return {
           text: inLanguage(
             lang,
-            `🚫 *Appointment Cancelled Successfully*\nYour appointment on *${formatDisplayDate(active.date || "")} at ${active.time}* with *${active.doctor_name}* has been cancelled.\n\nReply *1* to book anytime.`,
-            `🚫 *अपॉइंटमेंट सफलतापूर्वक रद्द की गई*\n*${active.doctor_name}* के साथ *${formatDisplayDate(active.date || "")} को ${active.time}* की आपकी अपॉइंटमेंट रद्द कर दी गई है।\n\nपुनः बुक करने के लिए *1* भेजें।`,
-            `🚫 *अपॉइंटमेंट यशस्वीरीत्या रद्द करण्यात आली*\n*${active.doctor_name}* यांच्यासोबत *${formatDisplayDate(active.date || "")} रोजी ${active.time}* ची आपली अपॉइंटमेंट रद्द झाली आहे.\n\nपुन्हा बुक करण्यासाठी *1* पाठवा.`
+            `🚫 *Appointment Cancelled Successfully*\nAppointment for *${active.name || patientName || "Patient"}* on *${formatDisplayDate(active.date || "")} at ${active.time}* with *${active.doctor_name}* has been cancelled.\n\nReply *1* to book anytime.`,
+            `🚫 *अपॉइंटमेंट सफलतापूर्वक रद्द की गई*\n*${active.name || patientName || "मरीज"}* की *${active.doctor_name}* के साथ *${formatDisplayDate(active.date || "")} को ${active.time}* की अपॉइंटमेंट रद्द कर दी गई है।\n\nपुनः बुक करने के लिए *1* भेजें।`,
+            `🚫 *अपॉइंटमेंट यशस्वीरीत्या रद्द करण्यात आली*\n*${active.name || patientName || "रुग्ण"}* यांची *${active.doctor_name}* यांच्यासोबत *${formatDisplayDate(active.date || "")} रोजी ${active.time}* ची अपॉइंटमेंट रद्द झाली आहे.\n\nपुन्हा बुक करण्यासाठी *1* पाठवा.`
           ),
           nextStep: "IDLE",
         };
@@ -2096,19 +2432,19 @@ async function handleMyAppointments(
   }
 
   const apptList = appts
-    .slice(0, 3)
+    .slice(0, 4)
     .map(
       (a, i) =>
-        `*${i + 1}.* 📅 *${formatDisplayDate(a.date || "")}* at *${a.time}*\n   👨‍⚕️ ${a.doctor_name || "Doctor"}\n   📊 ${inLanguage(lang, "Status", "स्थिति", "स्थिती")}: *${a.status || "CONFIRMED"}*\n   🆔 Ref: \`${a._id.slice(-6).toUpperCase()}\``
+        `*${i + 1}.* 👤 *${a.name || patientName || "Patient"}*\n   📅 *${formatDisplayDate(a.date || "")}* at *${a.time}*\n   👨‍⚕️ ${a.doctor_name || "Doctor"}\n   📊 ${inLanguage(lang, "Status", "स्थिति", "स्थिती")}: *${a.status || "CONFIRMED"}*\n   🆔 Ref: \`${a._id.slice(-6).toUpperCase()}\``
     )
     .join("\n\n");
 
   return {
     text: inLanguage(
       lang,
-      `📋 *Your Appointments – Svaasth Connect:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\n👇 *Options:*\n1️⃣ Cancel this appointment\n2️⃣ Book a new appointment\n3️⃣ Main Menu`,
-      `📋 *Svaasth Connect में आपकी अपॉइंटमेंट:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\n👇 *विकल्प:*\n1️⃣ अपॉइंटमेंट रद्द करें\n2️⃣ नई अपॉइंटमेंट बुक करें\n3️⃣ मुख्य मेनू`,
-      `📋 *Svaasth Connect मधील आपल्या अपॉइंटमेंट्स:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\n👇 *पर्याय:*\n1️⃣ अपॉइंटमेंट रद्द करा\n2️⃣ नवीन अपॉइंटमेंट बुक करा\n3️⃣ मुख्य मेनू`
+      `📋 *Appointments – Svaasth Connect:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\n👇 *Options:*\n1️⃣ Cancel this appointment\n2️⃣ Book for Someone Else / New Appointment\n🔄 Reply *Switch* to view another family member\n3️⃣ Main Menu`,
+      `📋 *Svaasth Connect में आपकी अपॉइंटमेंट:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\n👇 *विकल्प:*\n1️⃣ अपॉइंटमेंट रद्द करें\n2️⃣ नए मरीज या अन्य परिजन के लिए बुक करें\n🔄 अन्य परिजन के लिए *Switch* लिखें\n3️⃣ मुख्य मेनू`,
+      `📋 *Svaasth Connect मधील अपॉइंटमेंट्स:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\n👇 *पर्याय:*\n1️⃣ अपॉइंटमेंट रद्द करा\n2️⃣ नवीन किंवा इतर व्यक्तीसाठी बुक करा\n🔄 इतर व्यक्तीसाठी *Switch* लिहा\n3️⃣ मुख्य मेनू`
     ),
     nextStep: "IDLE",
   };
@@ -2130,7 +2466,7 @@ async function initiateSecureAccess(
 }
 
 /* =========================================================================
-   PRESCRIPTION MANAGEMENT (Section 4)
+   PRESCRIPTION MANAGEMENT (Section 4) – Multi-Profile Enabled
    ========================================================================= */
 
 async function handlePrescriptionQuery(
@@ -2138,15 +2474,127 @@ async function handlePrescriptionQuery(
   context: AgentContext
 ): Promise<AgentResponse> {
   const lang = context.language || "en";
-  const prescriptions = await getPatientPrescriptions(phoneNumber);
+  const profiles = await findPatientsByPhone(phoneNumber);
 
-  if (prescriptions.length === 0) {
+  // If multiple profiles exist under this phone, prompt which patient's prescription to view
+  if (profiles.length > 1) {
+    const listLines = profiles
+      .slice(0, 4)
+      .map(
+        (p, idx) =>
+          `*${idx + 1}️⃣ ${p.name}* (${p.reference_number || "CRX"}, ${p.age || "N/A"} yrs)`
+      )
+      .join("\n");
+    const otherOptionNum = Math.min(profiles.length, 4) + 1;
+
+    const buttons = profiles.slice(0, 2).map((p, idx) => ({
+      id: `rx_profile_${idx + 1}`,
+      title: `${idx + 1}. ${p.name.slice(0, 16)}`,
+    }));
+    buttons.push({
+      id: "rx_profile_other",
+      title: inLanguage(lang, `${otherOptionNum}. Enter Ref / Other`, `${otherOptionNum}. अन्य पर्चा`, `${otherOptionNum}. इतर`),
+    });
+
     return {
       text: inLanguage(
         lang,
-        `💊 No prescriptions found on record for registered number +${phoneNumber}.\n\nIf you were recently treated under a different contact number, please contact reception at *07152-255795*.`,
-        `💊 +${phoneNumber} के लिए कोई डिजिटल पर्चा दर्ज नहीं है।\n\nयदि आपका इलाज किसी अन्य नंबर पर हुआ था, तो कृपया रिसेप्शन *07152-255795* से संपर्क करें।`,
-        `💊 +${phoneNumber} या नंबरवर कोणतेही डिजिटल प्रिस्क्रिप्शन सापडले नाही.\n\nदुसऱ्या नंबरवर उपचार झाले असल्यास कृपया रिसेप्शन *07152-255795* शी संपर्क साधा.`
+        `💊 *Whose prescription would you like to view?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${otherOptionNum}️⃣ ➕ Enter Reference Number / Someone Else*\n\n👉 *Reply with a number (1, 2...) or type the patient's name:*`,
+        `💊 *आप किसका डिजिटल पर्चा देखना चाहते हैं?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${otherOptionNum}️⃣ ➕ संदर्भ संख्या (Ref No.) दर्ज करें / अन्य*\n\n👉 *नंबर (1, 2...) भेजें या मरीज का नाम लिखें:*`,
+        `💊 *आपण कोणाचे डिजिटल प्रिस्क्रिप्शन पाहू इच्छिता?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${otherOptionNum}️⃣ ➕ रेफरन्स नंबर प्रविष्ट करा / इतर*\n\n👉 *नंबर (1, 2...) पाठवा किंवा रुग्णाचे नाव लिहा:*`
+      ),
+      nextStep: "VIEW_PRESCRIPTION_SELECT_PROFILE",
+      interactive: {
+        kind: "buttons",
+        body: inLanguage(lang, "Select patient profile:", "मरीज चुनें:", "रुग्ण निवडा:"),
+        buttons,
+      },
+    };
+  }
+
+  // Single profile or none
+  const pName = profiles[0]?.name;
+  const pRef = profiles[0]?.reference_number;
+  return await displayPrescriptionForPatient(phoneNumber, pName, pRef, context);
+}
+
+async function handlePrescriptionSelectProfile(
+  userText: string,
+  context: AgentContext
+): Promise<AgentResponse> {
+  const lang = context.language || "en";
+  const profiles = await findPatientsByPhone(context.phoneNumber);
+  const cleanInput = userText.trim();
+  const lower = cleanInput.toLowerCase();
+  const otherOptionNum = Math.min(profiles.length, 4) + 1;
+
+  if (
+    lower === "rx_profile_other" ||
+    lower === String(otherOptionNum) ||
+    lower.includes("other") ||
+    lower.includes("अन्य") ||
+    lower.includes("इतर") ||
+    lower.includes("ref")
+  ) {
+    return {
+      text: inLanguage(
+        lang,
+        `👉 *Please enter the Patient's Reference Number (e.g. CRX0123) or Patient Full Name:*`,
+        `👉 *कृपया मरीज की संदर्भ संख्या (जैसे CRX0123) या मरीज का पूरा नाम लिखें:*`,
+        `👉 *कृपया रुग्णाचा रेफरन्स नंबर (उदा. CRX0123) किंवा पूर्ण नाव लिहा:*`
+      ),
+      nextStep: "VIEW_PRESCRIPTION_SEARCH_REF",
+    };
+  }
+
+  const selected = matchProfileFromInput(cleanInput, profiles);
+  if (selected) {
+    return await displayPrescriptionForPatient(
+      context.phoneNumber,
+      selected.name,
+      selected.reference_number,
+      context
+    );
+  }
+
+  // Treat as custom name search
+  if (cleanInput.length >= 2) {
+    return await displayPrescriptionForPatient(
+      context.phoneNumber,
+      cleanInput,
+      cleanInput.toUpperCase().startsWith("CRX") ? cleanInput : undefined,
+      context
+    );
+  }
+
+  return {
+    text: inLanguage(
+      lang,
+      "Please select a valid option from the list or enter patient name:",
+      "कृपया सूची में से सही विकल्प चुनें या मरीज का नाम लिखें:",
+      "कृपया यादीतील योग्य पर्याय निवडा किंवा रुग्णाचे नाव लिहा:"
+    ),
+    nextStep: "VIEW_PRESCRIPTION_SELECT_PROFILE",
+  };
+}
+
+async function displayPrescriptionForPatient(
+  phoneNumber: string,
+  patientName?: string,
+  patientReference?: string,
+  context?: AgentContext
+): Promise<AgentResponse> {
+  const lang = context?.language || "en";
+  const prescriptions = await getPatientPrescriptions(phoneNumber, patientName, patientReference);
+
+  if (prescriptions.length === 0) {
+    const targetLabel = patientName ? ` for *${patientName}*` : ` for registered number +${phoneNumber}`;
+    return {
+      text: inLanguage(
+        lang,
+        `💊 No prescriptions found on record${targetLabel}.\n\nReply *Switch* to check another family member or contact reception at *07152-255795*.`,
+        `💊${patientName ? ` *${patientName}* के लिए` : ""} कोई डिजिटल पर्चा दर्ज नहीं है।\n\nअन्य परिजन के लिए *Switch* लिखें या रिसेप्शन *07152-255795* से संपर्क करें।`,
+        `💊${patientName ? ` *${patientName}* यांच्यासाठी` : ""} कोणतेही प्रिस्क्रिप्शन सापडले नाही.\n\nदुसऱ्या व्यक्तीसाठी *Switch* लिहा किंवा रिसेप्शन *07152-255795* शी संपर्क साधा.`
       ),
       nextStep: "IDLE",
     };
@@ -2166,18 +2614,18 @@ async function handlePrescriptionQuery(
   return {
     text: inLanguage(
       lang,
-      `👤 *Patient:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *Doctor:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *Prescription Date:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *Diagnosis:* ${latest.diagnosis || "Consultation"}\n\n📋 *Prescribed Medicines:*\n${medsList}\n\n📝 *Doctor's Advice:*\n${latest.advice || "Follow medication schedule."}\n\n🔔 *Next Follow-up:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "As advised"}\n\n🔗 *View / Print Official Document:*\nhttps://jovial-sheep-76.convex.site/print-prescription?id=${latest._id}`,
+      `👤 *Patient:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *Doctor:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *Prescription Date:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *Diagnosis:* ${latest.diagnosis || "Consultation"}\n\n📋 *Prescribed Medicines:*\n${medsList}\n\n📝 *Doctor's Advice:*\n${latest.advice || "Follow medication schedule."}\n\n🔔 *Next Follow-up:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "As advised"}\n\n🔗 *View / Print Official Document:*\nhttps://jovial-sheep-76.convex.site/print-prescription?id=${latest._id}\n\n🔄 _Reply *Switch* to view prescription for another family member._`,
 
-      `👤 *मरीज:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *डॉक्टर:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *तारीख:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *निदान:* ${latest.diagnosis || "परामर्श"}\n\n📋 *दवाएं:*\n${medsList}\n\n📝 *सलाह:*\n${latest.advice || "दवा की समय सारणी का पालन करें।"}\n\n🔔 *अगली फ़ॉलो-अप:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "डॉक्टर के निर्देशानुसार"}\n\n🔗 *पर्चा डाउनलोड लिंक:*\nhttps://jovial-sheep-76.convex.site/print-prescription?id=${latest._id}`,
+      `👤 *मरीज:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *डॉक्टर:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *तारीख:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *निदान:* ${latest.diagnosis || "परामर्श"}\n\n📋 *दवाएं:*\n${medsList}\n\n📝 *सलाह:*\n${latest.advice || "दवा की समय सारणी का पालन करें।"}\n\n🔔 *अगली फ़ॉलो-अप:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "डॉक्टर के निर्देशानुसार"}\n\n🔗 *पर्चा डाउनलोड लिंक:*\nhttps://jovial-sheep-76.convex.site/print-prescription?id=${latest._id}\n\n🔄 _अन्य परिजन का पर्चा देखने के लिए *Switch* लिखें।_`,
 
-      `👤 *रुग्ण:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *डॉक्टर:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *तारीख:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *निदान:* ${latest.diagnosis || "तपासणी"}\n\n📋 *औषधे:*\n${medsList}\n\n📝 *डॉक्टरांचा सल्ला:*\n${latest.advice || "औषधांचे वेळापत्रक पाळावे."}\n\n🔔 *पुढील भेट:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "डॉक्टरांच्या सल्ल्यानुसार"}\n\n🔗 *प्रिस्क्रिप्शन डाउनलोड लिंक:*\nhttps://jovial-sheep-76.convex.site/print-prescription?id=${latest._id}`
+      `👤 *रुग्ण:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *डॉक्टर:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *तारीख:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *निदान:* ${latest.diagnosis || "तपासणी"}\n\n📋 *औषधे:*\n${medsList}\n\n📝 *डॉक्टरांचा सल्ला:*\n${latest.advice || "औषधांचे वेळापत्रक पाळावे."}\n\n🔔 *पुढील भेट:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "डॉक्टरांच्या सल्ल्यानुसार"}\n\n🔗 *प्रिस्क्रिप्शन डाउनलोड लिंक:*\nhttps://jovial-sheep-76.convex.site/print-prescription?id=${latest._id}\n\n🔄 _दुसऱ्या व्यक्तीचे प्रिस्क्रिप्शन पाहण्यासाठी *Switch* लिहा._`
     ),
     nextStep: "IDLE",
   };
 }
 
 /* =========================================================================
-   BILLING & PAYMENTS (Section 5)
+   BILLING & PAYMENTS (Section 5) – Multi-Profile Enabled
    ========================================================================= */
 
 async function handleBillingQuery(
@@ -2185,15 +2633,105 @@ async function handleBillingQuery(
   context: AgentContext
 ): Promise<AgentResponse> {
   const lang = context.language || "en";
-  const bills = await getPatientBills(phoneNumber);
+  const profiles = await findPatientsByPhone(phoneNumber);
+
+  if (profiles.length > 1) {
+    const listLines = profiles
+      .slice(0, 4)
+      .map(
+        (p, idx) =>
+          `*${idx + 1}️⃣ ${p.name}* (${p.reference_number || "CRX"})`
+      )
+      .join("\n");
+    const allOptionNum = Math.min(profiles.length, 4) + 1;
+
+    const buttons = profiles.slice(0, 2).map((p, idx) => ({
+      id: `bill_profile_${idx + 1}`,
+      title: `${idx + 1}. ${p.name.slice(0, 16)}`,
+    }));
+    buttons.push({
+      id: "bill_profile_all",
+      title: inLanguage(lang, `${allOptionNum}. Family Summary`, `${allOptionNum}. कुल बिल`, `${allOptionNum}. एकूण बिल`),
+    });
+
+    return {
+      text: inLanguage(
+        lang,
+        `🧾 *Whose hospital bill / receipt would you like to view?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${allOptionNum}️⃣ 👥 Total Family Bill Summary*\n\n👉 *Reply with a number (1, 2...) or type the patient's name:*`,
+        `🧾 *आप किसका बिल / रसीद देखना चाहते हैं?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${allOptionNum}️⃣ 👥 परिवार का कुल बिल विवरण*\n\n👉 *नंबर (1, 2...) भेजें या मरीज का नाम लिखें:*`,
+        `🧾 *आपण कोणाचे बिल / पावती पाहू इच्छिता?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${allOptionNum}️⃣ 👥 कुटुंबाचे एकूण बिल तपशील*\n\n👉 *नंबर (1, 2...) पाठवा किंवा रुग्णाचे नाव लिहा:*`
+      ),
+      nextStep: "VIEW_BILL_SELECT_PROFILE",
+      interactive: {
+        kind: "buttons",
+        body: inLanguage(lang, "Select patient profile:", "मरीज चुनें:", "रुग्ण निवडा:"),
+        buttons,
+      },
+    };
+  }
+
+  const pName = profiles[0]?.name;
+  const pRef = profiles[0]?.reference_number;
+  return await displayBillForPatient(phoneNumber, pName, pRef, context);
+}
+
+async function handleBillSelectProfile(
+  userText: string,
+  context: AgentContext
+): Promise<AgentResponse> {
+  const lang = context.language || "en";
+  const profiles = await findPatientsByPhone(context.phoneNumber);
+  const cleanInput = userText.trim();
+  const lower = cleanInput.toLowerCase();
+  const allOptionNum = Math.min(profiles.length, 4) + 1;
+
+  if (
+    lower === "bill_profile_all" ||
+    lower === String(allOptionNum) ||
+    lower.includes("all") ||
+    lower.includes("कुल") ||
+    lower.includes("एकूण")
+  ) {
+    return await displayBillForPatient(context.phoneNumber, undefined, undefined, context);
+  }
+
+  const selected = matchProfileFromInput(cleanInput, profiles);
+  if (selected) {
+    return await displayBillForPatient(
+      context.phoneNumber,
+      selected.name,
+      selected.reference_number,
+      context
+    );
+  }
+
+  return {
+    text: inLanguage(
+      lang,
+      "Please select a valid option from the list:",
+      "कृपया सूची में से सही विकल्प चुनें:",
+      "कृपया यादीतील योग्य पर्याय निवडा:"
+    ),
+    nextStep: "VIEW_BILL_SELECT_PROFILE",
+  };
+}
+
+async function displayBillForPatient(
+  phoneNumber: string,
+  patientName?: string,
+  patientReference?: string,
+  context?: AgentContext
+): Promise<AgentResponse> {
+  const lang = context?.language || "en";
+  const bills = await getPatientBills(phoneNumber, patientName, patientReference);
 
   if (bills.length === 0) {
     return {
       text: inLanguage(
         lang,
-        `🧾 *Billing & Consultation Fees*\n\nNo pending hospital invoices found for your number.\n\n💰 *Consultation Fee Schedule:*\n• *Dr. Vipeen Raut* (Orthopaedics):\n  First Visit: ₹400 | Follow-up: ₹200 (within 10 days)\n\n• *Dr. Shillpa Raut* (Gynecology):\n  First Visit: ₹200 | Follow-up: ₹100 (within 10 days)\n\nPayment Modes:\n💳 UPI: \`cortexhospital@upi\`\n💵 Cash / Card at Hospital Reception Desk.`,
-        `🧾 *बिल और परामर्श शुल्क*\n\nआपके नंबर के लिए कोई बकाया बिल नहीं मिला।\n\n💰 *परामर्श शुल्क:*\n• *Dr. Vipeen Raut* (हड्डी रोग): ₹400 (पहला) / ₹200 (फ़ॉलो-अप)\n• *Dr. Shillpa Raut* (स्त्री रोग): ₹200 (पहला) / ₹100 (फ़ॉलो-अप)\n\nभुगतान माध्यम: \`cortexhospital@upi\` या अस्पताल काउंटर पर नकद/कार्ड।`,
-        `🧾 *हॉस्पिटल बिल व सल्ला शुल्क*\n\nआपल्या नंबरवर कोणतेही प्रलंबित बिल नाही.\n\n💰 *सल्ला शुल्क:*\n• *Dr. Vipeen Raut* (हाडे व सांधे): ₹400 (पहिली भेट) / ₹200 (फॉलो-अप)\n• *Dr. Shillpa Raut* (स्त्रीरोग): ₹200 (पहिली भेट) / ₹100 (फॉलो-अप)\n\nपेमेंट: \`cortexhospital@upi\` किंवा हॉस्पिटल काउंंटरवर रोख/कार्ड.`
+        `🧾 *Billing & Consultation Fees*\n\nNo pending hospital invoices found${patientName ? ` for *${patientName}*` : ""}.\n\n💰 *Consultation Fee Schedule:*\n• *Dr. Vipeen Raut* (Orthopaedics):\n  First Visit: ₹400 | Follow-up: ₹200 (within 10 days)\n\n• *Dr. Shillpa Raut* (Gynecology):\n  First Visit: ₹200 | Follow-up: ₹100 (within 10 days)\n\nPayment Modes:\n💳 UPI: \`cortexhospital@upi\`\n💵 Cash / Card at Hospital Reception Desk.\n\n🔄 _Reply *Switch* to view bills for another family member._`,
+        `🧾 *बिल और परामर्श शुल्क*\n\n${patientName ? `*${patientName}* के लिए ` : ""}कोई बकाया बिल नहीं मिला।\n\n💰 *परामर्श शुल्क:*\n• *Dr. Vipeen Raut* (हड्डी रोग): ₹400 (पहला) / ₹200 (फ़ॉलो-अप)\n• *Dr. Shillpa Raut* (स्त्री रोग): ₹200 (पहला) / ₹100 (फ़ॉलो-अप)\n\nभुगतान माध्यम: \`cortexhospital@upi\` या अस्पताल काउंटर पर नकद/कार्ड।\n\n🔄 _अन्य परिजन के लिए *Switch* लिखें।_`,
+        `🧾 *हॉस्पिटल बिल व सल्ला शुल्क*\n\n${patientName ? `*${patientName}* यांच्यासाठी ` : ""}कोणतेही प्रलंबित बिल नाही.\n\n💰 *सल्ला शुल्क:*\n• *Dr. Vipeen Raut* (हाडे व सांधे): ₹400 (पहिली भेट) / ₹200 (फॉलो-अप)\n• *Dr. Shillpa Raut* (स्त्रीरोग): ₹200 (पहिली भेट) / ₹100 (फॉलो-अप)\n\nपेमेंट: \`cortexhospital@upi\` किंवा हॉस्पिटल काउंंटरवर रोख/कार्ड.\n\n🔄 _दुसऱ्या व्यक्तीसाठी *Switch* लिहा._`
       ),
       nextStep: "IDLE",
     };
@@ -2205,16 +2743,16 @@ async function handleBillingQuery(
   return {
     text: inLanguage(
       lang,
-      `🧾 *CORTEX HOSPITAL – BILL SUMMARY*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *Patient:* ${latest.patient_name || "Patient"} (${latest.reference_number || "CRX"})\n📄 *Bill Number:* ${latest.bill_number || `CRX-INV-${latest._id.slice(-6).toUpperCase()}`}\n📊 *Status:* ${latest.payment_status === "PAID" ? "✅ FULLY PAID" : "⚠️ " + latest.payment_status}\n\n💰 *Total Amount:* ₹${latest.total_amount}\n💵 *Amount Paid:* ₹${latest.paid_amount}\n🔴 *Balance Due:* ₹${latest.balance_amount}\n\n${totalBalance > 0 ? "💳 UPI ID: `cortexhospital@upi`" : "All dues are cleared. Thank you!"}\n\n🔗 *Download Official Invoice:*\nhttps://cortexhospital.com/print-bill?billId=${latest._id}`,
-      `🧾 *CORTEX HOSPITAL – बिल विवरण*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *मरीज:* ${latest.patient_name || "Patient"} (${latest.reference_number || "CRX"})\n📄 *बिल नंबर:* ${latest.bill_number || `CRX-INV-${latest._id.slice(-6).toUpperCase()}`}\n📊 *स्थिति:* ${latest.payment_status === "PAID" ? "✅ पूर्ण भुगतान" : "⚠️ " + latest.payment_status}\n\n💰 *कुल राशि:* ₹${latest.total_amount}\n💵 *जमा राशि:* ₹${latest.paid_amount}\n🔴 *बकाया राशि:* ₹${latest.balance_amount}\n\n${totalBalance > 0 ? "💳 UPI: `cortexhospital@upi`" : "सभी बिल चुकता हैं। धन्यवाद!"}\n\n🔗 *बिल डाउनलोड लिंक:*\nhttps://cortexhospital.com/print-bill?billId=${latest._id}`,
-      `🧾 *CORTEX HOSPITAL – बिल तपशील*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *रुग्ण:* ${latest.patient_name || "Patient"} (${latest.reference_number || "CRX"})\n📄 *बिल क्रमांक:* ${latest.bill_number || `CRX-INV-${latest._id.slice(-6).toUpperCase()}`}\n📊 *स्थिती:* ${latest.payment_status === "PAID" ? "✅ पूर्ण भरले" : "⚠️ " + latest.payment_status}\n\n💰 *एकूण रक्कम:* ₹${latest.total_amount}\n💵 *भरलेली रक्कम:* ₹${latest.paid_amount}\n🔴 *बाकी रक्कम:* ₹${latest.balance_amount}\n\n${totalBalance > 0 ? "💳 UPI ID: `cortexhospital@upi`" : "सर्व बिल भरले आहे. धन्यवाद!"}\n\n🔗 *बिल डाउनलोड लिंक:*\nhttps://cortexhospital.com/print-bill?billId=${latest._id}`
+      `🧾 *SVAASHTH HOSPITAL – BILL SUMMARY*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *Patient:* ${latest.patient_name || patientName || "Patient"} (${latest.reference_number || "CRX"})\n📄 *Bill Number:* ${latest.bill_number || `CRX-INV-${latest._id.slice(-6).toUpperCase()}`}\n📊 *Status:* ${latest.payment_status === "PAID" ? "✅ FULLY PAID" : "⚠️ " + latest.payment_status}\n\n💰 *Total Amount:* ₹${latest.total_amount}\n💵 *Amount Paid:* ₹${latest.paid_amount}\n🔴 *Balance Due:* ₹${latest.balance_amount}\n\n${totalBalance > 0 ? "💳 UPI ID: `cortexhospital@upi`" : "All dues are cleared. Thank you!"}\n\n🔗 *Download Official Invoice:*\nhttps://cortexhospital.com/print-bill?billId=${latest._id}\n\n🔄 _Reply *Switch* to view bills for another family member._`,
+      `🧾 *SVAASHTH HOSPITAL – बिल विवरण*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *मरीज:* ${latest.patient_name || patientName || "Patient"} (${latest.reference_number || "CRX"})\n📄 *बिल नंबर:* ${latest.bill_number || `CRX-INV-${latest._id.slice(-6).toUpperCase()}`}\n📊 *स्थिति:* ${latest.payment_status === "PAID" ? "✅ पूर्ण भुगतान" : "⚠️ " + latest.payment_status}\n\n💰 *कुल राशि:* ₹${latest.total_amount}\n💵 *जमा राशि:* ₹${latest.paid_amount}\n🔴 *बकाया राशि:* ₹${latest.balance_amount}\n\n${totalBalance > 0 ? "💳 UPI: `cortexhospital@upi`" : "सभी बिल चुकता हैं। धन्यवाद!"}\n\n🔗 *बिल डाउनलोड लिंक:*\nhttps://cortexhospital.com/print-bill?billId=${latest._id}\n\n🔄 _अन्य परिजन के लिए *Switch* लिखें।_`,
+      `🧾 *SVAASHTH HOSPITAL – बिल तपशील*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *रुग्ण:* ${latest.patient_name || patientName || "Patient"} (${latest.reference_number || "CRX"})\n📄 *बिल क्रमांक:* ${latest.bill_number || `CRX-INV-${latest._id.slice(-6).toUpperCase()}`}\n📊 *स्थिती:* ${latest.payment_status === "PAID" ? "✅ पूर्ण भरले" : "⚠️ " + latest.payment_status}\n\n💰 *एकूण रक्कम:* ₹${latest.total_amount}\n💵 *भरलेली रक्कम:* ₹${latest.paid_amount}\n🔴 *बाकी रक्कम:* ₹${latest.balance_amount}\n\n${totalBalance > 0 ? "💳 UPI ID: `cortexhospital@upi`" : "सर्व बिल भरले आहे. धन्यवाद!"}\n\n🔗 *बिल डाउनलोड लिंक:*\nhttps://cortexhospital.com/print-bill?billId=${latest._id}\n\n🔄 _दुसऱ्या व्यक्तीसाठी *Switch* लिहा._`
     ),
     nextStep: "IDLE",
   };
 }
 
 /* =========================================================================
-   FOLLOW-UP MANAGEMENT (Section 6)
+   FOLLOW-UP MANAGEMENT (Section 6) – Multi-Profile Enabled
    ========================================================================= */
 
 async function handleFollowupQuery(
@@ -2222,8 +2760,81 @@ async function handleFollowupQuery(
   context: AgentContext
 ): Promise<AgentResponse> {
   const lang = context.language || "en";
-  const followups = await getPatientFollowups(phoneNumber);
-  const prescriptions = await getPatientPrescriptions(phoneNumber);
+  const profiles = await findPatientsByPhone(phoneNumber);
+
+  if (profiles.length > 1) {
+    const listLines = profiles
+      .slice(0, 4)
+      .map(
+        (p, idx) =>
+          `*${idx + 1}️⃣ ${p.name}* (${p.reference_number || "CRX"})`
+      )
+      .join("\n");
+
+    const buttons = profiles.slice(0, 3).map((p, idx) => ({
+      id: `followup_profile_${idx + 1}`,
+      title: `${idx + 1}. ${p.name.slice(0, 16)}`,
+    }));
+
+    return {
+      text: inLanguage(
+        lang,
+        `🔔 *Whose next follow-up checkup would you like to view?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n\n👉 *Reply with a number (1, 2...) or type the patient's name:*`,
+        `🔔 *आप किसकी अगली फ़ॉलो-अप जांच देखना चाहते हैं?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n\n👉 *नंबर (1, 2...) भेजें या मरीज का नाम लिखें:*`,
+        `🔔 *आपण कोणाची पुढील फॉलो-अप तपासणी पाहू इच्छिता?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n\n👉 *नंबर (1, 2...) पाठवा किंवा रुग्णाचे नाव लिहा:*`
+      ),
+      nextStep: "VIEW_FOLLOWUP_SELECT_PROFILE",
+      interactive: {
+        kind: "buttons",
+        body: inLanguage(lang, "Select patient profile:", "मरीज चुनें:", "रुग्ण निवडा:"),
+        buttons,
+      },
+    };
+  }
+
+  const pName = profiles[0]?.name;
+  const pRef = profiles[0]?.reference_number;
+  return await displayFollowupForPatient(phoneNumber, pName, pRef, context);
+}
+
+async function handleFollowupSelectProfile(
+  userText: string,
+  context: AgentContext
+): Promise<AgentResponse> {
+  const lang = context.language || "en";
+  const profiles = await findPatientsByPhone(context.phoneNumber);
+  const cleanInput = userText.trim();
+
+  const selected = matchProfileFromInput(cleanInput, profiles);
+  if (selected) {
+    return await displayFollowupForPatient(
+      context.phoneNumber,
+      selected.name,
+      selected.reference_number,
+      context
+    );
+  }
+
+  return {
+    text: inLanguage(
+      lang,
+      "Please select a valid option from the list:",
+      "कृपया सूची में से सही विकल्प चुनें:",
+      "कृपया यादीतील योग्य पर्याय निवडा:"
+    ),
+    nextStep: "VIEW_FOLLOWUP_SELECT_PROFILE",
+  };
+}
+
+async function displayFollowupForPatient(
+  phoneNumber: string,
+  patientName?: string,
+  patientReference?: string,
+  context?: AgentContext
+): Promise<AgentResponse> {
+  const lang = context?.language || "en";
+  const followups = await getPatientFollowups(phoneNumber, patientName, patientReference);
+  const prescriptions = await getPatientPrescriptions(phoneNumber, patientName, patientReference);
 
   let nextDate = "";
   let doctorName = "Dr. Vipeen Raut";
@@ -2244,9 +2855,9 @@ async function handleFollowupQuery(
     return {
       text: inLanguage(
         lang,
-        `🔔 No upcoming scheduled follow-up was found on record for your number.\n\nReply *1* to Book an Appointment anytime.`,
-        `🔔 आपके नंबर पर कोई निर्धारित फ़ॉलो-अप नहीं मिला।\n\nअपॉइंटमेंट बुक करने के लिए *1* भेजें।`,
-        `🔔 आपल्या नंबरवर कोणतीही पुढील तारीख नोंदवलेली नाही.\n\nअपॉइंटमेंट बुक करण्यासाठी *1* पाठवा.`
+        `🔔 No upcoming scheduled follow-up was found on record${patientName ? ` for *${patientName}*` : ""}.\n\nReply *1* to Book an Appointment anytime.\n_(Reply *Switch* to check another family member)_`,
+        `🔔 ${patientName ? `*${patientName}* के लिए ` : ""}कोई निर्धारित फ़ॉलो-अप नहीं मिला।\n\nअपॉइंटमेंट बुक करने के लिए *1* भेजें।\n_(अन्य परिजन के लिए *Switch* लिखें)_`,
+        `🔔 ${patientName ? `*${patientName}* यांच्यासाठी ` : ""}कोणतीही पुढील तारीख नोंदवलेली नाही.\n\nअपॉइंटमेंट बुक करण्यासाठी *1* पाठवा.\n_(दुसऱ्या व्यक्तीसाठी *Switch* लिहा)_`
       ),
       nextStep: "IDLE",
     };
@@ -2257,17 +2868,126 @@ async function handleFollowupQuery(
   return {
     text: inLanguage(
       lang,
-      `🔔 *RECOMMENDED NEXT FOLLOW-UP*\n━━━━━━━━━━━━━━━━━━━━━\n👨‍⚕️ *Doctor:* ${doctorName}\n📅 *Recommended Date:* ${nextDateDmy}\n📝 *Condition:* ${summary || "Routine Follow-up"}\n\n💡 Consultations within 10 days of your visit are charged at discounted follow-up rates.\n\nWould you like to book your follow-up slot for *${nextDateDmy}*?\nReply *1* to Book this Follow-up.`,
-      `🔔 *अगली अनुशंसित फ़ॉलो-अप तारीख*\n━━━━━━━━━━━━━━━━━━━━━\n👨‍⚕️ *डॉक्टर:* ${doctorName}\n📅 *तारीख:* ${nextDateDmy}\n📝 *स्थिति:* ${summary || "नियमित फ़ॉलो-अप"}\n\n💡 10 दिनों के भीतर परामर्श पर रियायती दर लागू होती है।\n\nक्या आप *${nextDateDmy}* के लिए समय बुक करना चाहते हैं?\n*1* भेजें।`,
-      `🔔 *पुढील फॉलो-अप तारीख*\n━━━━━━━━━━━━━━━━━━━━━\n👨‍⚕️ *डॉक्टर:* ${doctorName}\n📅 *तारीख:* ${nextDateDmy}\n📝 *तपासणी:* ${summary || "नियमित फॉलो-अप"}\n\n💡 10 दिवसांच्या आत तपासणी केल्यास कमी शुल्क आकारले जाते.\n\nआपण *${nextDateDmy}* साठी वेळ आरक्षित करू इच्छिता का?\n*1* पाठवा.`
+      `🔔 *RECOMMENDED NEXT FOLLOW-UP*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *Patient:* ${patientName || "Patient"}\n👨‍⚕️ *Doctor:* ${doctorName}\n📅 *Recommended Date:* ${nextDateDmy}\n📝 *Condition:* ${summary || "Routine Follow-up"}\n\n💡 Consultations within 10 days of your visit are charged at discounted follow-up rates.\n\nWould you like to book this follow-up slot for *${nextDateDmy}*?\nReply *1* to Book this Follow-up.\n_(Reply *Switch* to view another family member)_`,
+      `🔔 *अगली अनुशंसित फ़ॉलो-अप तारीख*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *मरीज:* ${patientName || "मरीज"}\n👨‍⚕️ *डॉक्टर:* ${doctorName}\n📅 *तारीख:* ${nextDateDmy}\n📝 *स्थिति:* ${summary || "नियमित फ़ॉलो-अप"}\n\n💡 10 दिनों के भीतर परामर्श पर रियायती दर लागू होती है।\n\nक्या आप *${nextDateDmy}* के लिए समय बुक करना चाहते हैं?\n*1* भेजें।\n_(अन्य परिजन के लिए *Switch* लिखें)_`,
+      `🔔 *पुढील फॉलो-अप तारीख*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *रुग्ण:* ${patientName || "रुग्ण"}\n👨‍⚕️ *डॉक्टर:* ${doctorName}\n📅 *तारीख:* ${nextDateDmy}\n📝 *तपासणी:* ${summary || "नियमित फॉलो-अप"}\n\n💡 10 दिवसांच्या आत तपासणी केल्यास कमी शुल्क आकारले जाते.\n\nआपण *${nextDateDmy}* साठी वेळ आरक्षित करू इच्छिता का?\n*1* पाठवा.\n_(दुसऱ्या व्यक्तीसाठी *Switch* लिहा)_`
     ),
     nextStep: "IDLE",
     updatedContext: {
       bookingDraft: {
         doctorName,
         date: nextDate,
+        patientName,
       },
     },
+  };
+}
+
+/* =========================================================================
+   GLOBAL FAMILY PROFILE MANAGER (Switch / Add Member)
+   ========================================================================= */
+
+async function handleManageProfiles(
+  phoneNumber: string,
+  context: AgentContext
+): Promise<AgentResponse> {
+  const lang = context.language || "en";
+  const profiles = await findPatientsByPhone(phoneNumber);
+
+  const listLines =
+    profiles.length > 0
+      ? profiles
+          .slice(0, 4)
+          .map(
+            (p, idx) =>
+              `*${idx + 1}️⃣ ${p.name}* (${p.reference_number || "CRX"}, ${p.age || "N/A"} yrs, ${p.sex})`
+          )
+          .join("\n")
+      : inLanguage(lang, "No registered family members yet.", "अभी कोई सदस्य दर्ज नहीं है।", "अद्याप कोणीही सदस्य नोंदवलेला नाही.");
+
+  const addOptionNum = profiles.length + 1;
+
+  const buttons = profiles.slice(0, 2).map((p, idx) => ({
+    id: `manage_profile_${idx + 1}`,
+    title: `${idx + 1}. ${p.name.slice(0, 16)}`,
+  }));
+  buttons.push({
+    id: "manage_profile_add",
+    title: inLanguage(lang, `${addOptionNum}. + Add Person`, `${addOptionNum}. + नया परिजन`, `${addOptionNum}. + नवीन व्यक्ती`),
+  });
+
+  return {
+    text: inLanguage(
+      lang,
+      `👤 *Family Profiles Linked to +${phoneNumber}:*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${addOptionNum}️⃣ ➕ Add a New Family Member*\n\n👉 *Reply with a number to select a profile, or reply *${addOptionNum}* to add someone new:*`,
+      `👤 *इस नंबर (+${phoneNumber}) से जुड़े परिजन:*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${addOptionNum}️⃣ ➕ नया परिजन जोड़ें*\n\n👉 *प्रोफ़ाइल चुनने के लिए नंबर भेजें, या नया सदस्य जोड़ने के लिए *${addOptionNum}* भेजें:*`,
+      `👤 *या नंबरशी (+${phoneNumber}) जोडलेले कुटुंब सदस्य:*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${addOptionNum}️⃣ ➕ नवीन कुटुंब सदस्य जोडा*\n\n👉 *प्रोफाइल निवडण्यासाठी नंबर पाठवा, किंवा नवीन सदस्य जोडण्यासाठी *${addOptionNum}* पाठवा:*`
+    ),
+    nextStep: "MANAGE_PROFILES_ACTION",
+    interactive: {
+      kind: "buttons",
+      body: inLanguage(lang, "Manage profiles:", "प्रोफाइल चुनें:", "प्रोफाइल निवडा:"),
+      buttons,
+    },
+  };
+}
+
+async function handleManageProfilesAction(
+  userText: string,
+  context: AgentContext
+): Promise<AgentResponse> {
+  const lang = context.language || "en";
+  const cleanInput = userText.trim();
+  const lower = cleanInput.toLowerCase();
+  const profiles = await findPatientsByPhone(context.phoneNumber);
+  const addOptionNum = profiles.length + 1;
+
+  if (
+    lower === "manage_profile_add" ||
+    lower === String(addOptionNum) ||
+    lower.includes("add") ||
+    lower.includes("new") ||
+    lower.includes("जोड़") ||
+    lower.includes("जोडा")
+  ) {
+    return {
+      text: inLanguage(
+        lang,
+        `👉 *Please enter the new family member's full name (e.g. Suresh Ingole):*`,
+        `👉 *कृपया नए परिजन का पूरा नाम लिखें (जैसे सुरेश इंगोले):*`,
+        `👉 *कृपया नवीन सदस्याचे पूर्ण नाव लिहा (उदा. सुरेश इंगोले):*`
+      ),
+      nextStep: "REGISTER_NAME",
+      updatedContext: {
+        bookingDraft: undefined,
+        patientName: undefined,
+        patientId: undefined,
+        patientReference: undefined,
+      },
+    };
+  }
+
+  const selected = matchProfileFromInput(cleanInput, profiles);
+  if (selected) {
+    return {
+      text: inLanguage(
+        lang,
+        `✅ Selected profile: *${selected.name}* (${selected.reference_number || "CRX"})\n\nHow would you like to proceed for *${selected.name}*?\n1️⃣ 🏥 Book Appointment\n2️⃣ 📅 View Appointments\n3️⃣ 💊 View Digital Prescriptions\n4️⃣ 🧾 View Hospital Bills\n5️⃣ 🔔 Next Follow-up Checkup`,
+        `✅ चुना गया मरीज: *${selected.name}* (${selected.reference_number || "CRX"})\n\n*${selected.name}* के लिए आप क्या देखना चाहते हैं?\n1️⃣ 🏥 अपॉइंटमेंट बुक करें\n2️⃣ 📅 अपॉइंटमेंट देखें\n3️⃣ 💊 डिजिटल पर्चा देखें\n4️⃣ 🧾 अस्पताल बिल देखें\n5️⃣ 🔔 अगली फ़ॉलो-अप जांच`,
+        `✅ निवडलेला रुग्ण: *${selected.name}* (${selected.reference_number || "CRX"})\n\n*${selected.name}* यांच्यासाठी आपण काय करू इच्छिता?\n1️⃣ 🏥 अपॉइंटमेंट बुक करा\n2️⃣ 📅 अपॉइंटमेंट्स पहा\n3️⃣ 💊 डिजिटल प्रिस्क्रिप्शन पहा\n4️⃣ 🧾 हॉस्पिटल बिल पहा\n5️⃣ 🔔 पुढील फॉलो-अप तपासणी`
+      ),
+      nextStep: "IDLE",
+      updatedContext: {
+        patientName: selected.name,
+        patientReference: selected.reference_number,
+        patientId: selected._id,
+      },
+    };
+  }
+
+  return {
+    text: inLanguage(lang, "Please choose a valid profile number:", "कृपया सही विकल्प चुनें:", "कृपया योग्य पर्याय निवडा:"),
+    nextStep: "MANAGE_PROFILES_ACTION",
   };
 }
 
