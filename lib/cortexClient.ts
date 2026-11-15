@@ -891,3 +891,166 @@ export async function getOpdWaitingQueue(): Promise<OpdWaitingPatient[]> {
     return [];
   }
 }
+
+export interface OpdQueueRecord {
+  _id?: string;
+  queue_id: string;
+  token: string;
+  uhid?: string;
+  patientId?: string;
+  appointmentId?: string;
+  name: string;
+  age: string;
+  ageUnit?: string;
+  sex: string;
+  phone: string;
+  address?: string;
+  doctor: string;
+  department: string;
+  priority: string;
+  visitType: string;
+  status: "Waiting" | "Ready" | "In Consultation" | "Completed" | "Cancelled";
+  vitals?: Record<string, any>;
+  consultationFee?: number;
+  paymentMode?: string;
+  paymentStatus?: string;
+  registeredAt: string;
+  time: string;
+}
+
+/** Calculate the next sequential 2-digit token number (01, 02...) for a doctor on a given date */
+export async function calculateNextDailyToken(doctorName: string, dateStr: string): Promise<string> {
+  try {
+    const client = getCortexConvexClient();
+    const queue = (await client.query("opd_queue:list" as any, {})) as any[];
+    if (Array.isArray(queue)) {
+      const targetDocKey = doctorName.toLowerCase().replace(/l+/g, "l");
+      const matching = queue.filter((q) => {
+        const qDoc = (q.doctor || "").toLowerCase().replace(/l+/g, "l");
+        const docMatch = qDoc.includes(targetDocKey) || targetDocKey.includes(qDoc);
+        const itemDate = (q.registeredAt || "").split("T")[0];
+        return docMatch && itemDate === dateStr;
+      });
+
+      const existingTokens = matching
+        .map((q) => parseInt(q.token, 10))
+        .filter((n) => !isNaN(n) && n > 0);
+
+      const nextToken = existingTokens.length > 0 ? Math.max(...existingTokens) + 1 : 1;
+      return String(nextToken).padStart(2, "0");
+    }
+  } catch (err) {
+    console.error("[Cortex PMS] calculateNextDailyToken error:", err);
+  }
+  return "01";
+}
+
+/** Inserts or updates an OPD Queue record directly in Cortex PMS */
+export async function upsertOpdQueueItem(item: {
+  id: string;
+  token: string;
+  uhid?: string;
+  patientId?: string;
+  appointmentId?: string;
+  name: string;
+  age: string;
+  ageUnit?: string;
+  sex: string;
+  phone: string;
+  address?: string;
+  doctor: string;
+  department?: string;
+  priority?: string;
+  visitType?: string;
+  status?: string;
+  registeredAt?: string;
+  time?: string;
+  consultationFee?: number;
+  paymentMode?: string;
+}): Promise<string> {
+  const client = getCortexConvexClient();
+  const dept = item.department || (item.doctor.includes("Shillpa") ? "Obstetrics & Gynaecology" : "Orthopaedics & Joint Replacement");
+
+  return (await client.mutation("opd_queue:upsert" as any, {
+    id: item.id,
+    token: item.token,
+    uhid: item.uhid || "CRX0001",
+    patientId: item.patientId,
+    appointmentId: item.appointmentId,
+    name: item.name,
+    age: item.age || "—",
+    ageUnit: item.ageUnit || "years",
+    sex: item.sex || "Male",
+    phone: normalizePhone(item.phone),
+    address: item.address || "",
+    doctor: item.doctor,
+    department: dept,
+    priority: item.priority || "Normal",
+    visitType: item.visitType || "Appointment",
+    status: item.status || "Waiting",
+    vitals: {},
+    consultationFee: item.consultationFee || 0,
+    paymentMode: item.paymentMode || "Free / Exempt",
+    paymentStatus: "PAID",
+    registeredAt: item.registeredAt || new Date().toISOString(),
+    time: item.time || "10:30",
+  })) as string;
+}
+
+/** Updates the status of an OPD Queue item */
+export async function updateOpdQueueItemStatus(queueId: string, status: string): Promise<boolean> {
+  try {
+    const client = getCortexConvexClient();
+    return (await client.mutation("opd_queue:updateStatus" as any, {
+      queue_id: queueId,
+      status,
+    })) as boolean;
+  } catch (err) {
+    console.error("[Cortex PMS] updateOpdQueueItemStatus error:", err);
+    return false;
+  }
+}
+
+/** Fetch all OPD Queue items filtered by date, doctor, and status */
+export async function fetchLiveOpdQueue(options?: {
+  date?: string;
+  doctor?: string;
+  status?: string;
+}): Promise<any[]> {
+  try {
+    const client = getCortexConvexClient();
+    let queue = (await client.query("opd_queue:list" as any, {})) as any[];
+    if (!Array.isArray(queue)) return [];
+
+    if (options?.date) {
+      queue = queue.filter((item) => {
+        const itemDate = (item.registeredAt || "").split("T")[0];
+        return itemDate === options.date;
+      });
+    }
+
+    if (options?.doctor && options.doctor !== "ALL") {
+      const qDoc = options.doctor.toLowerCase().replace(/l+/g, "l");
+      queue = queue.filter((item) => {
+        const doc = (item.doctor || "").toLowerCase().replace(/l+/g, "l");
+        return doc.includes(qDoc) || qDoc.includes(doc);
+      });
+    }
+
+    if (options?.status && options.status !== "ALL") {
+      queue = queue.filter((item) => item.status === options.status);
+    }
+
+    // Sort by token numeric ascending
+    queue.sort((a, b) => {
+      const tokenA = parseInt(a.token, 10) || 999;
+      const tokenB = parseInt(b.token, 10) || 999;
+      return tokenA - tokenB;
+    });
+
+    return queue;
+  } catch (err) {
+    console.error("[Cortex PMS] fetchLiveOpdQueue error:", err);
+    return [];
+  }
+}

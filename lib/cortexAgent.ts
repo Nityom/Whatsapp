@@ -27,6 +27,8 @@ import {
   matchDoctorByName,
   PatientRecord,
   DetailedSlot,
+  calculateNextDailyToken,
+  upsertOpdQueueItem,
 } from "./cortexClient";
 import { WhatsAppLocationPayload, WhatsAppInteractive } from "./whatsapp";
 
@@ -2193,6 +2195,9 @@ async function executeBookingCreation(
   const lang = context.language || "en";
 
   try {
+    const chosenDoctor = draft.doctorName || "Dr. Vipeen Raut";
+    const tokenNumber = await calculateNextDailyToken(chosenDoctor, draft.date);
+
     const appointmentId = await bookAppointment({
       name: draft.patientName || patientInfo?.name || "Patient",
       phone: context.phoneNumber,
@@ -2200,11 +2205,36 @@ async function executeBookingCreation(
       address: draft.patientAddress || "Wardha",
       date: draft.date,
       time: draft.slotTime || (draft.slot ? draft.slot.slice(0, 5) : "10:30"),
-      doctor_name: draft.doctorName || "Dr. Vipeen Raut",
+      doctor_name: chosenDoctor,
       duration_minutes: 15,
       dental_problem: draft.specialty || "Consultation",
-      notes: `Booked via WhatsApp Assistant | Slot: ${draft.slot || "10:30 AM – 10:45 AM"} | UHID: ${patientInfo?.reference_number || "New"}`,
+      notes: `Booked via WhatsApp Assistant | Token: #${tokenNumber} | Slot: ${draft.slot || "10:30 AM – 10:45 AM"} | UHID: ${patientInfo?.reference_number || "New"}`,
     });
+
+    // Auto-sync into Cortex PMS OPD Queue with generated daily token
+    try {
+      await upsertOpdQueueItem({
+        id: `appointment_${appointmentId}`,
+        token: tokenNumber,
+        uhid: patientInfo?.reference_number || "CRX0001",
+        patientId: (patientInfo as any)?._id,
+        appointmentId,
+        name: draft.patientName || patientInfo?.name || "Patient",
+        age: draft.patientAge || "—",
+        sex: (draft.sex as any) || "Male",
+        phone: context.phoneNumber,
+        address: draft.patientAddress || "Wardha",
+        doctor: chosenDoctor,
+        department: draft.specialty,
+        priority: "Normal",
+        visitType: "Appointment",
+        status: "Waiting",
+        registeredAt: `${draft.date}T${draft.slotTime || "10:30"}:00.000Z`,
+        time: draft.slotTime || "10:30",
+      });
+    } catch (queueErr) {
+      console.warn("[Cortex PMS] Could not auto-sync to opd_queue:", queueErr);
+    }
 
     const patientDisplay = `${draft.patientName || patientInfo?.name || "Patient"}${
       patientInfo?.reference_number ? ` (${patientInfo.reference_number})` : ""
@@ -2217,12 +2247,13 @@ async function executeBookingCreation(
       `✅ *APPOINTMENT CONFIRMED!* 🎉
 ━━━━━━━━━━━━━━━━━━━━━
 🏥 *Cortex Hospital, Wardha*
+🎫 *OPD Token:* #${tokenNumber}
 🆔 *Appointment ID:* \`${appointmentId.slice(-8).toUpperCase()}\`
 👤 *Patient:* ${patientDisplay}
 🎂 *Age:* ${draft.patientAge || "N/A"} years
 📱 *Phone:* ${context.phoneNumber}
 🏠 *Patient Address:* ${draft.patientAddress || "Wardha"}
-👨‍⚕️ *Doctor:* ${draft.doctorName}
+👨‍⚕️ *Doctor:* ${chosenDoctor}
 📅 *Date:* ${dateDmy}
 ⏰ *Time Slot:* ${slotDisplay}
 📍 *Hospital Location:* Aarti Chowk, Nagpur Road, Wardha
@@ -2237,12 +2268,13 @@ Your health matters to us. We look forward to serving you! ❤️`,
       `✅ *अपॉइंटमेंट पक्की हो गई!* 🎉
 ━━━━━━━━━━━━━━━━━━━━━
 🏥 *Cortex Hospital, वर्धा*
+🎫 *ओपीडी टोकन नंबर:* #${tokenNumber}
 🆔 *अपॉइंटमेंट ID:* \`${appointmentId.slice(-8).toUpperCase()}\`
 👤 *मरीज:* ${patientDisplay}
 🎂 *उम्र:* ${draft.patientAge || "N/A"} वर्ष
 📱 *मोबाइल:* ${context.phoneNumber}
 🏠 *मरीज का पता:* ${draft.patientAddress || "वर्धा"}
-👨‍⚕️ *डॉक्टर:* ${draft.doctorName}
+👨‍⚕️ *डॉक्टर:* ${chosenDoctor}
 📅 *तारीख:* ${dateDmy}
 ⏰ *समय:* ${slotDisplay}
 📍 *अस्पताल का पता:* आरती चौक, नागपुर रोड, वर्धा
@@ -2257,12 +2289,13 @@ Your health matters to us. We look forward to serving you! ❤️`,
       `✅ *अपॉइंटमेंट निश्चित झाली!* 🎉
 ━━━━━━━━━━━━━━━━━━━━━
 🏥 *Cortex Hospital, वर्धा*
+🎫 *ओपीडी टोकन क्रमांक:* #${tokenNumber}
 🆔 *अपॉइंटमेंट ID:* \`${appointmentId.slice(-8).toUpperCase()}\`
 👤 *रुग्ण:* ${patientDisplay}
 🎂 *वय:* ${draft.patientAge || "N/A"} वर्षे
 📱 *मोबाइल:* ${context.phoneNumber}
 🏠 *रुग्णाचा पत्ता:* ${draft.patientAddress || "वर्धा"}
-👨‍⚕️ *डॉक्टर:* ${draft.doctorName}
+👨‍⚕️ *डॉक्टर:* ${chosenDoctor}
 📅 *तारीख:* ${dateDmy}
 ⏰ *वेळ:* ${slotDisplay}
 📍 *हॉस्पिटलचा पत्ता:* आरती चौक, नागपूर रोड, वर्धा

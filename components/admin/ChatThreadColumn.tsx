@@ -154,7 +154,7 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
       const container = messagesContainerRef.current;
       if (messages.length !== prevMessagesLengthRef.current) {
         prevMessagesLengthRef.current = messages.length;
-        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        container.scrollTop = container.scrollHeight;
       }
     }
   }, [messages.length]);
