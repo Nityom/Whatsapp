@@ -214,25 +214,87 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
     return Array.from(new Set(matches.map((m) => m.replace(/\D/g, ''))));
   }, [currentMetaTemplate]);
 
-  // Set default param values when selected template changes
+  // Local storage helpers for persisting template parameters per template name
+  const getSavedTemplateParams = (templateName: string): Record<string, string> | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem(`svaasth_tpl_params_${templateName}`);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return null;
+  };
+
+  const saveTemplateParams = (templateName: string, params: Record<string, string>) => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(`svaasth_tpl_params_${templateName}`, JSON.stringify(params));
+    } catch {}
+  };
+
+  // Set and restore saved parameter values when template changes
   useEffect(() => {
-    if (currentMetaTemplate && metaVariables.length > 0) {
-      setTemplateParams((prev) => {
-        const next = { ...prev };
-        metaVariables.forEach((v, idx) => {
-          if (!next[v]) {
-            if (idx === 0) next[v] = '{patient_name}';
-            else if (idx === 1) next[v] = 'Svaasth Hospital';
-            else if (idx === 2) next[v] = 'OPD Consultation';
-            else if (idx === 3) next[v] = 'Today';
-            else if (idx === 4) next[v] = '{slot_time}';
-            else next[v] = `Param ${v}`;
-          }
-        });
-        return next;
-      });
+    if (!currentMetaTemplate || metaVariables.length === 0) return;
+
+    // 1. Check if user has previously saved parameter values for this template
+    const saved = getSavedTemplateParams(currentMetaTemplate.name);
+    if (saved && Object.keys(saved).length > 0) {
+      setTemplateParams(saved);
+      return;
     }
+
+    // 2. Otherwise apply smart contextual defaults based on template body content
+    const bodyText = (
+      currentMetaTemplate.components.find((c) => c.type === 'BODY')?.text || ''
+    ).toLowerCase();
+    const defaults: Record<string, string> = {};
+
+    metaVariables.forEach((v, idx) => {
+      if (
+        bodyText.includes('closed') ||
+        bodyText.includes('holiday') ||
+        metaVariables.length === 3
+      ) {
+        // 3-Parameter Holiday / OPD Closure Notice
+        if (idx === 0) defaults[v] = '{patient_name}';
+        else if (idx === 1) defaults[v] = 'Tomorrow';
+        else if (idx === 2) defaults[v] = 'Public Holiday';
+        else defaults[v] = `Param ${v}`;
+      } else if (
+        bodyText.includes('confirm') ||
+        bodyText.includes('token') ||
+        bodyText.includes('status')
+      ) {
+        // Confirmation / Queue Status Notice
+        if (idx === 0) defaults[v] = '{patient_name}';
+        else if (idx === 1) defaults[v] = 'Dr. Vipeen Raut';
+        else if (idx === 2) defaults[v] = 'Today';
+        else if (idx === 3) defaults[v] = '{slot_time}';
+        else defaults[v] = `Param ${v}`;
+      } else {
+        // Standard General Template (e.g. appointment_booked with 5 params)
+        if (idx === 0) defaults[v] = '{patient_name}';
+        else if (idx === 1) defaults[v] = 'Svaasth Hospital';
+        else if (idx === 2) defaults[v] = 'OPD Consultation';
+        else if (idx === 3) defaults[v] = 'Today';
+        else if (idx === 4) defaults[v] = '{slot_time}';
+        else defaults[v] = `Param ${v}`;
+      }
+    });
+
+    setTemplateParams(defaults);
+    saveTemplateParams(currentMetaTemplate.name, defaults);
   }, [currentMetaTemplate, metaVariables]);
+
+  // Handler to update and automatically persist parameter changes
+  const handleUpdateParam = (paramKey: string, value: string) => {
+    setTemplateParams((prev) => {
+      const updated = { ...prev, [paramKey]: value };
+      if (currentMetaTemplate?.name) {
+        saveTemplateParams(currentMetaTemplate.name, updated);
+      }
+      return updated;
+    });
+  };
 
   // First sample waiting patient for live preview
   const samplePatient = useMemo(() => {
@@ -755,9 +817,7 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
                     <ShieldCheck className="w-4 h-4 text-[#176e56]" />
                     3. Select Meta Approved Template
                   </label>
-                  <span className="text-[10px] text-[#176e56] font-semibold bg-[#eaf5ef] px-2 py-0.5 rounded-md border border-[#c2e4cf]">
-                    Reaches All Inactive &amp; Cold Contacts
-                  </span>
+                 
                 </div>
 
                 {/* Template Cards Selection */}
@@ -793,63 +853,102 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
                   )}
                 </div>
 
-                {/* Variable Parameter Inputs */}
+                {/* Variable Parameter Inputs with Auto-Save */}
                 {currentMetaTemplate && metaVariables.length > 0 && (
                   <div className="pt-2 border-t border-[#dbe9e0] space-y-2">
-                    <label className="text-[11px] font-bold text-[#173d37] uppercase tracking-wider block">
-                      Template Variables ({metaVariables.length} Parameters)
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-[#173d37] uppercase tracking-wider block">
+                        Template Variables ({metaVariables.length} Parameters)
+                      </label>
+                      <span className="text-[10px] text-[#176e56] bg-[#eaf5ef] px-2 py-0.5 rounded-full font-semibold border border-[#c2e4cf] flex items-center gap-1 shadow-2xs">
+                        <Check className="w-3 h-3 text-[#176e56]" />
+                        Auto-Saved
+                      </span>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {metaVariables.map((v) => (
-                        <div key={v} className="bg-white p-2 rounded-xl border border-[#dbe9e0]">
+                        <div key={v} className="bg-white p-2 rounded-xl border border-[#dbe9e0] focus-within:border-[#176e56] focus-within:ring-1 focus-within:ring-[#176e56]/30 transition-all">
                           <div className="flex items-center justify-between text-[10px] text-[#77a193] font-mono mb-1">
                             <span>Placeholder: {`{{${v}}}`}</span>
-                            <span className="text-[#176e56] font-semibold">Auto-injected</span>
+                            <span className="text-[#176e56] font-semibold">Auto-saved</span>
                           </div>
                           <input
                             type="text"
                             value={templateParams[v] || ''}
-                            onChange={(e) =>
-                              setTemplateParams((prev) => ({ ...prev, [v]: e.target.value }))
-                            }
+                            onChange={(e) => handleUpdateParam(v, e.target.value)}
                             placeholder={`Value for {{${v}}}`}
                             className="w-full text-xs text-[#173d37] font-medium focus:outline-none"
                           />
                         </div>
                       ))}
                     </div>
-                    <div className="flex items-center gap-1.5 text-[10px] text-[#55776d] flex-wrap">
-                      <span>Available Tags:</span>
+
+                    <div className="flex items-center gap-1.5 text-[10px] text-[#55776d] flex-wrap pt-1">
+                      <span className="font-semibold text-[#173d37]">Quick Fill:</span>
                       <button
                         type="button"
                         onClick={() =>
-                          metaVariables[0] &&
-                          setTemplateParams((prev) => ({ ...prev, [metaVariables[0]]: '{patient_name}' }))
+                          metaVariables[0] && handleUpdateParam(metaVariables[0], '{patient_name}')
                         }
-                        className="px-1.5 py-0.5 rounded bg-white text-[#176e56] font-mono border border-[#dbe9e0] hover:bg-[#eaf5ef]"
+                        className="px-2 py-0.5 rounded-lg bg-white text-[#176e56] font-mono border border-[#dbe9e0] hover:bg-[#eaf5ef] hover:border-[#176e56] transition-all cursor-pointer"
+                        title="Auto-replaces with patient's name"
                       >
                         {'{patient_name}'}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          metaVariables[1] &&
-                          setTemplateParams((prev) => ({ ...prev, [metaVariables[1]]: '{doctor_name}' }))
-                        }
-                        className="px-1.5 py-0.5 rounded bg-white text-[#176e56] font-mono border border-[#dbe9e0] hover:bg-[#eaf5ef]"
-                      >
-                        {'{doctor_name}'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          metaVariables[3] &&
-                          setTemplateParams((prev) => ({ ...prev, [metaVariables[3]]: '{slot_time}' }))
-                        }
-                        className="px-1.5 py-0.5 rounded bg-white text-[#176e56] font-mono border border-[#dbe9e0] hover:bg-[#eaf5ef]"
-                      >
-                        {'{slot_time}'}
-                      </button>
+
+                      {metaVariables.length === 3 ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              metaVariables[1] && handleUpdateParam(metaVariables[1], 'Tomorrow')
+                            }
+                            className="px-2 py-0.5 rounded-lg bg-white text-[#176e56] font-medium border border-[#dbe9e0] hover:bg-[#eaf5ef] hover:border-[#176e56] transition-all cursor-pointer"
+                          >
+                            Tomorrow
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              metaVariables[1] && handleUpdateParam(metaVariables[1], 'Monday, 16 Nov')
+                            }
+                            className="px-2 py-0.5 rounded-lg bg-white text-[#176e56] font-medium border border-[#dbe9e0] hover:bg-[#eaf5ef] hover:border-[#176e56] transition-all cursor-pointer"
+                          >
+                            Monday, 16 Nov
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              metaVariables[2] && handleUpdateParam(metaVariables[2], 'Public Holiday')
+                            }
+                            className="px-2 py-0.5 rounded-lg bg-white text-[#176e56] font-medium border border-[#dbe9e0] hover:bg-[#eaf5ef] hover:border-[#176e56] transition-all cursor-pointer"
+                          >
+                            Public Holiday
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              metaVariables[1] && handleUpdateParam(metaVariables[1], '{doctor_name}')
+                            }
+                            className="px-2 py-0.5 rounded-lg bg-white text-[#176e56] font-mono border border-[#dbe9e0] hover:bg-[#eaf5ef] hover:border-[#176e56] transition-all cursor-pointer"
+                          >
+                            {'{doctor_name}'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              metaVariables[3] && handleUpdateParam(metaVariables[3], '{slot_time}')
+                            }
+                            className="px-2 py-0.5 rounded-lg bg-white text-[#176e56] font-mono border border-[#dbe9e0] hover:bg-[#eaf5ef] hover:border-[#176e56] transition-all cursor-pointer"
+                          >
+                            {'{slot_time}'}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
