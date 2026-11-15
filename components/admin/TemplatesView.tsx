@@ -456,22 +456,39 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
                           <span className="text-[10px] text-[#77a193] uppercase font-mono">{tmpl.language}</span>
                         </div>
 
-                        {/* Status Badge */}
-                        {tmpl.status === 'APPROVED' ? (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#eaf5ef] text-[#176e56] border border-[#77d1a5]/50 flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3 text-[#176e56]" />
-                            APPROVED
-                          </span>
-                        ) : tmpl.status === 'PENDING' ? (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-amber-600 animate-spin" />
-                            REVIEW PENDING
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">
-                            {tmpl.status}
-                          </span>
-                        )}
+                        {/* Status Badge & Delete Icon on TOP of Card */}
+                        <div className="flex items-center gap-1.5">
+                          {tmpl.status === 'APPROVED' ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#eaf5ef] text-[#176e56] border border-[#77d1a5]/50 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-[#176e56]" />
+                              APPROVED
+                            </span>
+                          ) : tmpl.status === 'PENDING' ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-amber-600 animate-spin" />
+                              REVIEW PENDING
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">
+                              {tmpl.status}
+                            </span>
+                          )}
+
+                          {/* Delete Icon on Top Only */}
+                          <button
+                            onClick={() =>
+                              setTemplateToDelete({
+                                id: tmpl.id,
+                                name: tmpl.name,
+                                status: tmpl.status,
+                              })
+                            }
+                            className="p-1 rounded-lg text-[#8b9e97] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            title={`Delete "${tmpl.name}" from Meta`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
 
                       {/* Title & Meta ID */}
@@ -503,41 +520,23 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
 
                     {/* Actions */}
                     <div className="flex items-center justify-between gap-2 mt-4 pt-3 border-t border-[#dbe9e0]">
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => handleCopy(bodyText, tmpl.id)}
-                          className="flex items-center gap-1 text-xs font-semibold text-[#55776d] hover:text-[#176e56] transition-colors p-1"
-                          title="Copy template body text"
-                        >
-                          {copiedId === tmpl.id ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-[#176e56]" />
-                              <span>Copied!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Copy</span>
-                            </>
-                          )}
-                        </button>
-
-                        {/* Delete Template from Meta */}
-                        <button
-                          onClick={() =>
-                            setTemplateToDelete({
-                              id: tmpl.id,
-                              name: tmpl.name,
-                              status: tmpl.status,
-                            })
-                          }
-                          className="flex items-center gap-1 text-xs font-semibold text-rose-500 hover:text-rose-700 hover:bg-rose-50 px-2 py-1 rounded-lg transition-colors cursor-pointer"
-                          title={`Delete "${tmpl.name}" from Meta`}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span className="hidden sm:inline">Delete</span>
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => handleCopy(bodyText, tmpl.id)}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-[#55776d] hover:text-[#176e56] transition-colors"
+                        title="Copy template body text"
+                      >
+                        {copiedId === tmpl.id ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-[#176e56]" />
+                            <span>Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copy Body</span>
+                          </>
+                        )}
+                      </button>
 
                       {tmpl.status === 'APPROVED' ? (
                         <div className="flex items-center gap-1.5">
