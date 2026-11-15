@@ -91,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }}
               className="flex items-center gap-3 cursor-pointer group"
             >
-              <div className="w-10 h-10 rounded-xl bg-white border border-[#dbe9e0] p-1 flex items-center justify-center shadow-xs group-hover:border-[#54a987] transition-all shrink-0 overflow-hidden">
+              <div className="w-11 h-11 rounded-2xl bg-white border border-[#dbe9e0] p-1.5 flex items-center justify-center shadow-xs group-hover:border-[#54a987] transition-all shrink-0 overflow-hidden">
                 <img
                   src="/svaasth-logo.png"
                   alt="Svaasth Logo"
@@ -99,18 +99,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 />
               </div>
               {!isCollapsed && (
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xl font-bold tracking-tight text-[#173d37]">
-                      Svaasth
-                    </span>
-                  </div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#54a987]">
-                    Connect Hub
-                  </p>
+                <div className="flex flex-col justify-center">
+                  <span className="text-2xl font-black tracking-tight text-[#0f3d32] leading-none">
+                    Svaasth
+                  </span>
+                  <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#4fa383] mt-1.5 leading-none">
+                    CONNECT HUB
+                  </span>
                 </div>
               )}
             </div>
+
+            {/* Svaasth HMS Sync Badge when expanded */}
+            {!isCollapsed && (
+              <div className="mt-3 pt-2.5 border-t border-[#dbe9e0]/70 flex items-center justify-between">
+                <img
+                  src="/svaasth.png"
+                  alt="Svaasth HMS - Hospital Management System"
+                  className="h-4.5 w-auto object-contain opacity-90"
+                />
+                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-[#eaf5ef] text-[#176e56] border border-[#a3e2c3]">
+                  HMS Sync
+                </span>
+              </div>
+            )}
 
             {/* Mobile Close Button & Desktop Collapse Toggle */}
             <div className="flex items-center gap-1">

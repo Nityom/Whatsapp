@@ -43,9 +43,18 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
         <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[#173d37] flex items-center gap-2">
-            {getGreeting()}, {userName} <span className="text-lg md:text-xl">👋</span>
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[#173d37] flex items-center gap-2">
+              {getGreeting()}, {userName} <span className="text-lg md:text-xl">👋</span>
+            </h1>
+            <div className="hidden lg:flex items-center pl-3 border-l border-[#dbe9e0]">
+              <img
+                src="/svaasth.png"
+                alt="Svaasth HMS - Hospital Management System"
+                className="h-6 w-auto object-contain"
+              />
+            </div>
+          </div>
           <p className="text-xs md:text-sm text-[#55776d] mt-0.5">
             Manage your WhatsApp conversations, automations and broadcasts in one place.
           </p>

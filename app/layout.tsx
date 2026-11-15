@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Svaasth Connect – WhatsApp Hub & Admin Dashboard',
+  title: 'Svaasth Connect Hub – Svaasth HMS Operations',
   description:
-    'Official Svaasth Connect Healthcare WhatsApp AI & Operations Hub. 24/7 Appointments, Prescriptions, Live Two-Way Chat, Bulk Broadcasts, and Patient Care.',
+    'Official Svaasth Connect Hub for Svaasth HMS Hospital Management System. 24/7 Appointments, Prescriptions, Live Two-Way Chat, Bulk Broadcasts, and Patient Care.',
   icons: {
     icon: '/logo.png',
     shortcut: '/logo.png',
