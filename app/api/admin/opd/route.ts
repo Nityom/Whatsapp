@@ -111,7 +111,49 @@ async function dispatchOpdWhatsApp(params: {
   const waRecipient = formatWhatsAppRecipient(params.phone);
   const cleanName = formatPatientName(params.name);
 
-  // 1. Try dedicated `svaasth_token_confirmed` template
+  // 1. Try dedicated `svaasth_appointment_confirmed` template (exact user formatting with markdown)
+  try {
+    const tplRes = await sendWhatsAppTemplate(
+      waRecipient,
+      'svaasth_appointment_confirmed',
+      'en_US',
+      [
+        {
+          type: 'body',
+          parameters: [
+            { type: 'text', text: cleanName },
+            { type: 'text', text: params.doctor },
+            { type: 'text', text: params.dateStr },
+            { type: 'text', text: params.timeStr },
+            { type: 'text', text: params.token },
+          ],
+        },
+      ]
+    );
+
+    if (tplRes.success) {
+      console.log(`[OPD WhatsApp] svaasth_appointment_confirmed sent to ${waRecipient}. ID: ${tplRes.messageId}`);
+      try {
+        const convex = getConvexClient();
+        await convex.mutation(api.sessions.sendStaffMessage, {
+          phoneNumber: waRecipient,
+          text: params.plainText,
+          metadata: {
+            template: 'svaasth_appointment_confirmed',
+            token: params.token,
+            whatsappMessageId: tplRes.messageId,
+          },
+        });
+      } catch (dbErr) {
+        console.error('[OPD WhatsApp DB Log Error]', dbErr);
+      }
+      return tplRes;
+    }
+  } catch (err: any) {
+    console.warn(`[OPD WhatsApp] svaasth_appointment_confirmed attempt:`, err?.message);
+  }
+
+  // 2. Try dedicated `svaasth_token_confirmed` template
   try {
     const tplRes = await sendWhatsAppTemplate(
       waRecipient,
@@ -313,8 +355,8 @@ export async function POST(req: NextRequest) {
           `📅 *Date:* ${formattedDateReadable}\n` +
           `⏰ *Time:* ${formattedTime}\n` +
           `🎟️ *Token Number:* ${token}\n\n` +
-          `Thank you for choosing Svaasth Hospital. We look forward to serving you!\n\n` +
-          `Your health, our priority. 💚`;
+          `Thank you for choosing *Svaasth Hospital*. We look forward to serving you!\n\n` +
+          `_Your health, our priority._ 💚`;
 
         const waRes = await dispatchOpdWhatsApp({
           phone,
