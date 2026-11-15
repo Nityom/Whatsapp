@@ -918,27 +918,43 @@ export interface OpdQueueRecord {
   time: string;
 }
 
-/** Calculate the next sequential 2-digit token number (01, 02...) for a doctor on a given date */
-export async function calculateNextDailyToken(doctorName: string, dateStr: string): Promise<string> {
+/** Calculate the next sequential 2-digit daily token number (01, 02...) across all patients on a given date to guarantee no duplicates */
+export async function calculateNextDailyToken(_doctorName: string, dateStr: string): Promise<string> {
   try {
     const client = getCortexConvexClient();
+    const existingTokens: number[] = [];
+
+    // 1. Check opd_queue table
     const queue = (await client.query("opd_queue:list" as any, {})) as any[];
     if (Array.isArray(queue)) {
-      const targetDocKey = doctorName.toLowerCase().replace(/l+/g, "l");
       const matching = queue.filter((q) => {
-        const qDoc = (q.doctor || "").toLowerCase().replace(/l+/g, "l");
-        const docMatch = qDoc.includes(targetDocKey) || targetDocKey.includes(qDoc);
         const itemDate = (q.registeredAt || "").split("T")[0];
-        return docMatch && itemDate === dateStr;
+        return itemDate === dateStr;
       });
-
-      const existingTokens = matching
-        .map((q) => parseInt(q.token, 10))
-        .filter((n) => !isNaN(n) && n > 0);
-
-      const nextToken = existingTokens.length > 0 ? Math.max(...existingTokens) + 1 : 1;
-      return String(nextToken).padStart(2, "0");
+      matching.forEach((q) => {
+        const n = parseInt(q.token, 10);
+        if (!isNaN(n) && n > 0) existingTokens.push(n);
+      });
     }
+
+    // 2. Check appointments table for existing tokens on that date
+    const appts = (await client.query("appointments:list" as any, {})) as any[];
+    if (Array.isArray(appts)) {
+      const matchingAppts = appts.filter((a) => {
+        const aDate = (a.date || "").split("T")[0];
+        return aDate === dateStr && a.status !== "CANCELLED";
+      });
+      matchingAppts.forEach((a) => {
+        const matchToken = a.notes?.match(/Token:\s*#?(\d+)/i)?.[1];
+        if (matchToken) {
+          const n = parseInt(matchToken, 10);
+          if (!isNaN(n) && n > 0) existingTokens.push(n);
+        }
+      });
+    }
+
+    const nextToken = existingTokens.length > 0 ? Math.max(...existingTokens) + 1 : 1;
+    return String(nextToken).padStart(2, "0");
   } catch (err) {
     console.error("[Cortex PMS] calculateNextDailyToken error:", err);
   }

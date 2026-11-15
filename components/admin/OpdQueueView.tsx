@@ -80,6 +80,17 @@ export const OpdQueueView: React.FC = () => {
     sendWhatsApp: true,
   });
 
+  // Slot availability state for walk-in scheduling
+  const [slotData, setSlotData] = useState<{
+    availableSlots: string[];
+    bookedSlots: string[];
+    morningSlots: Array<{ slot: string; display: string; isBooked: boolean }>;
+    eveningSlots: Array<{ slot: string; display: string; isBooked: boolean }>;
+  } | null>(null);
+  const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
+  const [selectedSlot, setSelectedSlot] = useState<string>('');
+  const [timeMode, setTimeMode] = useState<'immediate' | 'slot'>('immediate');
+
   // Action status state
   const [callingPatientId, setCallingPatientId] = useState<string | null>(null);
   const [actionSuccessMsg, setActionSuccessMsg] = useState<string | null>(null);
@@ -126,6 +137,33 @@ export const OpdQueueView: React.FC = () => {
     }, 5000);
     return () => clearInterval(interval);
   }, [fetchQueue]);
+
+  // Load slot availability when modal opens or doctor/date changes
+  useEffect(() => {
+    if (!isWalkInModalOpen) return;
+    const loadSlots = async () => {
+      setLoadingSlots(true);
+      try {
+        const res = await fetch(
+          `/api/admin/opd?action=slots&date=${selectedDate}&doctor=${encodeURIComponent(
+            walkInForm.doctor
+          )}`
+        );
+        const data = await res.json();
+        if (data.success && data.slotData) {
+          setSlotData(data.slotData);
+          if (data.slotData.availableSlots?.length > 0) {
+            setSelectedSlot(data.slotData.availableSlots[0]);
+          }
+        }
+      } catch (err) {
+        console.error('[Load Slots Error]', err);
+      } finally {
+        setLoadingSlots(false);
+      }
+    };
+    loadSlots();
+  }, [isWalkInModalOpen, selectedDate, walkInForm.doctor]);
 
   // Status Counts
   const stats = useMemo(() => {
@@ -222,6 +260,7 @@ export const OpdQueueView: React.FC = () => {
 
     setWalkInSubmitting(true);
     try {
+      const slotTime = timeMode === 'slot' && selectedSlot ? selectedSlot : undefined;
       const res = await fetch('/api/admin/opd', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -236,13 +275,25 @@ export const OpdQueueView: React.FC = () => {
           visitType: walkInForm.visitType,
           address: walkInForm.address,
           date: selectedDate,
+          time: slotTime,
           sendWhatsApp: walkInForm.sendWhatsApp,
         }),
       });
       const data = await res.json();
       if (data.success) {
-        setActionSuccessMsg(`Walk-in confirmed! Token #${data.token} assigned.`);
-        setTimeout(() => setActionSuccessMsg(null), 4500);
+        if (data.whatsappStatus === 'sent') {
+          setActionSuccessMsg(
+            `Walk-in confirmed! Token #${data.token} assigned & WhatsApp confirmation sent.`
+          );
+        } else if (data.whatsappStatus === 'failed') {
+          setActionSuccessMsg(
+            `Walk-in confirmed! Token #${data.token} assigned. (Note: WhatsApp dispatch pending customer reply).`
+          );
+        } else {
+          setActionSuccessMsg(`Walk-in confirmed! Token #${data.token} assigned.`);
+        }
+
+        setTimeout(() => setActionSuccessMsg(null), 5000);
         setIsWalkInModalOpen(false);
         setWalkInForm({
           name: '',
@@ -255,6 +306,7 @@ export const OpdQueueView: React.FC = () => {
           address: '',
           sendWhatsApp: true,
         });
+        setTimeMode('immediate');
         fetchQueue();
       } else {
         alert(data.error || 'Failed to create walk-in entry.');
@@ -373,9 +425,11 @@ export const OpdQueueView: React.FC = () => {
             >
               <Stethoscope className="w-4 h-4" />
               <span>{doc.name}</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${
-                isSelected ? 'bg-white/20 text-white' : 'bg-[#eaf5ef] text-[#176e56]'
-              }`}>
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded-md ${
+                  isSelected ? 'bg-white/20 text-white' : 'bg-[#eaf5ef] text-[#176e56]'
+                }`}
+              >
                 {doc.name.includes('Vipeen') ? 'Ortho' : 'Gynae'}
               </span>
             </button>
@@ -725,6 +779,141 @@ export const OpdQueueView: React.FC = () => {
                     Dr. Shillpa Raut (Obstetrics & Gynaecology)
                   </option>
                 </select>
+              </div>
+
+              {/* Consultation Time Slot Selection */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-[#173d37] flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-[#176e56]" />
+                    <span>OPD Consultation Slot *</span>
+                  </label>
+                  <div className="flex items-center gap-1 bg-[#f3f9f5] border border-[#dbe9e0] rounded-lg p-0.5 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setTimeMode('immediate')}
+                      className={`px-2 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${
+                        timeMode === 'immediate'
+                          ? 'bg-[#176e56] text-white shadow-2xs'
+                          : 'text-[#55776d] hover:text-[#173d37]'
+                      }`}
+                    >
+                      Immediate Walk-in
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTimeMode('slot')}
+                      className={`px-2 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${
+                        timeMode === 'slot'
+                          ? 'bg-[#176e56] text-white shadow-2xs'
+                          : 'text-[#55776d] hover:text-[#173d37]'
+                      }`}
+                    >
+                      Choose Slot
+                    </button>
+                  </div>
+                </div>
+
+                {timeMode === 'immediate' ? (
+                  <div className="p-3 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] text-xs text-[#55776d] flex items-center justify-between">
+                    <span>Assigned upon current arrival</span>
+                    <span className="font-mono font-bold text-[#176e56] bg-white px-2.5 py-1 rounded-lg border border-[#a3e2c3] shadow-2xs">
+                      Immediate Turn
+                    </span>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {loadingSlots ? (
+                      <div className="p-4 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] text-center text-xs text-[#77a193] flex items-center justify-center gap-2">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#176e56]" />
+                        <span>Checking doctor availability for {selectedDate}...</span>
+                      </div>
+                    ) : !slotData ||
+                      (slotData.morningSlots.length === 0 && slotData.eveningSlots.length === 0) ? (
+                      <div className="p-3 rounded-xl bg-[#fffbeb] border border-[#fef3c7] text-xs text-[#92400e]">
+                        OPD closed on this date (Sunday or Holiday). Walk-in will be placed in immediate queue.
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] space-y-2.5 max-h-48 overflow-y-auto">
+                        {/* Morning Slots */}
+                        {slotData.morningSlots.length > 0 && (
+                          <div>
+                            <span className="text-[10px] font-bold text-[#77a193] uppercase tracking-wider block mb-1">
+                              Morning OPD (10:30 AM – 1:00 PM)
+                            </span>
+                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
+                              {slotData.morningSlots.map((s) => (
+                                <button
+                                  key={s.slot}
+                                  type="button"
+                                  disabled={s.isBooked}
+                                  onClick={() => setSelectedSlot(s.slot)}
+                                  className={`px-2 py-1.5 rounded-lg text-xs font-mono font-medium transition-all text-center ${
+                                    s.isBooked
+                                      ? 'bg-[#fee2e2]/60 text-[#991b1b] line-through cursor-not-allowed opacity-60'
+                                      : selectedSlot === s.slot
+                                      ? 'bg-[#176e56] text-white font-bold ring-2 ring-[#54a987] shadow-2xs'
+                                      : 'bg-white hover:bg-[#eaf5ef] text-[#173d37] border border-[#dbe9e0]'
+                                  }`}
+                                  title={s.isBooked ? 'Slot already booked' : 'Available'}
+                                >
+                                  {s.slot}
+                                  {s.isBooked ? (
+                                    <span className="block text-[8px] no-underline font-sans text-[#b91c1c]">
+                                      Booked
+                                    </span>
+                                  ) : (
+                                    <span className="block text-[8px] font-sans text-[#10b981]">
+                                      Available
+                                    </span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Evening Slots */}
+                        {slotData.eveningSlots.length > 0 && (
+                          <div>
+                            <span className="text-[10px] font-bold text-[#77a193] uppercase tracking-wider block mb-1">
+                              Evening OPD (6:00 PM – 7:30 PM)
+                            </span>
+                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
+                              {slotData.eveningSlots.map((s) => (
+                                <button
+                                  key={s.slot}
+                                  type="button"
+                                  disabled={s.isBooked}
+                                  onClick={() => setSelectedSlot(s.slot)}
+                                  className={`px-2 py-1.5 rounded-lg text-xs font-mono font-medium transition-all text-center ${
+                                    s.isBooked
+                                      ? 'bg-[#fee2e2]/60 text-[#991b1b] line-through cursor-not-allowed opacity-60'
+                                      : selectedSlot === s.slot
+                                      ? 'bg-[#176e56] text-white font-bold ring-2 ring-[#54a987] shadow-2xs'
+                                      : 'bg-white hover:bg-[#eaf5ef] text-[#173d37] border border-[#dbe9e0]'
+                                  }`}
+                                  title={s.isBooked ? 'Slot already booked' : 'Available'}
+                                >
+                                  {s.slot}
+                                  {s.isBooked ? (
+                                    <span className="block text-[8px] no-underline font-sans text-[#b91c1c]">
+                                      Booked
+                                    </span>
+                                  ) : (
+                                    <span className="block text-[8px] font-sans text-[#10b981]">
+                                      Available
+                                    </span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

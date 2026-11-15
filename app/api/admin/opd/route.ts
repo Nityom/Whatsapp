@@ -5,12 +5,23 @@ import {
   upsertOpdQueueItem,
   updateOpdQueueItemStatus,
   normalizePhone,
+  getAvailableSlots,
 } from '@/lib/cortexClient';
-import { sendWhatsAppMessage } from '@/lib/whatsapp';
+import { sendWhatsAppMessage, formatWhatsAppRecipient } from '@/lib/whatsapp';
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
+    const action = searchParams.get('action');
+
+    // Slot availability query for walk-in appointment scheduling
+    if (action === 'slots') {
+      const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
+      const doctor = searchParams.get('doctor') || 'Dr. Vipeen Raut';
+      const slotData = await getAvailableSlots(date, doctor);
+      return NextResponse.json({ success: true, slotData });
+    }
+
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
     const doctor = searchParams.get('doctor') || 'ALL';
     const status = searchParams.get('status') || 'ALL';
@@ -53,7 +64,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Calculate sequential daily 2-digit token (e.g., 01, 02, 03)
+      // Calculate sequential daily 2-digit token across all patients (guaranteed no duplicate)
       const token = await calculateNextDailyToken(doctor, date);
 
       const currentTime = time || new Date().toLocaleTimeString('en-US', {
@@ -86,8 +97,10 @@ export async function POST(req: NextRequest) {
 
       // Send Instant WhatsApp Confirmation
       let whatsappStatus = 'skipped';
+      let whatsappError: string | undefined;
+
       if (sendWhatsApp && phone) {
-        const cleanPhone = normalizePhone(phone);
+        const waRecipient = formatWhatsAppRecipient(phone);
         const confirmationMsg =
           `🏥 *Svaasth Hospital – OPD Walk-in Token*\n\n` +
           `Hello *${name.trim()}*,\n` +
@@ -98,8 +111,11 @@ export async function POST(req: NextRequest) {
           `📅 *Date:* ${date} (${currentTime})\n\n` +
           `Please take a seat in the patient waiting area. You will be alerted as soon as your turn arrives.`;
 
-        const waRes = await sendWhatsAppMessage(cleanPhone, confirmationMsg);
-        whatsappStatus = waRes.success ? 'sent' : `failed: ${waRes.error || 'unknown'}`;
+        console.log(`[OPD Walk-in] Dispatching WhatsApp confirmation to +${waRecipient}...`);
+        const waRes = await sendWhatsAppMessage(waRecipient, confirmationMsg);
+        console.log(`[OPD Walk-in WhatsApp Result]`, waRes);
+        whatsappStatus = waRes.success ? 'sent' : 'failed';
+        whatsappError = waRes.error;
       }
 
       return NextResponse.json({
@@ -107,6 +123,7 @@ export async function POST(req: NextRequest) {
         token,
         queueId: queueRecordId,
         whatsappStatus,
+        whatsappError,
       });
     }
 
@@ -132,7 +149,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const cleanPhone = normalizePhone(phone);
+      const waRecipient = formatWhatsAppRecipient(phone);
       const alertMsg =
         `🔔 *Consultation Call – Svaasth Hospital*\n\n` +
         `Dear *${name || 'Patient'}*,\n` +
@@ -140,7 +157,9 @@ export async function POST(req: NextRequest) {
         `🎫 *Your Token Number:* #${token}\n\n` +
         `Please proceed to the doctor's consultation room immediately. Thank you!`;
 
-      const waRes = await sendWhatsAppMessage(cleanPhone, alertMsg);
+      console.log(`[OPD Call Patient] Dispatching WhatsApp alert to +${waRecipient}...`);
+      const waRes = await sendWhatsAppMessage(waRecipient, alertMsg);
+      console.log(`[OPD Call Patient WhatsApp Result]`, waRes);
 
       // Advance status to In Consultation if queueId is provided
       if (queueId) {
