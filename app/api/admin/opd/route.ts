@@ -17,6 +17,29 @@ import { getConvexClient } from '@/lib/conversation';
 import { api } from '@/convex/_generated/api';
 
 /**
+ * Formats a date string (YYYY-MM-DD or ISO) into readable date
+ * Example: "2026-11-16" -> "16 November 2026"
+ */
+export function formatDateReadable(dateStr: string): string {
+  if (!dateStr) return '';
+  const clean = dateStr.split('T')[0];
+  const parts = clean.split(/[-/]/);
+  if (parts.length === 3 && parts[0].length === 4) {
+    const year = parts[0];
+    const monthIdx = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    if (monthIdx >= 0 && monthIdx < 12) {
+      return `${day} ${months[monthIdx]} ${year}`;
+    }
+  }
+  return dateStr;
+}
+
+/**
  * Formats a date string (YYYY-MM-DD or ISO) into DD/MM/YY
  * Example: "2026-11-16" -> "16/11/26"
  */
@@ -71,33 +94,37 @@ export function formatPatientName(name: string): string {
 
 /**
  * Dispatches an OPD notification to WhatsApp.
- * First uses the officially approved Meta Utility Template `svaasth_opd_update`
- * which bypasses the 24-hour window restriction and guarantees delivery.
- * Also saves the message to the Convex chat logs.
+ * 1. Attempts the dedicated `svaasth_token_confirmed` template (exact user format).
+ * 2. Falls back to the approved `svaasth_opd_update` utility template.
+ * 3. Falls back to plain text.
+ * Also persists the formatted message to Convex chat logs.
  */
 async function dispatchOpdWhatsApp(params: {
   phone: string;
   name: string;
   doctor: string;
-  dateOrStatus: string;
+  dateStr: string;
+  timeStr: string;
   token: string;
   plainText: string;
 }): Promise<{ success: boolean; error?: string; messageId?: string }> {
   const waRecipient = formatWhatsAppRecipient(params.phone);
+  const cleanName = formatPatientName(params.name);
 
-  // 1. Send via approved Meta Template `svaasth_opd_update` (100% delivered by Meta)
+  // 1. Try dedicated `svaasth_token_confirmed` template
   try {
     const tplRes = await sendWhatsAppTemplate(
       waRecipient,
-      'svaasth_opd_update',
+      'svaasth_token_confirmed',
       'en_US',
       [
         {
           type: 'body',
           parameters: [
-            { type: 'text', text: params.name || 'Valued Patient' },
+            { type: 'text', text: cleanName },
             { type: 'text', text: params.doctor },
-            { type: 'text', text: params.dateOrStatus },
+            { type: 'text', text: params.dateStr },
+            { type: 'text', text: params.timeStr },
             { type: 'text', text: params.token },
           ],
         },
@@ -105,14 +132,14 @@ async function dispatchOpdWhatsApp(params: {
     );
 
     if (tplRes.success) {
-      console.log(`[OPD WhatsApp Template Delivered] To: ${waRecipient}, ID: ${tplRes.messageId}`);
+      console.log(`[OPD WhatsApp] svaasth_token_confirmed sent to ${waRecipient}. ID: ${tplRes.messageId}`);
       try {
         const convex = getConvexClient();
         await convex.mutation(api.sessions.sendStaffMessage, {
           phoneNumber: waRecipient,
-          text: `[OPD Update] Dear ${params.name}, your visit with ${params.doctor} is confirmed for ${params.dateOrStatus}. Token: #${params.token}.`,
+          text: params.plainText,
           metadata: {
-            template: 'svaasth_opd_update',
+            template: 'svaasth_token_confirmed',
             token: params.token,
             whatsappMessageId: tplRes.messageId,
           },
@@ -123,10 +150,49 @@ async function dispatchOpdWhatsApp(params: {
       return tplRes;
     }
   } catch (err: any) {
-    console.warn(`[OPD WhatsApp] Template send attempt error:`, err?.message);
+    console.warn(`[OPD WhatsApp] svaasth_token_confirmed attempt:`, err?.message);
   }
 
-  // 2. Fallback to direct plain text message
+  // 2. Fallback to approved `svaasth_opd_update` template
+  try {
+    const fallbackRes = await sendWhatsAppTemplate(
+      waRecipient,
+      'svaasth_opd_update',
+      'en_US',
+      [
+        {
+          type: 'body',
+          parameters: [
+            { type: 'text', text: cleanName },
+            { type: 'text', text: params.doctor },
+            { type: 'text', text: `${params.dateStr} at ${params.timeStr}` },
+            { type: 'text', text: params.token },
+          ],
+        },
+      ]
+    );
+
+    if (fallbackRes.success) {
+      console.log(`[OPD WhatsApp] svaasth_opd_update sent to ${waRecipient}. ID: ${fallbackRes.messageId}`);
+      try {
+        const convex = getConvexClient();
+        await convex.mutation(api.sessions.sendStaffMessage, {
+          phoneNumber: waRecipient,
+          text: params.plainText,
+          metadata: {
+            template: 'svaasth_opd_update',
+            token: params.token,
+            whatsappMessageId: fallbackRes.messageId,
+          },
+        });
+      } catch {}
+      return fallbackRes;
+    }
+  } catch (err: any) {
+    console.warn(`[OPD WhatsApp] svaasth_opd_update attempt:`, err?.message);
+  }
+
+  // 3. Fallback to direct plain text message
   const textRes = await sendWhatsAppMessage(waRecipient, params.plainText);
   if (textRes.success) {
     try {
@@ -238,21 +304,24 @@ export async function POST(req: NextRequest) {
       let whatsappError: string | undefined;
 
       if (sendWhatsApp && phone) {
+        const formattedDateReadable = formatDateReadable(date);
         const plainMsg =
-          `🏥 *Svaasth Hospital – OPD Walk-in Token*\n\n` +
-          `Hello *${cleanPatientName}*,\n` +
-          `Your OPD walk-in registration has been confirmed.\n\n` +
-          `🎫 *OPD Token:* #${token}\n` +
-          `👨‍⚕️ *Doctor:* ${doctor}\n` +
-          `📍 *Department:* ${department}\n` +
-          `📅 *Date:* ${formattedDate} (${formattedTime})\n\n` +
-          `Please take a seat in the waiting area. You will be alerted when your turn arrives.`;
+          `🏥 *Svaasth Hospital*\n\n` +
+          `Hello *${cleanPatientName}*,\n\n` +
+          `Your appointment has been successfully confirmed!\n\n` +
+          `👩‍⚕️ *Doctor:* ${doctor}\n` +
+          `📅 *Date:* ${formattedDateReadable}\n` +
+          `⏰ *Time:* ${formattedTime}\n` +
+          `🎟️ *Token Number:* ${token}\n\n` +
+          `Thank you for choosing Svaasth Hospital. We look forward to serving you!\n\n` +
+          `Your health, our priority. 💚`;
 
         const waRes = await dispatchOpdWhatsApp({
           phone,
           name: cleanPatientName,
           doctor,
-          dateOrStatus: dateOrStatusStr,
+          dateStr: formattedDateReadable,
+          timeStr: formattedTime,
           token,
           plainText: plainMsg,
         });
@@ -324,7 +393,8 @@ export async function POST(req: NextRequest) {
         phone,
         name: cleanPatientName,
         doctor,
-        dateOrStatus: `Consultation Room (${timeFormatted})`,
+        dateStr: todayFormatted,
+        timeStr: timeFormatted,
         token,
         plainText: alertMsg,
       });
