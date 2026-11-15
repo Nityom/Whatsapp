@@ -110,20 +110,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </div>
 
-            {/* Svaasth HMS Sync Badge when expanded */}
-            {!isCollapsed && (
-              <div className="mt-3 pt-2.5 border-t border-[#dbe9e0]/70 flex items-center justify-between">
-                <img
-                  src="/svaasth.png"
-                  alt="Svaasth HMS - Hospital Management System"
-                  className="h-4.5 w-auto object-contain opacity-90"
-                />
-                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-[#eaf5ef] text-[#176e56] border border-[#a3e2c3]">
-                  HMS Sync
-                </span>
-              </div>
-            )}
-
             {/* Mobile Close Button & Desktop Collapse Toggle */}
             <div className="flex items-center gap-1">
               <button
