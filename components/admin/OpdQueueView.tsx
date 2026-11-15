@@ -23,6 +23,7 @@ import {
   Activity,
   Flame,
   Trash2,
+  ExternalLink,
 } from 'lucide-react';
 
 interface OpdItem {
@@ -700,7 +701,7 @@ export const OpdQueueView: React.FC = () => {
                       {/* Actions */}
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {/* Alert Patient via WhatsApp */}
+                          {/* Alert Patient via WhatsApp Cloud API */}
                           <button
                             type="button"
                             onClick={() => handleCallPatient(item)}
@@ -711,6 +712,24 @@ export const OpdQueueView: React.FC = () => {
                             <Send className={`w-3.5 h-3.5 ${isCalling ? 'animate-spin' : ''}`} />
                             <span>{isCalling ? 'Sending...' : 'WhatsApp'}</span>
                           </button>
+
+                          {/* Direct WhatsApp Web / App Chat Shortcut */}
+                          {item.phone && (
+                            <a
+                              href={`https://wa.me/${(() => {
+                                const digits = (item.phone || '').replace(/\D/g, '');
+                                return digits.length === 10 ? `91${digits}` : digits;
+                              })()}?text=${encodeURIComponent(
+                                `Hello ${item.name}, your OPD Token is #${item.token} with ${item.doctor} at Svaasth Hospital. Please enter the consultation room.`
+                              )}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Open direct WhatsApp Web chat with patient"
+                              className="p-1.5 rounded-lg text-[#166534] bg-[#eaf5ef] hover:bg-[#dcfce7] border border-[#bbf7d0] transition-colors cursor-pointer"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          )}
 
                           {/* Status Progression dropdown */}
                           <select

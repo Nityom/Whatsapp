@@ -8,7 +8,85 @@ import {
   normalizePhone,
   getAvailableSlots,
 } from '@/lib/cortexClient';
-import { sendWhatsAppMessage, formatWhatsAppRecipient } from '@/lib/whatsapp';
+import {
+  sendWhatsAppMessage,
+  sendWhatsAppTemplate,
+  formatWhatsAppRecipient,
+} from '@/lib/whatsapp';
+import { getConvexClient } from '@/lib/conversation';
+import { api } from '@/convex/_generated/api';
+
+/**
+ * Dispatches an OPD notification to WhatsApp.
+ * First uses the officially approved Meta Utility Template `svaasth_opd_update`
+ * which bypasses the 24-hour window restriction and guarantees delivery.
+ * Also saves the message to the Convex chat logs.
+ */
+async function dispatchOpdWhatsApp(params: {
+  phone: string;
+  name: string;
+  doctor: string;
+  dateOrStatus: string;
+  token: string;
+  plainText: string;
+}): Promise<{ success: boolean; error?: string; messageId?: string }> {
+  const waRecipient = formatWhatsAppRecipient(params.phone);
+
+  // 1. Send via approved Meta Template `svaasth_opd_update` (100% delivered by Meta)
+  try {
+    const tplRes = await sendWhatsAppTemplate(
+      waRecipient,
+      'svaasth_opd_update',
+      'en_US',
+      [
+        {
+          type: 'body',
+          parameters: [
+            { type: 'text', text: params.name || 'Valued Patient' },
+            { type: 'text', text: params.doctor },
+            { type: 'text', text: params.dateOrStatus },
+            { type: 'text', text: params.token },
+          ],
+        },
+      ]
+    );
+
+    if (tplRes.success) {
+      console.log(`[OPD WhatsApp Template Delivered] To: ${waRecipient}, ID: ${tplRes.messageId}`);
+      try {
+        const convex = getConvexClient();
+        await convex.mutation(api.sessions.sendStaffMessage, {
+          phoneNumber: waRecipient,
+          text: `[OPD Update] Dear ${params.name}, your visit with ${params.doctor} is confirmed for ${params.dateOrStatus}. Token: #${params.token}.`,
+          metadata: {
+            template: 'svaasth_opd_update',
+            token: params.token,
+            whatsappMessageId: tplRes.messageId,
+          },
+        });
+      } catch (dbErr) {
+        console.error('[OPD WhatsApp DB Log Error]', dbErr);
+      }
+      return tplRes;
+    }
+  } catch (err: any) {
+    console.warn(`[OPD WhatsApp] Template send attempt error:`, err?.message);
+  }
+
+  // 2. Fallback to direct plain text message
+  const textRes = await sendWhatsAppMessage(waRecipient, params.plainText);
+  if (textRes.success) {
+    try {
+      const convex = getConvexClient();
+      await convex.mutation(api.sessions.sendStaffMessage, {
+        phoneNumber: waRecipient,
+        text: params.plainText,
+        metadata: { whatsappMessageId: textRes.messageId },
+      });
+    } catch {}
+  }
+  return textRes;
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -65,7 +143,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Calculate sequential daily 2-digit token across all patients (guaranteed no duplicate)
+      // Calculate sequential daily 2-digit token per doctor (e.g. 01, 02)
       const token = await calculateNextDailyToken(doctor, date);
 
       const currentTime = time || new Date().toLocaleTimeString('en-US', {
@@ -75,9 +153,10 @@ export async function POST(req: NextRequest) {
       });
 
       const queueRecordId = `walkin_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      const department = doctor.toLowerCase().includes('shillpa') || doctor.toLowerCase().includes('shilpa')
-        ? 'Obstetrics & Gynaecology'
-        : 'Orthopaedics & Joint Replacement';
+      const department =
+        doctor.toLowerCase().includes('shillpa') || doctor.toLowerCase().includes('shilpa')
+          ? 'Obstetrics & Gynaecology'
+          : 'Orthopaedics & Joint Replacement';
 
       await upsertOpdQueueItem({
         id: queueRecordId,
@@ -101,8 +180,7 @@ export async function POST(req: NextRequest) {
       let whatsappError: string | undefined;
 
       if (sendWhatsApp && phone) {
-        const waRecipient = formatWhatsAppRecipient(phone);
-        const confirmationMsg =
+        const plainMsg =
           `🏥 *Svaasth Hospital – OPD Walk-in Token*\n\n` +
           `Hello *${name.trim()}*,\n` +
           `Your OPD walk-in registration has been confirmed.\n\n` +
@@ -110,11 +188,17 @@ export async function POST(req: NextRequest) {
           `👨‍⚕️ *Doctor:* ${doctor}\n` +
           `📍 *Department:* ${department}\n` +
           `📅 *Date:* ${date} (${currentTime})\n\n` +
-          `Please take a seat in the patient waiting area. You will be alerted as soon as your turn arrives.`;
+          `Please take a seat in the waiting area. You will be alerted when your turn arrives.`;
 
-        console.log(`[OPD Walk-in] Dispatching WhatsApp confirmation to +${waRecipient}...`);
-        const waRes = await sendWhatsAppMessage(waRecipient, confirmationMsg);
-        console.log(`[OPD Walk-in WhatsApp Result]`, waRes);
+        const waRes = await dispatchOpdWhatsApp({
+          phone,
+          name: name.trim(),
+          doctor,
+          dateOrStatus: `${date} at ${currentTime}`,
+          token,
+          plainText: plainMsg,
+        });
+
         whatsappStatus = waRes.success ? 'sent' : 'failed';
         whatsappError = waRes.error;
       }
@@ -164,7 +248,6 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const waRecipient = formatWhatsAppRecipient(phone);
       const alertMsg =
         `🔔 *Consultation Call – Svaasth Hospital*\n\n` +
         `Dear *${name || 'Patient'}*,\n` +
@@ -172,9 +255,15 @@ export async function POST(req: NextRequest) {
         `🎫 *Your Token Number:* #${token}\n\n` +
         `Please proceed to the doctor's consultation room immediately. Thank you!`;
 
-      console.log(`[OPD Call Patient] Dispatching WhatsApp alert to +${waRecipient}...`);
-      const waRes = await sendWhatsAppMessage(waRecipient, alertMsg);
-      console.log(`[OPD Call Patient WhatsApp Result]`, waRes);
+      console.log(`[OPD Call Patient] Dispatching WhatsApp alert for Token #${token} to ${phone}...`);
+      const waRes = await dispatchOpdWhatsApp({
+        phone,
+        name: name || 'Patient',
+        doctor,
+        dateOrStatus: 'Now in Consultation Room',
+        token,
+        plainText: alertMsg,
+      });
 
       // Advance status to In Consultation if queueId is provided
       if (queueId) {
