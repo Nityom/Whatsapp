@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getWhatsAppTemplates, createWhatsAppTemplate } from '@/lib/whatsapp';
+import {
+  getWhatsAppTemplates,
+  createWhatsAppTemplate,
+  deleteWhatsAppTemplate,
+} from '@/lib/whatsapp';
 
 export async function GET(request: NextRequest) {
   try {
@@ -57,4 +61,43 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    let name = searchParams.get('name');
+    let hsmId = searchParams.get('hsmId') || searchParams.get('id') || undefined;
+
+    if (!name) {
+      try {
+        const body = await request.json();
+        name = body.name;
+        hsmId = body.hsmId || body.id || hsmId;
+      } catch {
+        // body not json or empty
+      }
+    }
+
+    if (!name) {
+      return NextResponse.json(
+        { success: false, error: 'Template name is required for deletion.' },
+        { status: 400 }
+      );
+    }
+
+    const result = await deleteWhatsAppTemplate({ name, hsmId });
+    if (!result.success) {
+      return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Template "${name}" deleted from Meta successfully.`,
+    });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+  }
+}
+
 

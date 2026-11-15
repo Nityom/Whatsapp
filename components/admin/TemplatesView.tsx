@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  AlertTriangle,
   ExternalLink,
   RefreshCw,
   HelpCircle,
@@ -20,6 +21,7 @@ import {
   Radio,
   Eye,
   Megaphone,
+  Trash2,
 } from 'lucide-react';
 import { QuickTemplate, WhatsAppSession } from './types';
 import { SendTemplateModal } from './SendTemplateModal';
@@ -94,6 +96,58 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Delete Template State
+  const [templateToDelete, setTemplateToDelete] = useState<{
+    id: string;
+    name: string;
+    status: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [deleteNotice, setDeleteNotice] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
+  const handleDeleteTemplate = async () => {
+    if (!templateToDelete) return;
+    setIsDeleting(true);
+    setDeleteNotice(null);
+
+    try {
+      const res = await fetch(
+        `/api/admin/templates?name=${encodeURIComponent(templateToDelete.name)}&hsmId=${encodeURIComponent(templateToDelete.id)}`,
+        { method: 'DELETE' }
+      );
+      const data = await res.json();
+      if (!data.success) {
+        setDeleteNotice({
+          type: 'error',
+          message: data.error || 'Failed to delete template from Meta',
+        });
+      } else {
+        setDeleteNotice({
+          type: 'success',
+          message: `Template "${templateToDelete.name}" was successfully deleted from Meta.`,
+        });
+        // Remove locally from state
+        setMetaTemplates((prev) =>
+          prev.filter(
+            (t) => t.id !== templateToDelete.id && t.name !== templateToDelete.name
+          )
+        );
+        setTemplateToDelete(null);
+        setTimeout(() => setDeleteNotice(null), 5000);
+      }
+    } catch (err: unknown) {
+      setDeleteNotice({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Network error deleting template',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Hardcoded preset quick replies
   const quickReplies: QuickTemplate[] = [
@@ -278,6 +332,32 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
 
 
 
+      {/* Delete Notice Banner */}
+      {deleteNotice && (
+        <div
+          className={`p-3 rounded-xl border text-xs flex items-center justify-between ${
+            deleteNotice.type === 'success'
+              ? 'bg-[#eaf5ef] border-[#77d1a5] text-[#176e56]'
+              : 'bg-rose-50 border-rose-200 text-rose-700'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {deleteNotice.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-[#176e56]" />
+            ) : (
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+            )}
+            <span className="font-medium">{deleteNotice.message}</span>
+          </div>
+          <button
+            onClick={() => setDeleteNotice(null)}
+            className="p-1 rounded hover:bg-black/5 text-[#55776d] cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#dbe9e0] pb-2">
         <div className="flex items-center gap-1.5 text-xs">
@@ -423,22 +503,41 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
 
                     {/* Actions */}
                     <div className="flex items-center justify-between gap-2 mt-4 pt-3 border-t border-[#dbe9e0]">
-                      <button
-                        onClick={() => handleCopy(bodyText, tmpl.id)}
-                        className="flex items-center gap-1.5 text-xs font-semibold text-[#55776d] hover:text-[#176e56] transition-colors"
-                      >
-                        {copiedId === tmpl.id ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-[#176e56]" />
-                            <span>Copied!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3.5 h-3.5" />
-                            <span>Copy Body</span>
-                          </>
-                        )}
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleCopy(bodyText, tmpl.id)}
+                          className="flex items-center gap-1 text-xs font-semibold text-[#55776d] hover:text-[#176e56] transition-colors p-1"
+                          title="Copy template body text"
+                        >
+                          {copiedId === tmpl.id ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-[#176e56]" />
+                              <span>Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Copy</span>
+                            </>
+                          )}
+                        </button>
+
+                        {/* Delete Template from Meta */}
+                        <button
+                          onClick={() =>
+                            setTemplateToDelete({
+                              id: tmpl.id,
+                              name: tmpl.name,
+                              status: tmpl.status,
+                            })
+                          }
+                          className="flex items-center gap-1 text-xs font-semibold text-rose-500 hover:text-rose-700 hover:bg-rose-50 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                          title={`Delete "${tmpl.name}" from Meta`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Delete</span>
+                        </button>
+                      </div>
 
                       {tmpl.status === 'APPROVED' ? (
                         <div className="flex items-center gap-1.5">
@@ -766,6 +865,82 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {templateToDelete && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-[#dbe9e0] shadow-xl p-6 relative">
+            <button
+              onClick={() => !isDeleting && setTemplateToDelete(null)}
+              disabled={isDeleting}
+              className="absolute top-4 right-4 p-1 rounded-lg text-[#55776d] hover:text-[#173d37] hover:bg-[#f3f9f5] transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-[#173d37]">
+                  Delete Meta WhatsApp Template?
+                </h3>
+                <p className="text-xs text-[#55776d] leading-relaxed">
+                  Are you sure you want to permanently delete{' '}
+                  <span className="font-mono font-bold text-[#173d37]">
+                    &quot;{templateToDelete.name}&quot;
+                  </span>{' '}
+                  ({templateToDelete.status}) from your Meta WhatsApp Business Account?
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <span>
+                This will delete the template directly from Meta&apos;s Cloud API. Any future broadcasts or scheduled reminders referencing this template will need to be updated.
+              </span>
+            </div>
+
+            {deleteNotice?.type === 'error' && (
+              <div className="mt-3 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{deleteNotice.message}</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2.5 mt-6 pt-3 border-t border-[#dbe9e0]">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setTemplateToDelete(null)}
+                className="px-4 py-2 rounded-xl border border-[#dbe9e0] hover:bg-[#f3f9f5] text-xs font-semibold text-[#173d37] transition-all cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleDeleteTemplate}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Deleting from Meta...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Yes, Delete from Meta</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -672,3 +672,53 @@ export async function createWhatsAppTemplate(params: {
   }
 }
 
+/**
+ * Delete a template from Meta WhatsApp Cloud API by name (and optional hsm_id).
+ */
+export async function deleteWhatsAppTemplate(params: {
+  name: string;
+  hsmId?: string;
+}): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  const wabaId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "479847545221049";
+
+  if (!token) {
+    return { success: false, error: "WHATSAPP_ACCESS_TOKEN not configured" };
+  }
+
+  try {
+    let url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${wabaId}/message_templates?name=${encodeURIComponent(params.name)}`;
+    if (params.hsmId) {
+      url += `&hsm_id=${encodeURIComponent(params.hsmId)}`;
+    }
+
+    const response = await fetch(url, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data?.error?.message || "Failed to delete template from Meta",
+      };
+    }
+
+    return {
+      success: true,
+    };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+
