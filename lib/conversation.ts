@@ -30,6 +30,25 @@ export interface ProcessMessageResult {
   session?: any;
 }
 
+function sanitizeBookingDraft(draft?: Record<string, any>) {
+  if (!draft || typeof draft !== "object") return undefined;
+  const allowedKeys = new Set([
+    "doctorName", "specialty", "date", "session", "currentSession",
+    "slot", "slotTime", "patientName", "patientAge", "patientPhone",
+    "patientAddress", "sex", "complaint",
+    "startDate", "pickupTime", "returnDate", "returnTime", "customerName",
+    "customerLatitude", "customerLongitude", "distanceKm", "locationName",
+    "locationAddress", "vehicleName", "vehiclePrice"
+  ]);
+  const clean: Record<string, any> = {};
+  for (const [key, value] of Object.entries(draft)) {
+    if (allowedKeys.has(key) && value !== undefined) {
+      clean[key] = value;
+    }
+  }
+  return Object.keys(clean).length > 0 ? clean : undefined;
+}
+
 /**
  * Core state machine processor for incoming WhatsApp messages
  */
@@ -118,7 +137,7 @@ export async function processIncomingMessage(
       handoverReason: updatedContext.handoverReason,
       lastBookedDoctor: updatedContext.lastBookedDoctor,
       lastBookedDate: updatedContext.lastBookedDate,
-      bookingDraft: updatedContext.bookingDraft,
+      bookingDraft: sanitizeBookingDraft(updatedContext.bookingDraft),
     });
   } catch (err) {
     console.error("[Session Save Error]", err);

@@ -106,6 +106,50 @@ function formatDate(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+export interface AvailableDateOption {
+  date: Date;
+  dateStr: string;
+  displayDmy: string;
+  isToday: boolean;
+  isTomorrow: boolean;
+  labelEn: string;
+  labelHi: string;
+  labelMr: string;
+}
+
+/** Returns the next 3 available OPD dates, skipping Sundays when hospital is closed */
+export function getNextAvailableDates(): AvailableDateOption[] {
+  const dates: AvailableDateOption[] = [];
+  const curr = new Date();
+
+  // If today is Sunday, skip today because OPD is closed
+  let offset = curr.getDay() === 0 ? 1 : 0;
+
+  while (dates.length < 3 && offset < 10) {
+    const candidate = new Date(curr);
+    candidate.setDate(curr.getDate() + offset);
+    if (candidate.getDay() !== 0) { // Skip Sundays
+      const dateStr = formatDate(candidate);
+      const displayDmy = formatDisplayDate(dateStr);
+      const isToday = offset === 0;
+      const isTomorrow = offset === 1 || (curr.getDay() === 0 && offset === 1);
+
+      let labelEn = isToday ? `Today (${displayDmy})` : isTomorrow ? `Tomorrow (${displayDmy})` : displayDmy;
+      let labelHi = isToday ? `आज (${displayDmy})` : isTomorrow ? `कल (${displayDmy})` : displayDmy;
+      let labelMr = isToday ? `आज (${displayDmy})` : isTomorrow ? `उद्या (${displayDmy})` : displayDmy;
+
+      // Keep <= 20 chars for Meta WhatsApp button title limit
+      if (labelEn.length > 20) labelEn = isToday ? "Today" : isTomorrow ? "Tomorrow" : displayDmy;
+      if (labelHi.length > 20) labelHi = isToday ? "आज" : isTomorrow ? "कल" : displayDmy;
+      if (labelMr.length > 20) labelMr = isToday ? "आज" : isTomorrow ? "उद्या" : displayDmy;
+
+      dates.push({ date: candidate, dateStr, displayDmy, isToday, isTomorrow, labelEn, labelHi, labelMr });
+    }
+    offset++;
+  }
+  return dates;
+}
+
 /** Check for medical emergencies */
 export function isEmergencyQuery(text: string): boolean {
   const t = text.toLowerCase();
@@ -219,8 +263,54 @@ export function isLanguageChangeQuery(text: string): boolean {
 }
 
 /** Check if user query is an interruption of an active sub-step */
-export function isInterruptionQuery(text: string): boolean {
+export function isInterruptionQuery(text: string, currentStep?: string): boolean {
   const l = text.toLowerCase().trim();
+
+  // Button IDs, numerical choices, slot IDs, or dates are NEVER interruptions!
+  if (
+    l.startsWith("doctor_") ||
+    l.startsWith("date_") ||
+    l.startsWith("slot_") ||
+    l.startsWith("session_") ||
+    l.startsWith("profile_") ||
+    l.startsWith("btn_") ||
+    l.startsWith("lang_") ||
+    /^[1-9]$|^10$/.test(l)
+  ) {
+    return false;
+  }
+
+  // Doctor selection step: selecting or naming a doctor is the answer!
+  if (currentStep === "BOOKING_SELECT_DOCTOR") {
+    if (matchDoctorByName(text) || /^(1|2|doctor_1|doctor_2)$/i.test(l)) {
+      return false;
+    }
+  }
+
+  // Date selection step: date choices/inputs are not interruptions
+  if (currentStep === "BOOKING_SELECT_DATE") {
+    if (parseDateInput(text) || /^(today|tomorrow|कल|आज|उद्या|परसों|परवा|date_1|date_2|date_3|1|2|3)$/i.test(l)) {
+      return false;
+    }
+  }
+
+  // Address/name registration steps: entering text is the answer
+  if (currentStep === "REGISTER_ADDRESS" || currentStep === "REGISTER_NAME") {
+    if (
+      isEmergencyQuery(text) ||
+      isLanguageChangeQuery(text) ||
+      isGreetingText(text) ||
+      l === "cancel" ||
+      l === "reset" ||
+      l === "menu" ||
+      l === "stop" ||
+      l === "exit"
+    ) {
+      return true;
+    }
+    return false;
+  }
+
   return (
     isGreetingText(text) ||
     isLanguageChangeQuery(text) ||
@@ -230,6 +320,8 @@ export function isInterruptionQuery(text: string): boolean {
     l === "reset" ||
     l === "menu" ||
     l === "main menu" ||
+    l === "stop" ||
+    l === "exit" ||
     l.includes("reception") ||
     l.includes("prescription") ||
     l.includes("parcha") ||
@@ -237,33 +329,36 @@ export function isInterruptionQuery(text: string): boolean {
     l.includes("invoice") ||
     l.includes("followup") ||
     l.includes("follow up") ||
-    l.includes("doctor") ||
-    l.includes("timing") ||
-    l.includes("availability") ||
-    l.includes("hospital") ||
-    l.includes("location") ||
-    l.includes("address") ||
-    l.includes("lab") ||
-    l.includes("report")
+    l.includes("lab report") ||
+    l.includes("blood test")
   );
 }
 
 /** Parse various date formats into YYYY-MM-DD */
 export function parseDateInput(input: string): string | null {
   const clean = input.trim().toLowerCase();
-  const today = new Date();
+  const nextDates = getNextAvailableDates();
 
-  if (/\b(today|आज)\b/i.test(clean) || clean === "1" || clean === "date_1") {
-    return formatDate(today);
+  if (clean === "1" || clean === "date_1") {
+    return nextDates[0]?.dateStr || formatDate(new Date());
   }
-  if (/\b(tomorrow|कल|उद्या)\b/i.test(clean) || clean === "2" || clean === "date_2") {
-    const tmrw = new Date(today);
-    tmrw.setDate(today.getDate() + 1);
+  if (clean === "2" || clean === "date_2") {
+    return nextDates[1]?.dateStr || null;
+  }
+  if (clean === "3" || clean === "date_3") {
+    return nextDates[2]?.dateStr || null;
+  }
+  if (/\b(today|आज)\b/i.test(clean)) {
+    return formatDate(new Date());
+  }
+  if (/\b(tomorrow|कल|उद्या)\b/i.test(clean)) {
+    const tmrw = new Date();
+    tmrw.setDate(tmrw.getDate() + 1);
     return formatDate(tmrw);
   }
-  if (/\b(day after tomorrow|day after|परसों|परवा)\b/i.test(clean) || clean === "3" || clean === "date_3") {
-    const dayAfter = new Date(today);
-    dayAfter.setDate(today.getDate() + 2);
+  if (/\b(day after tomorrow|day after|परसों|परवा)\b/i.test(clean)) {
+    const dayAfter = new Date();
+    dayAfter.setDate(dayAfter.getDate() + 2);
     return formatDate(dayAfter);
   }
 
@@ -485,7 +580,16 @@ export async function handleConversationTurn(
       lower === "#resume" ||
       lower === "/bot" ||
       lower === "resume bot" ||
-      lower === "start bot";
+      lower === "start bot" ||
+      lower === "menu" ||
+      lower === "hi" ||
+      lower === "hello" ||
+      lower === "namaste" ||
+      lower === "start" ||
+      lower === "1" ||
+      lower.startsWith("menu_") ||
+      choiceId.startsWith("doctor_") ||
+      choiceId.startsWith("menu_");
 
     if (isExplicitResume) {
       const activeLang = context.language || "en";
@@ -752,7 +856,7 @@ export async function handleConversationTurn(
     context.currentStep.startsWith("BOOKING_") ||
     context.currentStep.startsWith("REGISTER_")
   ) {
-    if (isInterruptionQuery(userText)) {
+    if (isInterruptionQuery(userText, context.currentStep)) {
       context.currentStep = "IDLE";
       context.bookingDraft = undefined;
     }
@@ -1082,7 +1186,6 @@ async function initiateAppointmentBooking(
     specialty: matchedDoc ? matchedDoc.specialty : undefined,
     date: parsedDate || undefined,
     patientName: explicitPatientName,
-    explicitNameRequested: Boolean(explicitPatientName),
   };
 
   // Step 1: If doctor not specified, ask doctor
@@ -1117,33 +1220,27 @@ async function initiateAppointmentBooking(
 
   // Step 2: If date not specified, ask date
   if (!draft.date) {
-    const today = new Date();
-    const tmrw = new Date(today);
-    tmrw.setDate(today.getDate() + 1);
-    const dayAfter = new Date(today);
-    dayAfter.setDate(today.getDate() + 2);
-
-    const todayDmy = formatDisplayDate(formatDate(today));
-    const tmrwDmy = formatDisplayDate(formatDate(tmrw));
-    const dayAfterDmy = formatDisplayDate(formatDate(dayAfter));
+    const nextDates = getNextAvailableDates();
+    const dateOptionsText = nextDates
+      .map((d, i) => `${i + 1}️⃣ ${inLanguage(lang, d.labelEn, d.labelHi, d.labelMr)}`)
+      .join("\n");
 
     return {
       text: `${inLanguage(
         lang,
-        `Great! Let's book your appointment with:\n👨‍⚕️ *${draft.doctorName}* (${draft.specialty})\n\n📅 *Select Appointment Date:*\n1️⃣ Today (${todayDmy})\n2️⃣ Tomorrow (${tmrwDmy})\n3️⃣ Day after tomorrow (${dayAfterDmy})\n4️⃣ Or reply with any date in DD/MM/YY format\n\n_(Note: OPD is closed on Sundays)_`,
-        `बहुत बढ़िया! आइए अपॉइंटमेंट बुक करते हैं:\n👨‍⚕️ *${draft.doctorName}* (${draft.specialty})\n\n📅 *अपॉइंटमेंट की तारीख चुनें:*\n1️⃣ आज (${todayDmy})\n2️⃣ कल (${tmrwDmy})\n3️⃣ परसों (${dayAfterDmy})\n4️⃣ या DD/MM/YY प्रारूप में तारीख लिखें\n\n_(ध्यान दें: रविवार को OPD बंद रहता है)_`,
-        `उत्तम! चला अपॉइंटमेंट बुक करूया:\n👨‍⚕️ *${draft.doctorName}* (${draft.specialty})\n\n📅 *अपॉइंटमेंटची तारीख निवडा:*\n1️⃣ आज (${todayDmy})\n2️⃣ उद्या (${tmrwDmy})\n3️⃣ परवा (${dayAfterDmy})\n4️⃣ किंवा DD/MM/YY स्वरूपात तारीख लिहा\n\n_(टीप: रविवारी OPD बंद असते)_`
+        `Great! Let's book your appointment with:\n👨‍⚕️ *${draft.doctorName}* (${draft.specialty})\n\n📅 *Select Appointment Date:*\n${dateOptionsText}\n4️⃣ Or reply with any date in DD/MM/YY format\n\n_(Note: OPD is closed on Sundays)_`,
+        `बहुत बढ़िया! आइए अपॉइंटमेंट बुक करते हैं:\n👨‍⚕️ *${draft.doctorName}* (${draft.specialty})\n\n📅 *अपॉइंटमेंट की तारीख चुनें:*\n${dateOptionsText}\n4️⃣ या DD/MM/YY प्रारूप में तारीख लिखें\n\n_(ध्यान दें: रविवार को OPD बंद रहता है)_`,
+        `उत्तम! चला अपॉइंटमेंट बुक करूया:\n👨‍⚕️ *${draft.doctorName}* (${draft.specialty})\n\n📅 *अपॉइंटमेंटची तारीख निवडा:*\n${dateOptionsText}\n4️⃣ किंवा DD/MM/YY स्वरूपात तारीख लिहा\n\n_(टीप: रविवारी OPD बंद असते)_`
       )}\n\n👉 ${inLanguage(lang, "Tap an option below or reply with 1, 2, or 3.", "नीचे टैप करें या 1, 2, 3 भेजें।", "खाली टॅप करा किंवा 1, 2, 3 पाठवा.")}`,
       nextStep: "BOOKING_SELECT_DATE",
       updatedContext: { bookingDraft: draft },
       interactive: {
         kind: "buttons",
         body: inLanguage(lang, "Select date (DD/MM/YY):", "तारीख चुनें (DD/MM/YY):", "तारीख निवडा (DD/MM/YY):"),
-        buttons: [
-          { id: "date_1", title: inLanguage(lang, `Today (${todayDmy})`, `आज (${todayDmy})`, `आज (${todayDmy})`) },
-          { id: "date_2", title: inLanguage(lang, `Tomorrow (${tmrwDmy})`, `कल (${tmrwDmy})`, `उद्या (${tmrwDmy})`) },
-          { id: "date_3", title: inLanguage(lang, `2 Days (${dayAfterDmy})`, `परसों (${dayAfterDmy})`, `परवा (${dayAfterDmy})`) },
-        ],
+        buttons: nextDates.map((d, idx) => ({
+          id: `date_${idx + 1}`,
+          title: inLanguage(lang, d.labelEn, d.labelHi, d.labelMr).slice(0, 20),
+        })),
       },
     };
   }
@@ -1207,33 +1304,27 @@ async function handleBookingSelectDoctor(
     specialty: selectedDoc.specialty,
   };
 
-  const today = new Date();
-  const tmrw = new Date(today);
-  tmrw.setDate(today.getDate() + 1);
-  const dayAfter = new Date(today);
-  dayAfter.setDate(today.getDate() + 2);
-
-  const todayDmy = formatDisplayDate(formatDate(today));
-  const tmrwDmy = formatDisplayDate(formatDate(tmrw));
-  const dayAfterDmy = formatDisplayDate(formatDate(dayAfter));
+  const nextDates = getNextAvailableDates();
+  const dateOptionsText = nextDates
+    .map((d, i) => `${i + 1}️⃣ ${inLanguage(lang, d.labelEn, d.labelHi, d.labelMr)}`)
+    .join("\n");
 
   return {
     text: `${inLanguage(
       lang,
-      `Selected: 👨‍⚕️ *${selectedDoc.name}* (${selectedDoc.specialty})\n\n📅 *Select Appointment Date:*\n1️⃣ Today (${todayDmy})\n2️⃣ Tomorrow (${tmrwDmy})\n3️⃣ Day after tomorrow (${dayAfterDmy})\n4️⃣ Or reply with any date in DD/MM/YY format\n\n_(Note: OPD is closed on Sundays)_`,
-      `चुना गया: 👨‍⚕️ *${selectedDoc.name}* (${selectedDoc.specialty})\n\n📅 *तारीख चुनें:*\n1️⃣ आज (${todayDmy})\n2️⃣ कल (${tmrwDmy})\n3️⃣ परसों (${dayAfterDmy})\n4️⃣ या DD/MM/YY प्रारूप में लिखें\n\n_(रविवार को OPD बंद रहता है)_`,
-      `निवडले: 👨‍⚕️ *${selectedDoc.name}* (${selectedDoc.specialty})\n\n📅 *तारीख निवडा:*\n1️⃣ आज (${todayDmy})\n2️⃣ उद्या (${tmrwDmy})\n3️⃣ परवा (${dayAfterDmy})\n4️⃣ किंवा DD/MM/YY स्वरूपात लिहा\n\n_(रविवारी OPD बंद असते)_`
+      `Selected: 👨‍⚕️ *${selectedDoc.name}* (${selectedDoc.specialty})\n\n📅 *Select Appointment Date:*\n${dateOptionsText}\n4️⃣ Or reply with any date in DD/MM/YY format\n\n_(Note: OPD is closed on Sundays)_`,
+      `चुना गया: 👨‍⚕️ *${selectedDoc.name}* (${selectedDoc.specialty})\n\n📅 *तारीख चुनें:*\n${dateOptionsText}\n4️⃣ या DD/MM/YY प्रारूप में लिखें\n\n_(रविवार को OPD बंद रहता है)_`,
+      `निवडले: 👨‍⚕️ *${selectedDoc.name}* (${selectedDoc.specialty})\n\n📅 *तारीख निवडा:*\n${dateOptionsText}\n4️⃣ किंवा DD/MM/YY स्वरूपात लिहा\n\n_(रविवारी OPD बंद असते)_`
     )}\n\n👉 ${inLanguage(lang, "Tap an option below or reply with 1, 2, or 3.", "नीचे टैप करें या 1, 2, 3 भेजें।", "खाली टॅप करा किंवा 1, 2, 3 पाठवा.")}`,
     nextStep: "BOOKING_SELECT_DATE",
     updatedContext: { bookingDraft: updatedDraft },
     interactive: {
       kind: "buttons",
       body: inLanguage(lang, "Select date (DD/MM/YY):", "तारीख चुनें (DD/MM/YY):", "तारीख निवडा (DD/MM/YY):"),
-      buttons: [
-        { id: "date_1", title: inLanguage(lang, `Today (${todayDmy})`, `आज (${todayDmy})`, `आज (${todayDmy})`) },
-        { id: "date_2", title: inLanguage(lang, `Tomorrow (${tmrwDmy})`, `कल (${tmrwDmy})`, `उद्या (${tmrwDmy})`) },
-        { id: "date_3", title: inLanguage(lang, `2 Days (${dayAfterDmy})`, `परसों (${dayAfterDmy})`, `परवा (${dayAfterDmy})`) },
-      ],
+      buttons: nextDates.map((d, idx) => ({
+        id: `date_${idx + 1}`,
+        title: inLanguage(lang, d.labelEn, d.labelHi, d.labelMr).slice(0, 20),
+      })),
     },
   };
 }
@@ -1246,32 +1337,26 @@ async function handleBookingSelectDate(
   const parsedDate = parseDateInput(userText);
 
   if (!parsedDate) {
-    const today = new Date();
-    const tmrw = new Date(today);
-    tmrw.setDate(today.getDate() + 1);
-    const dayAfter = new Date(today);
-    dayAfter.setDate(today.getDate() + 2);
-
-    const todayDmy = formatDisplayDate(formatDate(today));
-    const tmrwDmy = formatDisplayDate(formatDate(tmrw));
-    const dayAfterDmy = formatDisplayDate(formatDate(dayAfter));
+    const nextDates = getNextAvailableDates();
+    const dateOptionsText = nextDates
+      .map((d, i) => `${i + 1}️⃣ ${inLanguage(lang, d.labelEn, d.labelHi, d.labelMr)}`)
+      .join("\n");
 
     return {
       text: inLanguage(
         lang,
-        `Please select a valid date:\n1️⃣ Today (${todayDmy})\n2️⃣ Tomorrow (${tmrwDmy})\n3️⃣ Day after tomorrow (${dayAfterDmy})\n4️⃣ Or write a date in DD/MM/YY format`,
-        `कृपया सही तारीख चुनें:\n1️⃣ आज (${todayDmy})\n2️⃣ कल (${tmrwDmy})\n3️⃣ परसों (${dayAfterDmy})\n4️⃣ या DD/MM/YY प्रारूप में लिखें`,
-        `कृपया योग्य तारीख निवडा:\n1️⃣ आज (${todayDmy})\n2️⃣ उद्या (${tmrwDmy})\n3️⃣ परवा (${dayAfterDmy})\n4️⃣ किंवा DD/MM/YY स्वरूपात लिहा`
+        `Please select a valid date:\n${dateOptionsText}\n4️⃣ Or write a date in DD/MM/YY format`,
+        `कृपया सही तारीख चुनें:\n${dateOptionsText}\n4️⃣ या DD/MM/YY प्रारूप में लिखें`,
+        `कृपया योग्य तारीख निवडा:\n${dateOptionsText}\n4️⃣ किंवा DD/MM/YY स्वरूपात लिहा`
       ),
       nextStep: "BOOKING_SELECT_DATE",
       interactive: {
         kind: "buttons",
         body: inLanguage(lang, "Select date:", "तारीख चुनें:", "तारीख निवडा:"),
-        buttons: [
-          { id: "date_1", title: inLanguage(lang, `Today (${todayDmy})`, `आज (${todayDmy})`, `आज (${todayDmy})`) },
-          { id: "date_2", title: inLanguage(lang, `Tomorrow (${tmrwDmy})`, `कल (${tmrwDmy})`, `उद्या (${tmrwDmy})`) },
-          { id: "date_3", title: inLanguage(lang, `2 Days (${dayAfterDmy})`, `परसों (${dayAfterDmy})`, `परवा (${dayAfterDmy})`) },
-        ],
+        buttons: nextDates.map((d, idx) => ({
+          id: `date_${idx + 1}`,
+          title: inLanguage(lang, d.labelEn, d.labelHi, d.labelMr).slice(0, 20),
+        })),
       },
     };
   }
@@ -1306,15 +1391,24 @@ async function proceedToPatientRegistration(
   const dateDmy = formatDisplayDate(dateStr);
 
   if (checkDate.getDay() === 0) {
+    const nextDates = getNextAvailableDates();
     return {
       text: inLanguage(
         lang,
-        `⚠️ Cortex Hospital OPD is closed on Sundays (*${dateDmy}*).\n\nPlease choose another date:\n• Reply *Tomorrow*\n• Or specify another weekday (Mon–Sat) in DD/MM/YY.`,
-        `⚠️ Cortex Hospital OPD रविवार (*${dateDmy}*) को बंद रहता है।\n\nकृपया दूसरी तारीख चुनें:\n• *कल* भेजें\n• या सोमवार से शनिवार के बीच की कोई तारीख DD/MM/YY में लिखें।`,
-        `⚠️ Cortex Hospital OPD रविवारी (*${dateDmy}*) बंद असते.\n\nकृपया दुसरी तारीख निवडा:\n• *उद्या* पाठवा\n• किंवा सोमवार ते शनिवार मधील कोणतीही तारीख DD/MM/YY मध्ये लिहा.`
+        `⚠️ Cortex Hospital OPD is closed on Sundays (*${dateDmy}*).\n\nPlease choose another date below:`,
+        `⚠️ Cortex Hospital OPD रविवार (*${dateDmy}*) को बंद रहता है।\n\nकृपया नीचे से दूसरी तारीख चुनें:`,
+        `⚠️ Cortex Hospital OPD रविवारी (*${dateDmy}*) बंद असते.\n\nकृपया खालीलपैकी दुसरी तारीख निवडा:`
       ),
       nextStep: "BOOKING_SELECT_DATE",
       updatedContext: { bookingDraft: draft },
+      interactive: {
+        kind: "buttons",
+        body: inLanguage(lang, "Select valid OPD date:", "OPD तारीख चुनें:", "OPD तारीख निवडा:"),
+        buttons: nextDates.map((d, idx) => ({
+          id: `date_${idx + 1}`,
+          title: inLanguage(lang, d.labelEn, d.labelHi, d.labelMr).slice(0, 20),
+        })),
+      },
     };
   }
 
@@ -1341,7 +1435,7 @@ async function proceedToPatientRegistration(
   const profiles = await findPatientsByPhone(context.phoneNumber);
 
   // If user explicitly specified a name in their message (e.g. "for Rahul" or "for my sister Priya")
-  if (updatedDraft.explicitNameRequested && updatedDraft.patientName) {
+  if (updatedDraft.patientName) {
     const matchedProfile = profiles.find(
       (p) =>
         p.name.toLowerCase() === updatedDraft.patientName.toLowerCase() ||
@@ -1452,15 +1546,24 @@ async function promptBookingSession(
   const dateDmy = formatDisplayDate(dateStr);
 
   if (checkDate.getDay() === 0) {
+    const nextDates = getNextAvailableDates();
     return {
       text: inLanguage(
         lang,
-        `⚠️ Cortex Hospital OPD is closed on Sundays (*${dateDmy}*).\n\nPlease choose another date:\n• Reply *Tomorrow*\n• Or specify another weekday (Mon–Sat) in DD/MM/YY.`,
-        `⚠️ Cortex Hospital OPD रविवार (*${dateDmy}*) को बंद रहता है।\n\nकृपया दूसरी तारीख चुनें:\n• *कल* भेजें\n• या सोमवार से शनिवार के बीच की कोई तारीख DD/MM/YY में लिखें।`,
-        `⚠️ Cortex Hospital OPD रविवारी (*${dateDmy}*) बंद असते.\n\nकृपया दुसरी तारीख निवडा:\n• *उद्या* पाठवा\n• किंवा सोमवार ते शनिवार मधील कोणतीही तारीख DD/MM/YY मध्ये लिहा.`
+        `⚠️ Cortex Hospital OPD is closed on Sundays (*${dateDmy}*).\n\nPlease choose another date below:`,
+        `⚠️ Cortex Hospital OPD रविवार (*${dateDmy}*) को बंद रहता है।\n\nकृपया नीचे से दूसरी तारीख चुनें:`,
+        `⚠️ Cortex Hospital OPD रविवारी (*${dateDmy}*) बंद असते.\n\nकृपया खालीलपैकी दुसरी तारीख निवडा:`
       ),
       nextStep: "BOOKING_SELECT_DATE",
       updatedContext: { bookingDraft: draft },
+      interactive: {
+        kind: "buttons",
+        body: inLanguage(lang, "Select valid OPD date:", "OPD तारीख चुनें:", "OPD तारीख निवडा:"),
+        buttons: nextDates.map((d, idx) => ({
+          id: `date_${idx + 1}`,
+          title: inLanguage(lang, d.labelEn, d.labelHi, d.labelMr).slice(0, 20),
+        })),
+      },
     };
   }
 
