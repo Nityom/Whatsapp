@@ -5,6 +5,11 @@ export const metadata: Metadata = {
   title: 'Svaasth Connect – WhatsApp Hub & Admin Dashboard',
   description:
     'Official Svaasth Connect Healthcare WhatsApp AI & Operations Hub. 24/7 Appointments, Prescriptions, Live Two-Way Chat, Bulk Broadcasts, and Patient Care.',
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
 };
 
 export default function RootLayout({
