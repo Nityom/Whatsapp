@@ -104,7 +104,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     Svaasth
                   </span>
                   <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#4fa383] mt-1.5 leading-none">
-                    CONNECT HUB
+                    CONNECT
                   </span>
                 </div>
               )}
