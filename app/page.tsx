@@ -88,7 +88,17 @@ export default function AdminDashboardPage() {
       });
       const data = await res.json();
       if (data.success) {
-        setMessages(data.messages || []);
+        setMessages((prev) => {
+          const next = data.messages || [];
+          if (
+            prev.length === next.length &&
+            prev[prev.length - 1]?._id === next[next.length - 1]?._id &&
+            prev[prev.length - 1]?.createdAt === next[next.length - 1]?.createdAt
+          ) {
+            return prev;
+          }
+          return next;
+        });
       }
     } catch (err) {
       console.error('[Fetch Chat History Error]', err);
@@ -411,7 +421,7 @@ export default function AdminDashboardPage() {
           <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 items-start mt-1 relative">
             {/* Column 1: Conversations List (Hidden on mobile when active chat is open) */}
             <div
-              className={`w-full lg:w-80 lg:shrink-0 ${
+              className={`w-full lg:w-88 xl:w-96 lg:shrink-0 h-[740px] ${
                 mobileChatView === 'thread' ? 'hidden lg:block' : 'block'
               }`}
             >
@@ -431,7 +441,7 @@ export default function AdminDashboardPage() {
 
             {/* Column 2: Active Chat Conversation Thread (Full screen on mobile when viewing chat) */}
             <div
-              className={`w-full flex-1 min-w-0 ${
+              className={`w-full flex-1 min-w-0 h-[740px] ${
                 mobileChatView === 'list' ? 'hidden lg:block' : 'block'
               }`}
             >

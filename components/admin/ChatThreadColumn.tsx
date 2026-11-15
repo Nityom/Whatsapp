@@ -70,6 +70,7 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
   } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -146,10 +147,17 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
     },
   ];
 
-  // Auto-scroll to bottom of chat
+  // Auto-scroll inside chat messages container only (prevents scrolling outer dashboard down)
+  const prevMessagesLengthRef = useRef(messages.length);
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      if (messages.length !== prevMessagesLengthRef.current) {
+        prevMessagesLengthRef.current = messages.length;
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+      }
+    }
+  }, [messages.length]);
 
   // Click outside listener for Emoji Picker
   useEffect(() => {
@@ -245,7 +253,7 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
   const isHandedOver = session.isHandedOver ?? false;
 
   return (
-    <div className="flex-1 bg-white border border-[#dbe9e0] rounded-2xl flex flex-col h-[740px] shadow-xs overflow-hidden relative">
+    <div className="w-full h-full bg-white border border-[#dbe9e0] rounded-2xl flex flex-col shadow-xs overflow-hidden relative">
       {/* Hidden File Input */}
       <input
         type="file"
@@ -341,24 +349,24 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
 
       {/* Meta 24-Hour Policy Indicator Bar */}
       <div
-        className={`px-4 py-2 border-b flex items-center justify-between text-xs transition-colors shrink-0 ${
+        className={`px-3.5 sm:px-4 py-2 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs transition-colors shrink-0 ${
           isOutside24Hours
             ? 'bg-[#fffbeb] border-[#fef3c7] text-[#92400e]'
             : 'bg-[#f0fdf4] border-[#dcfce7] text-[#166534]'
         }`}
       >
-        <div className="flex items-center gap-2 font-medium">
+        <div className="flex items-center gap-2 font-medium min-w-0">
           <span
             className={`w-2.5 h-2.5 rounded-full shrink-0 ${
               isOutside24Hours ? 'bg-[#f59e0b] ring-2 ring-[#fde68a]' : 'bg-[#22c55e]'
             }`}
           />
           {isOutside24Hours ? (
-            <span>
+            <span className="leading-snug">
               <strong>Outside 24-Hour Window:</strong> Plain messages are restricted by Meta policy until patient replies.
             </span>
           ) : (
-            <span>
+            <span className="leading-snug">
               <strong>24-Hour Care Window Active:</strong> Normal text replies and staff attachments deliver directly to WhatsApp.
             </span>
           )}
@@ -367,7 +375,7 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
           <button
             type="button"
             onClick={() => setShowTemplates(true)}
-            className="text-[10px] bg-[#fef3c7] hover:bg-[#fde68a] text-[#78350f] px-2.5 py-1 rounded-lg font-bold transition-colors shrink-0 ml-2 shadow-2xs border border-[#fcd34d] cursor-pointer"
+            className="text-[10px] bg-[#fef3c7] hover:bg-[#fde68a] text-[#78350f] px-2.5 py-1 rounded-lg font-bold transition-colors shrink-0 self-start sm:self-auto shadow-2xs border border-[#fcd34d] cursor-pointer"
           >
             Send Approved Template ⚡
           </button>
@@ -375,7 +383,7 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
       </div>
 
       {/* Message Feed */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#fcfdfc]">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#fcfdfc]">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center text-xs text-[#77a193]">
             <p>No messages recorded yet for this session.</p>

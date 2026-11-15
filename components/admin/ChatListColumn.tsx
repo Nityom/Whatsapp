@@ -80,7 +80,7 @@ export const ChatListColumn: React.FC<ChatListColumnProps> = ({
   };
 
   return (
-    <div className="w-full md:w-80 lg:w-96 bg-white border border-[#dbe9e0] rounded-2xl flex flex-col h-[740px] shrink-0 shadow-xs overflow-hidden">
+    <div className="w-full h-full bg-white border border-[#dbe9e0] rounded-2xl flex flex-col shadow-xs overflow-hidden">
       {/* Top Filter Tabs */}
       <div className="p-3.5 border-b border-[#dbe9e0] space-y-3">
         <div className="flex items-center justify-between gap-1.5">
