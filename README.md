@@ -57,7 +57,7 @@ WhatsApp has 100% penetration across Indian smartphone users. **Svaasth Connect*
 │   ┌────────────────────────────┐    ┌──────────────────────────────────────────────┐   │
 │   │ Developer Safety Guardrail │◀───│ Outbound WhatsApp Dispatcher                 │   │
 │   │ (lib/whatsapp.ts)          │    │ (Text, Interactive Buttons, Lists, Maps Pin)│   │
-│   │ Dev Phone: 7796308778 only │    └──────────────────────────────────────────────┘   │
+│   │ Multi-Number Dispatch Active│    └──────────────────────────────────────────────┘   │
 └────────────────────────────────────────────────────────────┼───────────────────────────┘
                                                              │
                      ┌───────────────────────────────────────┴───────────────────────────┐
@@ -105,10 +105,9 @@ WhatsApp has 100% penetration across Indian smartphone users. **Svaasth Connect*
   * 🏥 Hospital 24/7 Casualty: `+91 9373280505` / `07152-255795`
   * 📍 Native WhatsApp Google Maps location pin to Aarti Chowk, Wardha.
 
-### 5. 🛡️ Developer Environment Protection Guardrail
-* To prevent disturbing real patients during development and testing, [lib/whatsapp.ts](file:///Users/nityomtikhe/Whatsapp/lib/whatsapp.ts) strictly enforces `isDevAllowedRecipient`:
-  * Real WhatsApp messages are **only** sent to verified developer number `7796308778` (`+917796308778`).
-  * Outbound messages to all other numbers are cleanly simulated, logged, and persisted without hitting the Meta Cloud API.
+### 5. 🛡️ Live Outbound Dispatch & Multi-Number Testing
+* Real WhatsApp Cloud API messages (templates, replies, notifications, PDFs, location pins) are dispatched to any valid 10+ digit recipient phone number.
+* Optional environment isolation: setting `RESTRICT_DEV_RECIPIENT=true` and `ALLOWED_DEV_PHONES=...` can re-enable developer recipient filtering whenever needed.
 
 ### 6. 💻 Unified Hospital Administration Dashboard
 * **Chats Workspace:** Split-pane inbox with real-time sync, patient initials, 24h care window tags, quick replies, and patient profile drawer.

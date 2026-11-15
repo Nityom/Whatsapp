@@ -584,11 +584,11 @@ export default function AdminDashboardPage() {
 
               <div className="p-4 rounded-xl bg-[#f0fdf4] border border-[#bbf7d0] flex items-center justify-between">
                 <div>
-                  <p className="font-bold text-[#166534]">Development Guardrail Active</p>
-                  <p className="text-[#15803d] mt-0.5">Target Developer Phone: +91 7796308778 (Other numbers are simulated safely)</p>
+                  <p className="font-bold text-[#166534]">Live Outbound Messaging Active</p>
+                  <p className="text-[#15803d] mt-0.5">Multi-Number Delivery Enabled (Meta Cloud API active for all valid numbers)</p>
                 </div>
                 <span className="px-2.5 py-1 rounded-full bg-[#dcfce7] text-[#166534] font-bold">
-                  Enforced
+                  Active
                 </span>
               </div>
             </div>

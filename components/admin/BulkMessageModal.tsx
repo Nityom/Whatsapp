@@ -1189,7 +1189,7 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
         <div className="p-4 border-t border-[#dbe9e0] bg-[#f8faf8] flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs text-[#55776d]">
             <AlertCircle className="w-4 h-4 text-[#54a987]" />
-            <span>Developer Mode: Outbound Meta API restricted to +91 7796308778.</span>
+            <span>Live Mode: Outbound Meta API active for all recipient numbers.</span>
           </div>
 
           <div className="flex items-center gap-2">

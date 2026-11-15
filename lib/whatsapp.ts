@@ -7,19 +7,25 @@
 const GRAPH_API_VERSION = process.env.GRAPH_API_VERSION || 'v21.0';
 
 /**
- * Developer Guard:
- * Safety safeguard: ONLY dispatch real outbound WhatsApp messages to the developer's
- * verified test number: 7796308778 (e.g. 917796308778 / +917796308778 / 07796308778).
- * ALL OTHER phone numbers are automatically simulated to prevent messaging real patients during development.
+ * Recipient Phone Guard / Validator:
+ * Validates that recipient has a valid phone number (at least 10 digits).
+ * Previously restricted only to developer test number (7796308778).
+ * Now enabled for all valid phone numbers for multi-number live testing and real dispatches.
+ * (Optional isolation: set RESTRICT_DEV_RECIPIENT=true to restrict to ALLOWED_DEV_PHONES).
  */
 export function isDevAllowedRecipient(to: string): boolean {
   if (!to) return false;
   const digits = to.replace(/\D/g, '');
-  return (
-    digits === '7796308778' ||
-    digits === '917796308778' ||
-    digits === '07796308778'
-  );
+  if (digits.length < 10) return false;
+
+  if (process.env.RESTRICT_DEV_RECIPIENT === 'true') {
+    const allowed = (process.env.ALLOWED_DEV_PHONES || '7796308778')
+      .split(',')
+      .map((p) => p.trim().replace(/\D/g, ''));
+    return allowed.some((p) => digits === p || digits.endsWith(p));
+  }
+
+  return true;
 }
 
 export interface SendMessageResult {
@@ -34,7 +40,7 @@ export type WhatsAppInteractive =
 
 export async function sendWhatsAppInteractive(to: string, interactive: WhatsAppInteractive): Promise<SendMessageResult> {
   if (!isDevAllowedRecipient(to)) {
-    console.log(`[Dev Guard: Simulated Interactive for non-dev phone +${to}]`, JSON.stringify(interactive));
+    console.log(`[Dev Guard: Simulated Interactive for invalid phone +${to}]`, JSON.stringify(interactive));
     return { success: true, messageId: `sim_dev_int_${Date.now()}` };
   }
 
@@ -87,7 +93,7 @@ export async function sendWhatsAppTemplate(
   components?: WhatsAppTemplateComponent[]
 ): Promise<SendMessageResult> {
   if (!isDevAllowedRecipient(to)) {
-    console.log(`[Dev Guard: Simulated Template for non-dev phone +${to}] Template: ${templateName}`);
+    console.log(`[Dev Guard: Simulated Template for invalid phone +${to}] Template: ${templateName}`);
     return { success: true, messageId: `sim_dev_tpl_${Date.now()}` };
   }
 
@@ -156,7 +162,7 @@ export async function sendWhatsAppTemplate(
  */
 export async function sendWhatsAppMessage(to: string, message: string): Promise<SendMessageResult> {
   if (!isDevAllowedRecipient(to)) {
-    console.log(`[Dev Guard: Simulated Outgoing Text for non-dev phone +${to}]\nMessage: ${message}`);
+    console.log(`[Dev Guard: Simulated Outgoing Text for invalid phone +${to}]\nMessage: ${message}`);
     return {
       success: true,
       messageId: `sim_dev_msg_${Date.now()}`,
@@ -233,7 +239,7 @@ export async function sendWhatsAppLocation(
 ): Promise<SendMessageResult> {
   if (!isDevAllowedRecipient(to)) {
     console.log(
-      `[Dev Guard: Simulated Outgoing Location for non-dev phone +${to}]\nName: ${location.name}\nAddress: ${location.address}`
+      `[Dev Guard: Simulated Outgoing Location for invalid phone +${to}]\nName: ${location.name}\nAddress: ${location.address}`
     );
     return {
       success: true,
@@ -365,7 +371,7 @@ export async function sendWhatsAppImage(
 ): Promise<SendMessageResult> {
   if (!isDevAllowedRecipient(to)) {
     console.log(
-      `[Dev Guard: Simulated Outgoing Image for non-dev phone +${to}]\nCaption: ${caption}`
+      `[Dev Guard: Simulated Outgoing Image for invalid phone +${to}]\nCaption: ${caption}`
     );
     return { success: true, messageId: `sim_dev_img_${Date.now()}` };
   }
@@ -437,7 +443,7 @@ export async function sendWhatsAppDocument(
 ): Promise<SendMessageResult> {
   if (!isDevAllowedRecipient(to)) {
     console.log(
-      `[Dev Guard: Simulated Outgoing Document for non-dev phone +${to}]\nFile: ${filename}`
+      `[Dev Guard: Simulated Outgoing Document for invalid phone +${to}]\nFile: ${filename}`
     );
     return {
       success: true,
