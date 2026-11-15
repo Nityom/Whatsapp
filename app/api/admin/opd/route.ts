@@ -17,6 +17,59 @@ import { getConvexClient } from '@/lib/conversation';
 import { api } from '@/convex/_generated/api';
 
 /**
+ * Formats a date string (YYYY-MM-DD or ISO) into DD/MM/YY
+ * Example: "2026-11-16" -> "16/11/26"
+ */
+export function formatDateDDMMYY(dateStr: string): string {
+  if (!dateStr) return '';
+  const clean = dateStr.split('T')[0];
+  const parts = clean.split(/[-/]/);
+  if (parts.length === 3) {
+    if (parts[0].length === 4) {
+      const day = parts[2].padStart(2, '0');
+      const month = parts[1].padStart(2, '0');
+      const year = parts[0].slice(2);
+      return `${day}/${month}/${year}`;
+    }
+    if (parts[2].length === 4) {
+      const day = parts[0].padStart(2, '0');
+      const month = parts[1].padStart(2, '0');
+      const year = parts[2].slice(2);
+      return `${day}/${month}/${year}`;
+    }
+  }
+  return dateStr;
+}
+
+/**
+ * Formats time (HH:MM) into 12-hour format with AM/PM
+ * Example: "17:26" -> "5:26 PM", "09:30" -> "9:30 AM"
+ */
+export function formatTimeTo12Hr(timeStr: string): string {
+  if (!timeStr) return '';
+  const match = timeStr.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return timeStr;
+  let hours = parseInt(match[1], 10);
+  const minutes = match[2];
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  return `${hours}:${minutes} ${ampm}`;
+}
+
+/**
+ * Capitalizes patient name into Title Case
+ * Example: "nityom tikhe" -> "Nityom Tikhe"
+ */
+export function formatPatientName(name: string): string {
+  if (!name) return 'Valued Patient';
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+/**
  * Dispatches an OPD notification to WhatsApp.
  * First uses the officially approved Meta Utility Template `svaasth_opd_update`
  * which bypasses the 24-hour window restriction and guarantees delivery.
@@ -158,10 +211,15 @@ export async function POST(req: NextRequest) {
           ? 'Obstetrics & Gynaecology'
           : 'Orthopaedics & Joint Replacement';
 
+      const cleanPatientName = formatPatientName(name);
+      const formattedDate = formatDateDDMMYY(date);
+      const formattedTime = formatTimeTo12Hr(currentTime);
+      const dateOrStatusStr = `${formattedDate} at ${formattedTime}`;
+
       await upsertOpdQueueItem({
         id: queueRecordId,
         token,
-        name: name.trim(),
+        name: cleanPatientName,
         age: String(age || '—'),
         sex,
         phone: normalizePhone(phone),
@@ -172,7 +230,7 @@ export async function POST(req: NextRequest) {
         visitType,
         status: 'Waiting',
         registeredAt: `${date}T${currentTime}:00`,
-        time: currentTime,
+        time: formattedTime,
       });
 
       // Send Instant WhatsApp Confirmation
@@ -182,19 +240,19 @@ export async function POST(req: NextRequest) {
       if (sendWhatsApp && phone) {
         const plainMsg =
           `🏥 *Svaasth Hospital – OPD Walk-in Token*\n\n` +
-          `Hello *${name.trim()}*,\n` +
+          `Hello *${cleanPatientName}*,\n` +
           `Your OPD walk-in registration has been confirmed.\n\n` +
           `🎫 *OPD Token:* #${token}\n` +
           `👨‍⚕️ *Doctor:* ${doctor}\n` +
           `📍 *Department:* ${department}\n` +
-          `📅 *Date:* ${date} (${currentTime})\n\n` +
+          `📅 *Date:* ${formattedDate} (${formattedTime})\n\n` +
           `Please take a seat in the waiting area. You will be alerted when your turn arrives.`;
 
         const waRes = await dispatchOpdWhatsApp({
           phone,
-          name: name.trim(),
+          name: cleanPatientName,
           doctor,
-          dateOrStatus: `${date} at ${currentTime}`,
+          dateOrStatus: dateOrStatusStr,
           token,
           plainText: plainMsg,
         });
@@ -248,19 +306,25 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      const cleanPatientName = formatPatientName(name);
+      const now = new Date();
+      const todayFormatted = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
+      const timeFormatted = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
       const alertMsg =
         `🔔 *Consultation Call – Svaasth Hospital*\n\n` +
-        `Dear *${name || 'Patient'}*,\n` +
+        `Dear *${cleanPatientName}*,\n` +
         `*${doctor}* is ready to see you now in the OPD Consultation Room.\n\n` +
-        `🎫 *Your Token Number:* #${token}\n\n` +
+        `🎫 *Your Token Number:* #${token}\n` +
+        `⏰ *Called At:* ${todayFormatted} at ${timeFormatted}\n\n` +
         `Please proceed to the doctor's consultation room immediately. Thank you!`;
 
       console.log(`[OPD Call Patient] Dispatching WhatsApp alert for Token #${token} to ${phone}...`);
       const waRes = await dispatchOpdWhatsApp({
         phone,
-        name: name || 'Patient',
+        name: cleanPatientName,
         doctor,
-        dateOrStatus: 'Now in Consultation Room',
+        dateOrStatus: `Consultation Room (${timeFormatted})`,
         token,
         plainText: alertMsg,
       });

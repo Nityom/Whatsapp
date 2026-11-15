@@ -49,6 +49,26 @@ interface OpdItem {
   time?: string;
 }
 
+const formatTimeDisplay = (timeStr?: string): string => {
+  if (!timeStr) return '—';
+  const match = timeStr.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return timeStr;
+  let h = parseInt(match[1], 10);
+  const m = match[2];
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${m} ${ampm}`;
+};
+
+const formatNameDisplay = (nameStr?: string): string => {
+  if (!nameStr) return 'Patient';
+  return nameStr
+    .trim()
+    .split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+};
+
 const DOCTORS = [
   { name: 'Dr. Vipeen Raut', department: 'Orthopaedics & Joint Replacement' },
   { name: 'Dr. Shillpa Raut', department: 'Obstetrics & Gynaecology' },
@@ -636,7 +656,7 @@ export const OpdQueueView: React.FC = () => {
 
                       {/* Patient Details */}
                       <td className="py-3 px-4">
-                        <div className="font-bold text-[#173d37] text-sm">{item.name}</div>
+                        <div className="font-bold text-[#173d37] text-sm">{formatNameDisplay(item.name)}</div>
                         <div className="text-[11px] text-[#55776d] flex items-center gap-2 mt-0.5">
                           <span>
                             {item.age} {item.sex}
@@ -665,7 +685,7 @@ export const OpdQueueView: React.FC = () => {
                       {/* Time / Type */}
                       <td className="py-3 px-4">
                         <div className="font-semibold text-[#173d37] font-mono">
-                          {item.time || '10:30'}
+                          {formatTimeDisplay(item.time) || item.time || '10:30 AM'}
                         </div>
                         <div className="text-[10px] inline-block px-1.5 py-0.5 rounded bg-[#f3f9f5] text-[#176e56] font-medium mt-0.5">
                           {item.visitType || 'Appointment'}
