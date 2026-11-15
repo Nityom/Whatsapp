@@ -40,6 +40,8 @@ export default function AdminDashboardPage() {
 
   // New UX state: minimize sidebar & toggle client profile drawer
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [mobileChatView, setMobileChatView] = useState<'list' | 'thread'>('list');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   // Modals state
@@ -362,7 +364,7 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#f8faf8] text-[#173d37] flex">
-      {/* 1. Left Persistent Sidebar with Minimize/Collapse */}
+      {/* 1. Left Persistent Sidebar with Minimize/Collapse & Mobile Drawer */}
       <Sidebar
         activeTab={activeTab}
         onSelectTab={setActiveTab}
@@ -370,16 +372,19 @@ export default function AdminDashboardPage() {
         isWhatsAppConnected={true}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+        isMobileOpen={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
       {/* 2. Main Dashboard Content */}
-      <main className="flex-1 p-6 md:p-8 flex flex-col min-w-0 overflow-y-auto">
+      <main className="flex-1 p-3.5 sm:p-5 md:p-8 flex flex-col min-w-0 overflow-y-auto">
         {/* Top Header */}
         <Header
           userName="Nityom"
           dateRange={dateRange}
           onChangeDateRange={setDateRange}
           onOpenBulkModal={() => setIsBulkModalOpen(true)}
+          onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
         />
 
         {/* 4 Stat Cards (Displayed on Executive Dashboard Overview) */}
@@ -392,6 +397,7 @@ export default function AdminDashboardPage() {
             stats={stats}
             onOpenChat={(phone) => {
               setSelectedPhone(phone);
+              setMobileChatView('thread');
               setActiveTab('chats');
             }}
             onOpenBulkModal={() => setIsBulkModalOpen(true)}
@@ -400,41 +406,61 @@ export default function AdminDashboardPage() {
           />
         )}
 
-        {/* TAB 2: DEDICATED CHATS WORKSPACE */}
+        {/* TAB 2: DEDICATED CHATS WORKSPACE (Fully Responsive Mobile/Tablet/Desktop) */}
         {activeTab === 'chats' && (
-          <div className="flex flex-col lg:flex-row gap-5 items-start mt-1">
-            {/* Column 1: Conversations List */}
-            <ChatListColumn
-              sessions={sessions}
-              selectedPhone={selectedPhone}
-              onSelectSession={(phone) => setSelectedPhone(phone)}
-              filter={chatFilter}
-              onChangeFilter={setChatFilter}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-            />
-
-            {/* Column 2: Active Chat Conversation Thread */}
-            <ChatThreadColumn
-              session={activeSession}
-              messages={messages}
-              onSendMessage={handleSendMessage}
-              onSendTemplate={handleSendTemplate}
-              onToggleBotHandover={handleToggleBotHandover}
-              onOpenProfile={() => setIsProfileOpen((prev) => !prev)}
-              isProfileOpen={isProfileOpen}
-              isSending={isSendingMessage}
-            />
-
-            {/* Column 3: Patient Profile & Quick Actions (ONLY open when clicking profile header) */}
-            {isProfileOpen && (
-              <PatientDetailColumn
-                session={activeSession}
-                onOpenQuickAction={(action) => setQuickActionType(action)}
-                onUpdateNotes={handleUpdateNotes}
-                onAddTag={handleAddTag}
-                onClose={() => setIsProfileOpen(false)}
+          <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 items-start mt-1 relative">
+            {/* Column 1: Conversations List (Hidden on mobile when active chat is open) */}
+            <div
+              className={`w-full lg:w-80 lg:shrink-0 ${
+                mobileChatView === 'thread' ? 'hidden lg:block' : 'block'
+              }`}
+            >
+              <ChatListColumn
+                sessions={sessions}
+                selectedPhone={selectedPhone}
+                onSelectSession={(phone) => {
+                  setSelectedPhone(phone);
+                  setMobileChatView('thread');
+                }}
+                filter={chatFilter}
+                onChangeFilter={setChatFilter}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
               />
+            </div>
+
+            {/* Column 2: Active Chat Conversation Thread (Full screen on mobile when viewing chat) */}
+            <div
+              className={`w-full flex-1 min-w-0 ${
+                mobileChatView === 'list' ? 'hidden lg:block' : 'block'
+              }`}
+            >
+              <ChatThreadColumn
+                session={activeSession}
+                messages={messages}
+                onSendMessage={handleSendMessage}
+                onSendTemplate={handleSendTemplate}
+                onToggleBotHandover={handleToggleBotHandover}
+                onOpenProfile={() => setIsProfileOpen((prev) => !prev)}
+                isProfileOpen={isProfileOpen}
+                isSending={isSendingMessage}
+                onBackToConversations={() => setMobileChatView('list')}
+              />
+            </div>
+
+            {/* Column 3: Patient Profile & Quick Actions (Slide-over drawer on mobile/tablet, side panel on desktop) */}
+            {isProfileOpen && (
+              <div className="fixed inset-0 z-50 lg:static lg:z-auto bg-black/40 backdrop-blur-xs lg:bg-transparent flex justify-end">
+                <div className="w-full max-w-sm h-full lg:h-[740px] lg:w-80 shrink-0 shadow-2xl lg:shadow-xs animate-in slide-in-from-right duration-200">
+                  <PatientDetailColumn
+                    session={activeSession}
+                    onOpenQuickAction={(action) => setQuickActionType(action)}
+                    onUpdateNotes={handleUpdateNotes}
+                    onAddTag={handleAddTag}
+                    onClose={() => setIsProfileOpen(false)}
+                  />
+                </div>
+              </div>
             )}
           </div>
         )}

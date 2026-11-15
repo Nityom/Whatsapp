@@ -146,10 +146,10 @@ export const SendTemplateModal: React.FC<SendTemplateModalProps> = ({
   const selectedCount = selectedPhones.size;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in">
-      <div className="bg-white rounded-3xl border border-[#dbe9e0] shadow-2xl max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/40 backdrop-blur-xs animate-in fade-in">
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#dbe9e0] shadow-2xl max-w-2xl w-full max-h-[96vh] sm:max-h-[92vh] flex flex-col overflow-hidden">
         {/* MODAL HEADER */}
-        <div className="p-5 border-b border-[#dbe9e0] flex items-center justify-between bg-white shrink-0">
+        <div className="p-3.5 sm:p-5 border-b border-[#dbe9e0] flex items-center justify-between bg-white shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-[#eaf5ef] text-[#176e56] flex items-center justify-center shadow-xs">
               <Send className="w-5 h-5" />
@@ -172,7 +172,7 @@ export const SendTemplateModal: React.FC<SendTemplateModalProps> = ({
         </div>
 
         {/* MODAL BODY */}
-        <div className="p-6 overflow-y-auto space-y-5 flex-1">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5 flex-1">
           {/* SUCCESS BANNER */}
           {isSentSuccess ? (
             <div className="bg-[#eaf5ef] border border-[#77d1a5] rounded-2xl p-6 text-center space-y-2 animate-in zoom-in-95">

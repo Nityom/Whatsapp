@@ -228,7 +228,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 <Bot className="w-4 h-4 text-[#176e56]" />
                 <span>WhatsApp Service Utilization</span>
               </h3>
-              <p className="text-xs text-[#55776d] mt-0.5">Distribution of patient requests processed by Svaasth Connect</p>
+           
             </div>
 
             <div className="flex items-center gap-2">

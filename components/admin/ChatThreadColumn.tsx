@@ -22,6 +22,7 @@ import {
   ExternalLink,
   Image as ImageIcon,
   Check,
+  ArrowLeft,
 } from 'lucide-react';
 import { WhatsAppSession, ChatMessage, QuickTemplate } from './types';
 
@@ -42,6 +43,7 @@ interface ChatThreadColumnProps {
   onOpenProfile?: () => void;
   isProfileOpen?: boolean;
   isSending?: boolean;
+  onBackToConversations?: () => void;
 }
 
 export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
@@ -53,6 +55,7 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
   onOpenProfile,
   isProfileOpen = false,
   isSending = false,
+  onBackToConversations,
 }) => {
   const [inputText, setInputText] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
@@ -252,42 +255,57 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
         className="hidden"
       />
 
-      {/* Header: Clickable Profile Trigger */}
-      <div className="p-3.5 border-b border-[#dbe9e0] flex items-center justify-between bg-white shrink-0">
-        <button
-          type="button"
-          onClick={onOpenProfile}
-          className="flex items-center gap-3 text-left p-1.5 -ml-1.5 rounded-xl hover:bg-[#f3f9f5] transition-all group cursor-pointer"
-          title="Click to view patient profile & actions"
-        >
-          <div className="w-10 h-10 rounded-full bg-[#ede9fe] text-[#6d28d9] font-bold text-xs flex items-center justify-center shrink-0 group-hover:ring-2 group-hover:ring-[#54a987] transition-all">
-            {initials}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-[#173d37] leading-tight group-hover:text-[#176e56] transition-colors">
-                {session.patientName || `+${session.phoneNumber}`}
-              </h2>
-              <span
-                className={`text-[10px] px-2 py-0.5 rounded-full font-semibold transition-colors ${
-                  isProfileOpen
-                    ? 'bg-[#176e56] text-white'
-                    : 'bg-[#eaf5ef] text-[#176e56] group-hover:bg-[#176e56] group-hover:text-white'
-                }`}
-              >
-                {isProfileOpen ? 'Profile Open ▾' : 'View Profile ▸'}
-              </span>
+      {/* Header: Clickable Profile Trigger & Mobile Back Button */}
+      <div className="p-2.5 sm:p-3.5 border-b border-[#dbe9e0] flex items-center justify-between bg-white shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+          {onBackToConversations && (
+            <button
+              type="button"
+              onClick={onBackToConversations}
+              className="lg:hidden p-1.5 rounded-lg text-[#176e56] hover:bg-[#eaf5ef] transition-colors shrink-0"
+              title="Back to conversations list"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={onOpenProfile}
+            className="flex items-center gap-2 sm:gap-3 text-left p-1 rounded-xl hover:bg-[#f3f9f5] transition-all group cursor-pointer min-w-0"
+            title="Click to view patient profile & actions"
+          >
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#ede9fe] text-[#6d28d9] font-bold text-xs flex items-center justify-center shrink-0 group-hover:ring-2 group-hover:ring-[#54a987] transition-all">
+              {initials}
             </div>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-xs text-[#55776d] font-mono">+{session.phoneNumber}</span>
-              {session.patientReference && (
-                <span className="text-[10px] text-[#77a193] font-mono">
-                  • {session.patientReference}
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h2 className="text-xs sm:text-sm font-bold text-[#173d37] leading-tight group-hover:text-[#176e56] transition-colors truncate">
+                  {session.patientName || `+${session.phoneNumber}`}
+                </h2>
+                <span
+                  className={`text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full font-semibold transition-colors shrink-0 ${
+                    isProfileOpen
+                      ? 'bg-[#176e56] text-white'
+                      : 'bg-[#eaf5ef] text-[#176e56] group-hover:bg-[#176e56] group-hover:text-white'
+                  }`}
+                >
+                  {isProfileOpen ? 'Profile ▾' : 'Profile ▸'}
                 </span>
-              )}
+              </div>
+              <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5">
+                <span className="text-[11px] sm:text-xs text-[#55776d] font-mono truncate">
+                  +{session.phoneNumber}
+                </span>
+                {session.patientReference && (
+                  <span className="text-[10px] text-[#77a193] font-mono hidden sm:inline">
+                    • {session.patientReference}
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        </button>
+          </button>
+        </div>
 
         {/* Bot Handover Switch Button */}
         <div className="flex items-center gap-2">

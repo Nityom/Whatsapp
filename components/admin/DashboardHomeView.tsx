@@ -115,9 +115,7 @@ export const DashboardHomeView: React.FC<DashboardHomeViewProps> = ({
                   <Bot className="w-4 h-4 text-[#176e56]" />
                   <span>Chatbot Automated Services Breakdown</span>
                 </h3>
-                <p className="text-xs text-[#55776d]">
-                  Patient self-service engagement via Svaasth Connect
-                </p>
+               
               </div>
 
               <div className="flex items-center gap-2">
@@ -300,13 +298,7 @@ export const DashboardHomeView: React.FC<DashboardHomeViewProps> = ({
               </div>
             )}
 
-            <div className="mt-5 pt-4 border-t border-[#edf5f0] flex items-center justify-between text-xs text-[#55776d]">
-              <span className="flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-[#54a987]" />
-                Peak Bot Traffic: 10:00 AM – 1:00 PM & 6:00 PM – 8:00 PM
-              </span>
-              <span className="font-semibold text-[#176e56]">24/7 Virtual Availability</span>
-            </div>
+
           </div>
 
           {/* AI Bot Performance & Automation Health */}
@@ -361,7 +353,7 @@ export const DashboardHomeView: React.FC<DashboardHomeViewProps> = ({
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-sm font-bold text-[#173d37]">Live Inquiries Stream</h3>
-                <p className="text-xs text-[#55776d]">Recent patient WhatsApp messages</p>
+              
               </div>
               <button
                 onClick={() => onNavigateTab('chats')}

@@ -15,6 +15,7 @@ import {
   ExternalLink,
   PanelLeftClose,
   PanelLeftOpen,
+  X,
 } from 'lucide-react';
 import { NavTab } from './types';
 
@@ -25,6 +26,8 @@ interface SidebarProps {
   isWhatsAppConnected?: boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -34,6 +37,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isWhatsAppConnected = true,
   isCollapsed = false,
   onToggleCollapse,
+  isMobileOpen = false,
+  onCloseMobile,
 }) => {
   const navItems = [
     { id: 'dashboard' as NavTab, label: 'Dashboard', icon: LayoutDashboard },
@@ -54,107 +59,133 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside
-      className={`${
-        isCollapsed ? 'w-20' : 'w-64'
-      } bg-white border-r border-[#dbe9e0] flex flex-col justify-between h-screen shrink-0 sticky top-0 select-none transition-all duration-200 z-20`}
-    >
-      {/* Brand Header */}
-      <div className={isCollapsed ? 'p-3 flex flex-col items-center' : 'p-5'}>
+    <>
+      {/* Mobile Backdrop Overlay */}
+      {isMobileOpen && (
         <div
-          className={`flex items-center ${
-            isCollapsed ? 'flex-col gap-2.5' : 'justify-between'
-          }`}
-        >
+          onClick={onCloseMobile}
+          className="fixed inset-0 bg-black/50 backdrop-blur-xs z-40 md:hidden animate-in fade-in duration-200"
+        />
+      )}
+
+      <aside
+        className={`${
+          isCollapsed ? 'md:w-20' : 'md:w-64'
+        } w-64 bg-white border-r border-[#dbe9e0] flex flex-col justify-between h-screen shrink-0 fixed inset-y-0 left-0 z-50 md:sticky md:top-0 transition-transform duration-300 md:translate-x-0 ${
+          isMobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'
+        } select-none overflow-y-auto`}
+      >
+        {/* Brand Header */}
+        <div className={isCollapsed ? 'p-3 flex flex-col items-center' : 'p-4 sm:p-5'}>
           <div
-            onClick={() => onSelectTab('dashboard')}
-            className="flex items-center gap-3 cursor-pointer group"
+            className={`flex items-center ${
+              isCollapsed ? 'flex-col gap-2.5' : 'justify-between'
+            }`}
           >
-            <div className="w-10 h-10 rounded-xl bg-white border border-[#dbe9e0] p-1 flex items-center justify-center shadow-xs group-hover:border-[#54a987] transition-all shrink-0 overflow-hidden">
-              <img
-                src="/svaasth-logo.png"
-                alt="Svaasth Logo"
-                className="w-full h-full object-contain"
-              />
-            </div>
-            {!isCollapsed && (
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xl font-bold tracking-tight text-[#173d37]">
-                    Svaasth
-                  </span>
-                </div>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#54a987]">
-                  Connect Hub
-                </p>
+            <div
+              onClick={() => {
+                onSelectTab('dashboard');
+                onCloseMobile?.();
+              }}
+              className="flex items-center gap-3 cursor-pointer group"
+            >
+              <div className="w-10 h-10 rounded-xl bg-white border border-[#dbe9e0] p-1 flex items-center justify-center shadow-xs group-hover:border-[#54a987] transition-all shrink-0 overflow-hidden">
+                <img
+                  src="/svaasth-logo.png"
+                  alt="Svaasth Logo"
+                  className="w-full h-full object-contain"
+                />
               </div>
-            )}
-          </div>
-
-          {/* Minimize / Expand Toggle Icon */}
-          <button
-            onClick={onToggleCollapse}
-            title={isCollapsed ? 'Expand sidebar' : 'Minimize sidebar'}
-            className="p-1.5 rounded-lg text-[#77a193] hover:text-[#176e56] hover:bg-[#eaf5ef] transition-colors"
-          >
-            {isCollapsed ? (
-              <PanelLeftOpen className="w-4 h-4" />
-            ) : (
-              <PanelLeftClose className="w-4 h-4" />
-            )}
-          </button>
-        </div>
-
-        {/* Navigation List */}
-        <nav className={`mt-6 space-y-1 w-full ${isCollapsed ? 'flex flex-col items-center' : ''}`}>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-
-            return (
-              <button
-                key={item.id}
-                onClick={() => onSelectTab(item.id)}
-                title={isCollapsed ? item.label : undefined}
-                className={`relative flex items-center rounded-xl text-sm font-medium transition-all ${
-                  isCollapsed
-                    ? 'w-12 h-12 justify-center'
-                    : 'w-full justify-between px-3.5 py-2.5'
-                } ${
-                  isActive
-                    ? 'bg-[#eaf5ef] text-[#176e56] font-semibold shadow-xs'
-                    : 'text-[#55776d] hover:bg-[#f3f9f5] hover:text-[#173d37]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon
-                    className={`w-5 h-5 transition-colors ${
-                      isActive ? 'text-[#176e56]' : 'text-[#77a193]'
-                    }`}
-                  />
-                  {!isCollapsed && <span>{item.label}</span>}
+              {!isCollapsed && (
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xl font-bold tracking-tight text-[#173d37]">
+                      Svaasth
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#54a987]">
+                    Connect Hub
+                  </p>
                 </div>
+              )}
+            </div>
 
-                {!isCollapsed && item.badge !== undefined && (
-                  <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-[#176e56] text-white">
-                    {item.badge}
-                  </span>
-                )}
-                {!isCollapsed && item.highlight && !isActive && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-[#eaf5ef] text-[#176e56]">
-                    Test
-                  </span>
-                )}
-
-                {/* Collapsed Badge Dot */}
-                {isCollapsed && item.badge !== undefined && (
-                  <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#176e56] ring-2 ring-white" />
+            {/* Mobile Close Button & Desktop Collapse Toggle */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={onCloseMobile}
+                title="Close sidebar"
+                className="md:hidden p-1.5 rounded-lg text-[#77a193] hover:text-[#176e56] hover:bg-[#eaf5ef] transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <button
+                onClick={onToggleCollapse}
+                title={isCollapsed ? 'Expand sidebar' : 'Minimize sidebar'}
+                className="hidden md:block p-1.5 rounded-lg text-[#77a193] hover:text-[#176e56] hover:bg-[#eaf5ef] transition-colors"
+              >
+                {isCollapsed ? (
+                  <PanelLeftOpen className="w-4 h-4" />
+                ) : (
+                  <PanelLeftClose className="w-4 h-4" />
                 )}
               </button>
-            );
-          })}
-        </nav>
-      </div>
+            </div>
+          </div>
+
+          {/* Navigation List */}
+          <nav className={`mt-6 space-y-1 w-full ${isCollapsed ? 'flex flex-col items-center' : ''}`}>
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    onSelectTab(item.id);
+                    onCloseMobile?.();
+                  }}
+                  title={isCollapsed ? item.label : undefined}
+                  className={`relative flex items-center rounded-xl text-sm font-medium transition-all ${
+                    isCollapsed
+                      ? 'w-12 h-12 justify-center'
+                      : 'w-full justify-between px-3.5 py-2.5'
+                  } ${
+                    isActive
+                      ? 'bg-[#eaf5ef] text-[#176e56] font-semibold shadow-xs'
+                      : 'text-[#55776d] hover:bg-[#f3f9f5] hover:text-[#173d37]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon
+                      className={`w-5 h-5 transition-colors ${
+                        isActive ? 'text-[#176e56]' : 'text-[#77a193]'
+                      }`}
+                    />
+                    {!isCollapsed && <span>{item.label}</span>}
+                  </div>
+
+                  {!isCollapsed && item.badge !== undefined && (
+                    <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-[#176e56] text-white">
+                      {item.badge}
+                    </span>
+                  )}
+                  {!isCollapsed && item.highlight && !isActive && (
+                    <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-[#eaf5ef] text-[#176e56]">
+                      Test
+                    </span>
+                  )}
+
+                  {/* Collapsed Badge Dot */}
+                  {isCollapsed && item.badge !== undefined && (
+                    <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#176e56] ring-2 ring-white" />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
 
       {/* Footer / Connection Status */}
       <div className={`${isCollapsed ? 'p-2' : 'p-4'} border-t border-[#dbe9e0] bg-[#f8faf8]`}>
@@ -195,5 +226,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
     </aside>
+  </>
   );
 };

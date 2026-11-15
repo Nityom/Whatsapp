@@ -335,11 +335,10 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
       {/* Delete Notice Banner */}
       {deleteNotice && (
         <div
-          className={`p-3 rounded-xl border text-xs flex items-center justify-between ${
-            deleteNotice.type === 'success'
-              ? 'bg-[#eaf5ef] border-[#77d1a5] text-[#176e56]'
-              : 'bg-rose-50 border-rose-200 text-rose-700'
-          }`}
+          className={`p-3 rounded-xl border text-xs flex items-center justify-between ${deleteNotice.type === 'success'
+            ? 'bg-[#eaf5ef] border-[#77d1a5] text-[#176e56]'
+            : 'bg-rose-50 border-rose-200 text-rose-700'
+            }`}
         >
           <div className="flex items-center gap-2">
             {deleteNotice.type === 'success' ? (
@@ -533,7 +532,7 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
                         ) : (
                           <>
                             <Copy className="w-3.5 h-3.5" />
-                            <span>Copy Body</span>
+                            <span>Copy</span>
                           </>
                         )}
                       </button>
@@ -551,7 +550,7 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
                             className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#176e56] hover:bg-[#125844] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
                           >
                             <Send className="w-3 h-3" />
-                            <span>Use in Chat</span>
+                            <span>Chat</span>
                           </button>
                           {onOpenBroadcast && (
                             <button
@@ -644,7 +643,7 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
                     className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#eaf5ef] hover:bg-[#176e56] hover:text-white text-[#176e56] text-xs font-bold transition-all"
                   >
                     <Send className="w-3 h-3" />
-                    <span>Use in Chat</span>
+                    <span>Chat</span>
                   </button>
                 </div>
               </div>

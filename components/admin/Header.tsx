@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Calendar, Plus, ChevronDown, Check } from 'lucide-react';
+import { Calendar, Plus, ChevronDown, Check, Menu } from 'lucide-react';
 
 interface HeaderProps {
   userName?: string;
   onOpenBulkModal: () => void;
   dateRange: string;
   onChangeDateRange: (range: string) => void;
+  onOpenMobileMenu?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -15,6 +16,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenBulkModal,
   dateRange,
   onChangeDateRange,
+  onOpenMobileMenu,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const ranges = ['Today', 'Yesterday', 'Last 7 Days', 'Last 30 Days', 'This Month'];
@@ -27,19 +29,31 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-[#dbe9e0]">
-      {/* Title & Subtitle */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-[#173d37] flex items-center gap-2">
-          {getGreeting()}, {userName} <span className="text-xl">👋</span>
-        </h1>
-        <p className="text-sm text-[#55776d] mt-0.5">
-          Manage your WhatsApp conversations, automations and broadcasts in one place.
-        </p>
+    <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 md:pb-6 border-b border-[#dbe9e0]">
+      {/* Title & Subtitle with Mobile Hamburger */}
+      <div className="flex items-start gap-3">
+        {onOpenMobileMenu && (
+          <button
+            type="button"
+            onClick={onOpenMobileMenu}
+            className="md:hidden p-2 rounded-xl bg-white border border-[#dbe9e0] text-[#176e56] hover:bg-[#eaf5ef] transition-all shadow-xs shrink-0 mt-0.5"
+            title="Open navigation menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[#173d37] flex items-center gap-2">
+            {getGreeting()}, {userName} <span className="text-lg md:text-xl">👋</span>
+          </h1>
+          <p className="text-xs md:text-sm text-[#55776d] mt-0.5">
+            Manage your WhatsApp conversations, automations and broadcasts in one place.
+          </p>
+        </div>
       </div>
 
       {/* Action Controls */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
         {/* Date Filter Dropdown */}
         <div className="relative">
           <button
