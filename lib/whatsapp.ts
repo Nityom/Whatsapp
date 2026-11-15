@@ -5,6 +5,10 @@
  */
 
 const GRAPH_API_VERSION = process.env.GRAPH_API_VERSION || 'v21.0';
+const DEFAULT_ACCESS_TOKEN =
+  process.env.WHATSAPP_ACCESS_TOKEN ||
+  'EAAbN7bZA08AABSnMlfqqOlI9vOIidrRBvUEW3jEzDy8H0bcZCM0TMSpEZBycGV6bXQMka7Bo93v7POAuEgJLdh3F5Juff5ZA6hYwjGnK1nm79zs2eXzY6EZAOUzOM4jZAS7cO00RfDO6XhYfjlZAApKX3zcRyBUP5lgZCPvuRqemZB8X32w7XZC2AC8OBn1uZARZBwZDZD';
+const DEFAULT_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID || '543187875543213';
 
 /**
  * Recipient Phone Guard / Validator:
@@ -57,8 +61,8 @@ export async function sendWhatsAppInteractive(to: string, interactive: WhatsAppI
     return { success: true, messageId: `sim_dev_int_${Date.now()}` };
   }
 
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = DEFAULT_ACCESS_TOKEN;
+  const phoneNumberId = DEFAULT_PHONE_NUMBER_ID;
   if (!token || !phoneNumberId) {
     console.log(`[WhatsApp API Simulated Interactive] To: ${recipient}\n${JSON.stringify(interactive)}`);
     return { success: true, messageId: `sim_interactive_${Date.now()}` };
@@ -111,8 +115,8 @@ export async function sendWhatsAppTemplate(
     return { success: true, messageId: `sim_dev_tpl_${Date.now()}` };
   }
 
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = DEFAULT_ACCESS_TOKEN;
+  const phoneNumberId = DEFAULT_PHONE_NUMBER_ID;
 
   if (!token || !phoneNumberId) {
     console.log(`[WhatsApp API Simulated Template] To: ${recipient}, Template: ${templateName}`);
@@ -184,8 +188,8 @@ export async function sendWhatsAppMessage(to: string, message: string): Promise<
     };
   }
 
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = DEFAULT_ACCESS_TOKEN;
+  const phoneNumberId = DEFAULT_PHONE_NUMBER_ID;
 
   if (!token || !phoneNumberId) {
     console.warn(
@@ -262,8 +266,8 @@ export async function sendWhatsAppLocation(
     };
   }
 
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = DEFAULT_ACCESS_TOKEN;
+  const phoneNumberId = DEFAULT_PHONE_NUMBER_ID;
 
   if (!token || !phoneNumberId) {
     console.log(
@@ -331,8 +335,8 @@ export async function uploadWhatsAppMedia(
   mimeType: string,
   filename: string
 ): Promise<{ success: boolean; mediaId?: string; error?: string }> {
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = DEFAULT_ACCESS_TOKEN;
+  const phoneNumberId = DEFAULT_PHONE_NUMBER_ID;
 
   if (!token || !phoneNumberId) {
     return { success: false, error: 'WhatsApp credentials not configured' };
@@ -391,8 +395,8 @@ export async function sendWhatsAppImage(
     return { success: true, messageId: `sim_dev_img_${Date.now()}` };
   }
 
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = DEFAULT_ACCESS_TOKEN;
+  const phoneNumberId = DEFAULT_PHONE_NUMBER_ID;
 
   if (!token || !phoneNumberId) {
     console.log(`[WhatsApp API Simulated Outgoing Image] To: ${to}\nCaption: ${caption}`);
@@ -466,8 +470,8 @@ export async function sendWhatsAppDocument(
     };
   }
 
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = DEFAULT_ACCESS_TOKEN;
+  const phoneNumberId = DEFAULT_PHONE_NUMBER_ID;
 
   if (!token || !phoneNumberId) {
     console.log(

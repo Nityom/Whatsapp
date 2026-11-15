@@ -266,14 +266,15 @@ export const OpdQueueView: React.FC = () => {
 
   // Handle Call Patient via WhatsApp
   const handleCallPatient = async (item: OpdItem) => {
-    setCallingPatientId(item.id);
+    const queueId = item.id || item.queue_id;
+    setCallingPatientId(queueId || 'active');
     try {
       const res = await fetch('/api/admin/opd', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'call_patient',
-          queueId: item.id,
+          queueId,
           phone: item.phone,
           name: item.name,
           token: item.token,
@@ -282,14 +283,25 @@ export const OpdQueueView: React.FC = () => {
       });
       const data = await res.json();
       if (data.success) {
-        setActionSuccessMsg(`WhatsApp alert sent to ${item.name} (Token #${item.token})`);
-        setTimeout(() => setActionSuccessMsg(null), 4000);
+        if (data.whatsappSent) {
+          setActionSuccessMsg(
+            `WhatsApp alert sent to ${item.name} (+${item.phone}) for Token #${item.token}`
+          );
+        } else {
+          setActionSuccessMsg(`Alert queued for ${item.name}. Status: In Consultation`);
+        }
+        setTimeout(() => setActionSuccessMsg(null), 5000);
         setQueue((prev) =>
-          prev.map((q) => (q.id === item.id ? { ...q, status: 'In Consultation' } : q))
+          prev.map((q) =>
+            ((q.id || q.queue_id) === queueId ? { ...q, status: 'In Consultation' } : q)
+          )
         );
+      } else {
+        alert(data.error || 'Failed to dispatch WhatsApp alert.');
       }
     } catch (err) {
       console.error('[Call Patient Error]', err);
+      alert('Network error while dispatching WhatsApp alert.');
     } finally {
       setCallingPatientId(null);
     }
@@ -606,7 +618,7 @@ export const OpdQueueView: React.FC = () => {
                   const isWaiting = item.status === 'Waiting';
                   const isInConsult = item.status === 'In Consultation';
                   const isDone = item.status === 'Completed';
-                  const isCalling = callingPatientId === item.id;
+                  const isCalling = callingPatientId === (item.id || item.queue_id);
 
                   return (
                     <tr
@@ -690,12 +702,13 @@ export const OpdQueueView: React.FC = () => {
                         <div className="flex items-center justify-end gap-2">
                           {/* Alert Patient via WhatsApp */}
                           <button
+                            type="button"
                             onClick={() => handleCallPatient(item)}
                             disabled={isCalling}
                             title="Send WhatsApp Alert: Your Turn to Enter OPD Room"
-                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#128C7E] text-[11px] font-bold border border-[#25D366]/30 transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#25D366] hover:bg-[#20ba59] active:scale-95 text-white text-[11px] font-bold transition-all cursor-pointer shadow-xs disabled:opacity-50"
                           >
-                            <Send className="w-3 h-3 text-[#25D366]" />
+                            <Send className={`w-3.5 h-3.5 ${isCalling ? 'animate-spin' : ''}`} />
                             <span>{isCalling ? 'Sending...' : 'WhatsApp'}</span>
                           </button>
 
