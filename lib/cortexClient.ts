@@ -918,18 +918,21 @@ export interface OpdQueueRecord {
   time: string;
 }
 
-/** Calculate the next sequential 2-digit daily token number (01, 02...) across all patients on a given date to guarantee no duplicates */
-export async function calculateNextDailyToken(_doctorName: string, dateStr: string): Promise<string> {
+/** Calculate the next sequential 2-digit daily token number (01, 02...) per doctor on a given date */
+export async function calculateNextDailyToken(doctorName: string, dateStr: string): Promise<string> {
   try {
     const client = getCortexConvexClient();
     const existingTokens: number[] = [];
+    const targetDocKey = (doctorName || "").toLowerCase().replace(/l+/g, "l");
 
-    // 1. Check opd_queue table
+    // 1. Check opd_queue table for this doctor on this date
     const queue = (await client.query("opd_queue:list" as any, {})) as any[];
     if (Array.isArray(queue)) {
       const matching = queue.filter((q) => {
         const itemDate = (q.registeredAt || "").split("T")[0];
-        return itemDate === dateStr;
+        const qDoc = (q.doctor || "").toLowerCase().replace(/l+/g, "l");
+        const docMatch = qDoc.includes(targetDocKey) || targetDocKey.includes(qDoc);
+        return itemDate === dateStr && docMatch;
       });
       matching.forEach((q) => {
         const n = parseInt(q.token, 10);
@@ -937,12 +940,14 @@ export async function calculateNextDailyToken(_doctorName: string, dateStr: stri
       });
     }
 
-    // 2. Check appointments table for existing tokens on that date
+    // 2. Check appointments table for this doctor on this date
     const appts = (await client.query("appointments:list" as any, {})) as any[];
     if (Array.isArray(appts)) {
       const matchingAppts = appts.filter((a) => {
         const aDate = (a.date || "").split("T")[0];
-        return aDate === dateStr && a.status !== "CANCELLED";
+        const aDoc = (a.doctor_name || "").toLowerCase().replace(/l+/g, "l");
+        const docMatch = aDoc.includes(targetDocKey) || targetDocKey.includes(aDoc);
+        return aDate === dateStr && docMatch && a.status !== "CANCELLED";
       });
       matchingAppts.forEach((a) => {
         const matchToken = a.notes?.match(/Token:\s*#?(\d+)/i)?.[1];

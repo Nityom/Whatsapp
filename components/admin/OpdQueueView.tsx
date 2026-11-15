@@ -400,11 +400,10 @@ export const OpdQueueView: React.FC = () => {
 
           <button
             onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
-              isToday
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${isToday
                 ? 'bg-[#176e56] text-white border-[#176e56] shadow-xs'
                 : 'bg-white text-[#55776d] border-[#dbe9e0] hover:bg-[#f3f9f5] hover:text-[#173d37]'
-            }`}
+              }`}
           >
             Today
           </button>
@@ -446,11 +445,10 @@ export const OpdQueueView: React.FC = () => {
       <div className="flex items-center gap-2 border-b border-[#dbe9e0] pb-2 overflow-x-auto">
         <button
           onClick={() => setSelectedDoctor('ALL')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-            selectedDoctor === 'ALL'
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${selectedDoctor === 'ALL'
               ? 'bg-[#176e56] text-white shadow-xs'
               : 'bg-white text-[#55776d] border border-[#dbe9e0] hover:bg-[#f3f9f5] hover:text-[#173d37]'
-          }`}
+            }`}
         >
           <Users className="w-4 h-4" />
           <span>All Doctors</span>
@@ -462,18 +460,16 @@ export const OpdQueueView: React.FC = () => {
             <button
               key={doc.name}
               onClick={() => setSelectedDoctor(doc.name)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                isSelected
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${isSelected
                   ? 'bg-[#176e56] text-white shadow-xs'
                   : 'bg-white text-[#55776d] border border-[#dbe9e0] hover:bg-[#f3f9f5] hover:text-[#173d37]'
-              }`}
+                }`}
             >
               <Stethoscope className="w-4 h-4" />
               <span>{doc.name}</span>
               <span
-                className={`text-[10px] px-1.5 py-0.5 rounded-md ${
-                  isSelected ? 'bg-white/20 text-white' : 'bg-[#eaf5ef] text-[#176e56]'
-                }`}
+                className={`text-[10px] px-1.5 py-0.5 rounded-md ${isSelected ? 'bg-white/20 text-white' : 'bg-[#eaf5ef] text-[#176e56]'
+                  }`}
               >
                 {doc.name.includes('Vipeen') ? 'Ortho' : 'Gynae'}
               </span>
@@ -559,11 +555,10 @@ export const OpdQueueView: React.FC = () => {
               <button
                 key={st}
                 onClick={() => setSelectedStatus(st)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                  isSel
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${isSel
                     ? 'bg-[#176e56] text-white shadow-xs'
                     : 'bg-[#f8faf8] text-[#55776d] border border-[#dbe9e0] hover:bg-[#eaf5ef] hover:text-[#176e56]'
-                }`}
+                  }`}
               >
                 {st}
               </button>
@@ -616,9 +611,8 @@ export const OpdQueueView: React.FC = () => {
                   return (
                     <tr
                       key={item.id}
-                      className={`hover:bg-[#f8faf8] transition-colors ${
-                        isInConsult ? 'bg-[#f0fdf4]' : ''
-                      }`}
+                      className={`hover:bg-[#f8faf8] transition-colors ${isInConsult ? 'bg-[#f0fdf4]' : ''
+                        }`}
                     >
                       {/* Token Column */}
                       <td className="py-3 px-4 font-black text-sm text-[#176e56]">
@@ -668,26 +662,24 @@ export const OpdQueueView: React.FC = () => {
                       {/* Status */}
                       <td className="py-3 px-4">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                            isWaiting
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${isWaiting
                               ? 'bg-[#fffbeb] text-[#92400e] border border-[#fef3c7]'
                               : isInConsult
-                              ? 'bg-[#dcfce7] text-[#166534] border border-[#bbf7d0]'
-                              : isDone
-                              ? 'bg-[#f3f4f6] text-[#4b5563] border border-[#e5e7eb]'
-                              : 'bg-[#fee2e2] text-[#991b1b] border border-[#fca5a5]'
-                          }`}
+                                ? 'bg-[#dcfce7] text-[#166534] border border-[#bbf7d0]'
+                                : isDone
+                                  ? 'bg-[#f3f4f6] text-[#4b5563] border border-[#e5e7eb]'
+                                  : 'bg-[#fee2e2] text-[#991b1b] border border-[#fca5a5]'
+                            }`}
                         >
                           <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              isWaiting
+                            className={`w-1.5 h-1.5 rounded-full ${isWaiting
                                 ? 'bg-[#f59e0b]'
                                 : isInConsult
-                                ? 'bg-[#22c55e] animate-pulse'
-                                : isDone
-                                ? 'bg-[#9ca3af]'
-                                : 'bg-[#ef4444]'
-                            }`}
+                                  ? 'bg-[#22c55e] animate-pulse'
+                                  : isDone
+                                    ? 'bg-[#9ca3af]'
+                                    : 'bg-[#ef4444]'
+                              }`}
                           />
                           {item.status}
                         </span>
@@ -704,7 +696,7 @@ export const OpdQueueView: React.FC = () => {
                             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#128C7E] text-[11px] font-bold border border-[#25D366]/30 transition-all cursor-pointer shadow-2xs disabled:opacity-50"
                           >
                             <Send className="w-3 h-3 text-[#25D366]" />
-                            <span>{isCalling ? 'Sending...' : 'Call WhatsApp'}</span>
+                            <span>{isCalling ? 'Sending...' : 'WhatsApp'}</span>
                           </button>
 
                           {/* Status Progression dropdown */}
@@ -846,22 +838,20 @@ export const OpdQueueView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setTimeMode('immediate')}
-                      className={`px-2 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${
-                        timeMode === 'immediate'
+                      className={`px-2 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${timeMode === 'immediate'
                           ? 'bg-[#176e56] text-white shadow-2xs'
                           : 'text-[#55776d] hover:text-[#173d37]'
-                      }`}
+                        }`}
                     >
                       Immediate Walk-in
                     </button>
                     <button
                       type="button"
                       onClick={() => setTimeMode('slot')}
-                      className={`px-2 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${
-                        timeMode === 'slot'
+                      className={`px-2 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${timeMode === 'slot'
                           ? 'bg-[#176e56] text-white shadow-2xs'
                           : 'text-[#55776d] hover:text-[#173d37]'
-                      }`}
+                        }`}
                     >
                       Choose Slot
                     </button>
@@ -902,13 +892,12 @@ export const OpdQueueView: React.FC = () => {
                                   type="button"
                                   disabled={s.isBooked}
                                   onClick={() => setSelectedSlot(s.slot)}
-                                  className={`px-2 py-1.5 rounded-lg text-xs font-mono font-medium transition-all text-center ${
-                                    s.isBooked
+                                  className={`px-2 py-1.5 rounded-lg text-xs font-mono font-medium transition-all text-center ${s.isBooked
                                       ? 'bg-[#fee2e2]/60 text-[#991b1b] line-through cursor-not-allowed opacity-60'
                                       : selectedSlot === s.slot
-                                      ? 'bg-[#176e56] text-white font-bold ring-2 ring-[#54a987] shadow-2xs'
-                                      : 'bg-white hover:bg-[#eaf5ef] text-[#173d37] border border-[#dbe9e0]'
-                                  }`}
+                                        ? 'bg-[#176e56] text-white font-bold ring-2 ring-[#54a987] shadow-2xs'
+                                        : 'bg-white hover:bg-[#eaf5ef] text-[#173d37] border border-[#dbe9e0]'
+                                    }`}
                                   title={s.isBooked ? 'Slot already booked' : 'Available'}
                                 >
                                   {s.slot}
@@ -940,13 +929,12 @@ export const OpdQueueView: React.FC = () => {
                                   type="button"
                                   disabled={s.isBooked}
                                   onClick={() => setSelectedSlot(s.slot)}
-                                  className={`px-2 py-1.5 rounded-lg text-xs font-mono font-medium transition-all text-center ${
-                                    s.isBooked
+                                  className={`px-2 py-1.5 rounded-lg text-xs font-mono font-medium transition-all text-center ${s.isBooked
                                       ? 'bg-[#fee2e2]/60 text-[#991b1b] line-through cursor-not-allowed opacity-60'
                                       : selectedSlot === s.slot
-                                      ? 'bg-[#176e56] text-white font-bold ring-2 ring-[#54a987] shadow-2xs'
-                                      : 'bg-white hover:bg-[#eaf5ef] text-[#173d37] border border-[#dbe9e0]'
-                                  }`}
+                                        ? 'bg-[#176e56] text-white font-bold ring-2 ring-[#54a987] shadow-2xs'
+                                        : 'bg-white hover:bg-[#eaf5ef] text-[#173d37] border border-[#dbe9e0]'
+                                    }`}
                                   title={s.isBooked ? 'Slot already booked' : 'Available'}
                                 >
                                   {s.slot}
