@@ -1027,6 +1027,19 @@ export async function updateOpdQueueItemStatus(queueId: string, status: string):
   }
 }
 
+/** Deletes an OPD Queue record from Cortex PMS */
+export async function removeOpdQueueItem(queueId: string): Promise<boolean> {
+  try {
+    const client = getCortexConvexClient();
+    return (await client.mutation("opd_queue:remove" as any, {
+      queue_id: queueId,
+    })) as boolean;
+  } catch (err) {
+    console.error("[Cortex PMS] removeOpdQueueItem error:", err);
+    return false;
+  }
+}
+
 /** Fetch all OPD Queue items filtered by date, doctor, and status */
 export async function fetchLiveOpdQueue(options?: {
   date?: string;
@@ -1064,7 +1077,12 @@ export async function fetchLiveOpdQueue(options?: {
       return tokenA - tokenB;
     });
 
-    return queue;
+    // Ensure every item has a normalized id equal to queue_id
+    return queue.map((item) => ({
+      ...item,
+      id: item.queue_id || item.id || String(item._id),
+      queue_id: item.queue_id || item.id || String(item._id),
+    }));
   } catch (err) {
     console.error("[Cortex PMS] fetchLiveOpdQueue error:", err);
     return [];

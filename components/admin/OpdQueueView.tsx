@@ -22,11 +22,13 @@ import {
   UserCheck,
   Activity,
   Flame,
+  Trash2,
 } from 'lucide-react';
 
 interface OpdItem {
   _id?: string;
   id: string;
+  queue_id?: string;
   token: string;
   uhid?: string;
   patientId?: string;
@@ -197,7 +199,15 @@ export const OpdQueueView: React.FC = () => {
   }, [queue, searchQuery]);
 
   // Handle Status Update
-  const handleUpdateStatus = async (queueId: string, newStatus: string) => {
+  const handleUpdateStatus = async (item: OpdItem, newStatus: string) => {
+    const queueId = item.id || item.queue_id;
+    if (!queueId) return;
+
+    // Optimistic UI update
+    setQueue((prev) =>
+      prev.map((q) => ((q.id || q.queue_id) === queueId ? { ...q, status: newStatus } : q))
+    );
+
     try {
       const res = await fetch('/api/admin/opd', {
         method: 'POST',
@@ -210,12 +220,47 @@ export const OpdQueueView: React.FC = () => {
       });
       const data = await res.json();
       if (data.success) {
-        setQueue((prev) =>
-          prev.map((item) => (item.id === queueId ? { ...item, status: newStatus } : item))
-        );
+        setActionSuccessMsg(`Token #${item.token} status updated to ${newStatus}`);
+        setTimeout(() => setActionSuccessMsg(null), 3000);
+      } else {
+        console.error('[Update Status Failed]', data.error);
+        fetchQueue(true);
       }
     } catch (err) {
       console.error('[Update Status Error]', err);
+      fetchQueue(true);
+    }
+  };
+
+  // Handle Delete Queue Item
+  const handleDeleteQueueItem = async (item: OpdItem) => {
+    const queueId = item.id || item.queue_id;
+    if (!queueId) return;
+
+    if (!confirm(`Are you sure you want to remove Token #${item.token} (${item.name}) from the OPD queue?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/admin/opd', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'delete',
+          queueId,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setQueue((prev) => prev.filter((q) => (q.id || q.queue_id) !== queueId));
+        setActionSuccessMsg(`Token #${item.token} (${item.name}) removed from queue.`);
+        setTimeout(() => setActionSuccessMsg(null), 4000);
+      } else {
+        alert('Failed to delete item from queue.');
+      }
+    } catch (err) {
+      console.error('[Delete Item Error]', err);
+      alert('Network error while deleting item.');
     }
   };
 
@@ -665,7 +710,7 @@ export const OpdQueueView: React.FC = () => {
                           {/* Status Progression dropdown */}
                           <select
                             value={item.status}
-                            onChange={(e) => handleUpdateStatus(item.id, e.target.value)}
+                            onChange={(e) => handleUpdateStatus(item, e.target.value)}
                             className="px-2 py-1 rounded-lg bg-[#f8faf8] border border-[#dbe9e0] text-[11px] font-semibold text-[#173d37] focus:outline-none focus:border-[#54a987] cursor-pointer"
                           >
                             <option value="Waiting">Waiting</option>
@@ -673,6 +718,15 @@ export const OpdQueueView: React.FC = () => {
                             <option value="Completed">Completed</option>
                             <option value="Cancelled">Cancelled</option>
                           </select>
+
+                          {/* Delete Queue Entry Button */}
+                          <button
+                            onClick={() => handleDeleteQueueItem(item)}
+                            title="Delete this token entry from OPD queue"
+                            className="p-1.5 rounded-lg text-[#9ca3af] hover:text-[#dc2626] hover:bg-[#fee2e2] transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>

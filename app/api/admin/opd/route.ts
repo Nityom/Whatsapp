@@ -4,6 +4,7 @@ import {
   calculateNextDailyToken,
   upsertOpdQueueItem,
   updateOpdQueueItemStatus,
+  removeOpdQueueItem,
   normalizePhone,
   getAvailableSlots,
 } from '@/lib/cortexClient';
@@ -128,7 +129,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'update_status') {
-      const { queueId, status } = body;
+      const queueId = body.queueId || body.id || body.queue_id;
+      const status = body.status;
       if (!queueId || !status) {
         return NextResponse.json(
           { success: false, error: 'queueId and status are required' },
@@ -138,6 +140,19 @@ export async function POST(req: NextRequest) {
 
       const updated = await updateOpdQueueItemStatus(queueId, status);
       return NextResponse.json({ success: updated });
+    }
+
+    if (action === 'delete') {
+      const queueId = body.queueId || body.id || body.queue_id;
+      if (!queueId) {
+        return NextResponse.json(
+          { success: false, error: 'queueId is required for deletion' },
+          { status: 400 }
+        );
+      }
+
+      const deleted = await removeOpdQueueItem(queueId);
+      return NextResponse.json({ success: deleted });
     }
 
     if (action === 'call_patient') {
