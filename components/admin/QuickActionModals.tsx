@@ -58,29 +58,29 @@ export const QuickActionModals: React.FC<QuickActionModalsProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="bg-white border border-[#dbe9e0] rounded-3xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col">
+      <div className="bg-white border border-[#e2ece6] rounded-xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="p-4 border-b border-[#dbe9e0] flex items-center justify-between bg-[#f8faf8]">
+        <div className="p-4 border-b border-[#e2ece6] flex items-center justify-between bg-[#f8faf8]">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#eaf5ef] text-[#176e56] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-[#f0f5f2] border border-[#dbe9e0] text-[#176e56] flex items-center justify-center shrink-0">
               {actionType === 'appointment' && <Calendar className="w-4 h-4" />}
               {actionType === 'prescription' && <FileText className="w-4 h-4" />}
               {actionType === 'bill' && <CreditCard className="w-4 h-4" />}
               {actionType === 'reminder' && <Bell className="w-4 h-4" />}
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[#173d37]">
-                {actionType === 'appointment' && 'Book Appointment'}
-                {actionType === 'prescription' && 'Send Official Prescription'}
-                {actionType === 'bill' && 'Send Consultation Bill'}
-                {actionType === 'reminder' && 'Send Follow-up Reminder'}
+              <h3 className="text-sm font-semibold text-[#173d37]">
+                {actionType === 'appointment' && 'Book appointment'}
+                {actionType === 'prescription' && 'Send official prescription'}
+                {actionType === 'bill' && 'Send consultation bill'}
+                {actionType === 'reminder' && 'Send follow-up reminder'}
               </h3>
               <p className="text-[11px] text-[#55776d]">Patient: {patientName}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-[#55776d] hover:bg-[#eaf5ef] text-xs"
+            className="w-8 h-8 rounded-lg text-[#55776d] hover:text-[#173d37] hover:bg-[#f0f5f2] border border-transparent hover:border-[#dbe9e0] flex items-center justify-center transition-colors text-xs"
           >
             <X className="w-4 h-4" />
           </button>
@@ -92,11 +92,11 @@ export const QuickActionModals: React.FC<QuickActionModalsProps> = ({
           {actionType === 'appointment' && (
             <>
               <div>
-                <label className="block font-bold text-[#173d37] mb-1">Select Doctor</label>
+                <label className="block text-xs font-medium text-[#173d37] mb-1.5">Select doctor</label>
                 <select
                   value={selectedDoctor}
                   onChange={(e) => setSelectedDoctor(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] text-[#173d37] font-medium"
+                  className="w-full h-9 px-3 rounded-lg bg-white border border-[#dbe9e0] text-[#173d37] text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#176e56] focus:border-[#176e56]"
                 >
                   <option value="Dr. Vipeen Raut (Orthopaedics)">
                     Dr. Vipeen Raut (Orthopaedics & Joint Replacement)
@@ -109,11 +109,11 @@ export const QuickActionModals: React.FC<QuickActionModalsProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-[#173d37] mb-1">Date</label>
+                  <label className="block text-xs font-medium text-[#173d37] mb-1.5">Date</label>
                   <select
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full p-2.5 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] text-[#173d37]"
+                    className="w-full h-9 px-3 rounded-lg bg-white border border-[#dbe9e0] text-[#173d37] text-xs focus:outline-none focus:ring-1 focus:ring-[#176e56] focus:border-[#176e56]"
                   >
                     <option value="Today">Today</option>
                     <option value="Tomorrow">Tomorrow</option>
@@ -122,11 +122,11 @@ export const QuickActionModals: React.FC<QuickActionModalsProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-[#173d37] mb-1">Time Slot (15-min)</label>
+                  <label className="block text-xs font-medium text-[#173d37] mb-1.5">Time slot</label>
                   <select
                     value={selectedSlot}
                     onChange={(e) => setSelectedSlot(e.target.value)}
-                    className="w-full p-2.5 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] text-[#173d37]"
+                    className="w-full h-9 px-3 rounded-lg bg-white border border-[#dbe9e0] text-[#173d37] text-xs tabular-nums focus:outline-none focus:ring-1 focus:ring-[#176e56] focus:border-[#176e56]"
                   >
                     <option value="10:30 AM">10:30 AM</option>
                     <option value="11:00 AM">11:00 AM</option>
@@ -140,13 +140,13 @@ export const QuickActionModals: React.FC<QuickActionModalsProps> = ({
               </div>
 
               <div>
-                <label className="block font-bold text-[#173d37] mb-1">Chief Complaint</label>
+                <label className="block text-xs font-medium text-[#173d37] mb-1.5">Chief complaint</label>
                 <input
                   type="text"
                   value={complaint}
                   onChange={(e) => setComplaint(e.target.value)}
                   placeholder="e.g. Joint pain, Routine checkup"
-                  className="w-full p-2.5 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] text-[#173d37]"
+                  className="w-full h-9 px-3 rounded-lg bg-white border border-[#dbe9e0] text-[#173d37] text-xs focus:outline-none focus:ring-1 focus:ring-[#176e56] focus:border-[#176e56]"
                 />
               </div>
 
@@ -157,9 +157,9 @@ export const QuickActionModals: React.FC<QuickActionModalsProps> = ({
                   )
                 }
                 disabled={isSubmitting}
-                className="w-full py-2.5 rounded-xl bg-[#176e56] hover:bg-[#125643] text-white font-bold transition-all shadow-xs"
+                className="w-full h-9 rounded-lg bg-[#176e56] hover:bg-[#125643] text-white font-medium text-xs transition-colors shadow-xs"
               >
-                {success ? 'Confirmation Sent!' : 'Confirm & Dispatch to WhatsApp'}
+                {success ? 'Confirmation sent' : 'Confirm and dispatch to WhatsApp'}
               </button>
             </>
           )}
@@ -167,16 +167,16 @@ export const QuickActionModals: React.FC<QuickActionModalsProps> = ({
           {/* PRESCRIPTION SENDER */}
           {actionType === 'prescription' && (
             <>
-              <div className="p-3 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] space-y-1">
-                <p className="font-semibold text-[#173d37]">Active Patient Reference</p>
-                <p className="text-[#55776d]">
+              <div className="p-3 rounded-lg bg-[#f8faf8] border border-[#e2ece6] space-y-0.5">
+                <p className="font-medium text-[#173d37]">Active patient reference</p>
+                <p className="text-[#55776d] tabular-nums">
                   UHID: {session.patientReference || 'CRX0077'} • Phone: +{session.phoneNumber}
                 </p>
               </div>
 
               <div>
-                <label className="block font-bold text-[#173d37] mb-1">
-                  Official Digital Prescription Link
+                <label className="block text-xs font-medium text-[#173d37] mb-1.5">
+                  Official digital prescription link
                 </label>
                 <input
                   type="text"
@@ -184,7 +184,7 @@ export const QuickActionModals: React.FC<QuickActionModalsProps> = ({
                   value={`https://jovial-sheep-76.convex.site/print-prescription?ref=${
                     session.patientReference || 'CRX0077'
                   }`}
-                  className="w-full p-2.5 rounded-xl bg-[#f3f9f5] border border-[#dbe9e0] text-[#176e56] font-mono select-all"
+                  className="w-full h-9 px-3 rounded-lg bg-[#f0f5f2] border border-[#dbe9e0] text-[#176e56] font-mono text-xs select-all"
                 />
               </div>
 
@@ -197,9 +197,9 @@ export const QuickActionModals: React.FC<QuickActionModalsProps> = ({
                   )
                 }
                 disabled={isSubmitting}
-                className="w-full py-2.5 rounded-xl bg-[#176e56] hover:bg-[#125643] text-white font-bold transition-all shadow-xs"
+                className="w-full h-9 rounded-lg bg-[#176e56] hover:bg-[#125643] text-white font-medium text-xs transition-colors shadow-xs"
               >
-                {success ? 'Prescription Sent!' : 'Send Prescription to WhatsApp'}
+                {success ? 'Prescription sent' : 'Send prescription to WhatsApp'}
               </button>
             </>
           )}
@@ -209,24 +209,24 @@ export const QuickActionModals: React.FC<QuickActionModalsProps> = ({
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-[#173d37] mb-1">Consultation Amount (₹)</label>
+                  <label className="block text-xs font-medium text-[#173d37] mb-1.5">Consultation amount (₹)</label>
                   <input
                     type="number"
                     value={billAmount}
                     onChange={(e) => setBillAmount(e.target.value)}
-                    className="w-full p-2.5 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] text-[#173d37]"
+                    className="w-full h-9 px-3 rounded-lg bg-white border border-[#dbe9e0] text-[#173d37] text-xs tabular-nums focus:outline-none focus:ring-1 focus:ring-[#176e56] focus:border-[#176e56]"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-[#173d37] mb-1">Payment Status</label>
+                  <label className="block text-xs font-medium text-[#173d37] mb-1.5">Payment status</label>
                   <select
                     value={billStatus}
                     onChange={(e) => setBillStatus(e.target.value as any)}
-                    className="w-full p-2.5 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] text-[#173d37]"
+                    className="w-full h-9 px-3 rounded-lg bg-white border border-[#dbe9e0] text-[#173d37] text-xs focus:outline-none focus:ring-1 focus:ring-[#176e56] focus:border-[#176e56]"
                   >
-                    <option value="PAID">PAID</option>
-                    <option value="PENDING">PENDING</option>
+                    <option value="PAID">Paid</option>
+                    <option value="PENDING">Pending</option>
                   </select>
                 </div>
               </div>
@@ -238,9 +238,9 @@ export const QuickActionModals: React.FC<QuickActionModalsProps> = ({
                   )
                 }
                 disabled={isSubmitting}
-                className="w-full py-2.5 rounded-xl bg-[#176e56] hover:bg-[#125643] text-white font-bold transition-all shadow-xs"
+                className="w-full h-9 rounded-lg bg-[#176e56] hover:bg-[#125643] text-white font-medium text-xs transition-colors shadow-xs"
               >
-                {success ? 'Bill Sent!' : 'Send Billing Receipt to WhatsApp'}
+                {success ? 'Bill sent' : 'Send billing receipt to WhatsApp'}
               </button>
             </>
           )}
@@ -260,9 +260,9 @@ export const QuickActionModals: React.FC<QuickActionModalsProps> = ({
                   )
                 }
                 disabled={isSubmitting}
-                className="w-full py-2.5 rounded-xl bg-[#176e56] hover:bg-[#125643] text-white font-bold transition-all shadow-xs"
+                className="w-full h-9 rounded-lg bg-[#176e56] hover:bg-[#125643] text-white font-medium text-xs transition-colors shadow-xs"
               >
-                {success ? 'Reminder Sent!' : 'Send Reminder to WhatsApp'}
+                {success ? 'Reminder sent' : 'Send reminder to WhatsApp'}
               </button>
             </>
           )}

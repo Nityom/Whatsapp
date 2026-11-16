@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Calendar, Plus, ChevronDown, Check, Menu } from 'lucide-react';
 
 interface HeaderProps {
@@ -12,71 +12,80 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  userName = 'Nityom',
   onOpenBulkModal,
   dateRange,
   onChangeDateRange,
   onOpenMobileMenu,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const ranges = ['Today', 'Yesterday', 'Last 7 Days', 'Last 30 Days', 'This Month'];
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
-  };
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    if (dropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [dropdownOpen]);
 
   return (
-    <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 md:pb-6 border-b border-[#dbe9e0]">
+    <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-[#e2ece6]">
       {/* Title & Subtitle with Mobile Hamburger */}
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
         {onOpenMobileMenu && (
           <button
             type="button"
             onClick={onOpenMobileMenu}
-            className="md:hidden p-2 rounded-xl bg-white border border-[#dbe9e0] text-[#176e56] hover:bg-[#eaf5ef] transition-all shadow-xs shrink-0 mt-0.5"
+            className="md:hidden h-9 w-9 rounded-lg bg-white border border-[#dbe9e0] text-[#173d37] hover:bg-[#f4f7f5] transition-colors flex items-center justify-center shrink-0"
             title="Open navigation menu"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-4 h-4 text-[#55776d]" />
           </button>
         )}
         <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[#173d37] flex items-center gap-2">
-            {getGreeting()}, {userName} <span className="text-lg md:text-xl">👋</span>
+          <h1 className="text-lg md:text-xl font-semibold tracking-tight text-[#173d37]">
+            Overview
           </h1>
-          <p className="text-xs md:text-sm text-[#55776d] mt-0.5">
-            Manage your WhatsApp conversations, automations and broadcasts in one place.
+          <p className="text-xs text-[#55776d] mt-0.5">
+            Real-time patient messaging, automated triage, and dispatch logs.
           </p>
         </div>
       </div>
 
       {/* Action Controls */}
-      <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+      <div className="flex items-center gap-2.5">
         {/* Date Filter Dropdown */}
-        <div className="relative">
+        <div ref={dropdownRef} className="relative">
           <button
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-[#dbe9e0] text-sm font-medium text-[#173d37] hover:bg-[#f3f9f5] transition-all shadow-xs"
+            type="button"
+            onClick={() => setDropdownOpen((prev) => !prev)}
+            className="h-9 flex items-center gap-2 px-3 rounded-lg bg-white border border-[#dbe9e0] text-xs font-medium text-[#173d37] hover:bg-[#f8faf8] transition-colors cursor-pointer select-none"
           >
-            <Calendar className="w-4 h-4 text-[#54a987]" />
+            <Calendar className="w-3.5 h-3.5 text-[#55776d]" />
             <span>{dateRange}</span>
-            <ChevronDown className="w-3.5 h-3.5 text-[#55776d]" />
+            <ChevronDown className={`w-3 h-3 text-[#77a193] transition-transform duration-150 ${dropdownOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {dropdownOpen && (
-            <div className="absolute right-0 mt-1.5 w-44 bg-white border border-[#dbe9e0] rounded-xl shadow-lg py-1.5 z-30">
+            <div className="absolute right-0 mt-1 w-44 bg-white border border-[#dbe9e0] rounded-lg shadow-md py-1 z-50 animate-in fade-in duration-100">
               {ranges.map((r) => (
                 <button
                   key={r}
+                  type="button"
                   onClick={() => {
                     onChangeDateRange(r);
                     setDropdownOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between px-3.5 py-1.5 text-xs text-left ${
+                  className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left transition-colors ${
                     dateRange === r
-                      ? 'bg-[#eaf5ef] text-[#176e56] font-semibold'
+                      ? 'bg-[#eaf5ef] text-[#176e56] font-medium'
                       : 'text-[#173d37] hover:bg-[#f8faf8]'
                   }`}
                 >
@@ -88,14 +97,14 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-
-        {/* Primary "+ Send Bulk Message" Button */}
+        {/* Primary Action Button */}
         <button
+          type="button"
           onClick={onOpenBulkModal}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#176e56] hover:bg-[#125643] text-white text-sm font-semibold transition-all shadow-sm hover:shadow active:scale-[0.98]"
+          className="h-9 flex items-center gap-1.5 px-3.5 rounded-lg bg-[#176e56] hover:bg-[#125643] text-white text-xs font-medium transition-colors"
         >
-          <Plus className="w-4 h-4" />
-          <span>Send Bulk Message</span>
+          <Plus className="w-3.5 h-3.5" />
+          <span>Send bulk message</span>
         </button>
       </div>
     </header>

@@ -388,7 +388,7 @@ export default function AdminDashboardPage() {
       />
 
       {/* 2. Main Dashboard Content */}
-      <main className="flex-1 p-3.5 sm:p-5 md:p-8 flex flex-col min-w-0 overflow-y-auto h-full">
+      <main className="flex-1 p-4 sm:p-6 md:p-8 flex flex-col min-w-0 overflow-y-auto h-full">
         {/* Top Header */}
         <Header
           userName="Nityom"
@@ -399,13 +399,14 @@ export default function AdminDashboardPage() {
         />
 
         {/* 4 Stat Cards (Displayed on Executive Dashboard Overview) */}
-        {activeTab === 'dashboard' && <StatCards stats={stats} />}
+        {activeTab === 'dashboard' && <StatCards stats={stats} dateRange={dateRange} />}
 
         {/* TAB 1: EXECUTIVE DASHBOARD VIEW */}
         {activeTab === 'dashboard' && (
           <DashboardHomeView
             sessions={sessions}
             stats={stats}
+            dateRange={dateRange}
             onOpenChat={(phone) => {
               setSelectedPhone(phone);
               setMobileChatView('thread');

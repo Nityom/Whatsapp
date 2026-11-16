@@ -398,93 +398,100 @@ export const OpdQueueView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-200">
+    <div className="space-y-4">
       {/* Top Bar: Calendar Date Selector & Walk-in Action */}
-      <div className="bg-white rounded-2xl border border-[#dbe9e0] p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white rounded-xl border border-[#e2ece6] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Date Navigation & Calendar UI */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="flex items-center bg-[#f8faf8] border border-[#dbe9e0] rounded-xl p-1 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center bg-[#f8faf8] border border-[#dbe9e0] rounded-lg p-0.5">
             <button
+              type="button"
               onClick={() => shiftDate(-1)}
-              title="Previous Day"
-              className="p-1.5 hover:bg-white rounded-lg text-[#173d37] hover:text-[#176e56] transition-all cursor-pointer"
+              title="Previous day"
+              className="p-1 hover:bg-white rounded text-[#173d37] hover:text-[#176e56] transition-colors cursor-pointer"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="w-4 h-4" />
             </button>
 
-            <div className="flex items-center gap-2 px-3 py-1">
-              <CalendarDays className="w-4 h-4 text-[#176e56]" />
+            <div className="flex items-center gap-2 px-2.5 py-0.5">
+              <CalendarDays className="w-3.5 h-3.5 text-[#176e56]" />
               <input
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="bg-transparent text-sm font-bold text-[#173d37] focus:outline-none cursor-pointer"
+                className="bg-transparent text-xs font-medium text-[#173d37] focus:outline-none cursor-pointer"
               />
             </div>
 
             <button
+              type="button"
               onClick={() => shiftDate(1)}
-              title="Next Day"
-              className="p-1.5 hover:bg-white rounded-lg text-[#173d37] hover:text-[#176e56] transition-all cursor-pointer"
+              title="Next day"
+              className="p-1 hover:bg-white rounded text-[#173d37] hover:text-[#176e56] transition-colors cursor-pointer"
             >
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
           <button
+            type="button"
             onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${isToday
-                ? 'bg-[#176e56] text-white border-[#176e56] shadow-xs'
-                : 'bg-white text-[#55776d] border-[#dbe9e0] hover:bg-[#f3f9f5] hover:text-[#173d37]'
+            className={`h-8 px-3 rounded-lg text-xs font-medium transition-colors border cursor-pointer ${isToday
+                ? 'bg-[#176e56] text-white border-[#176e56]'
+                : 'bg-white text-[#55776d] border-[#dbe9e0] hover:bg-[#f8faf8] hover:text-[#173d37]'
               }`}
           >
             Today
           </button>
 
           <button
+            type="button"
             onClick={() => {
               const tomorrow = new Date();
               tomorrow.setDate(tomorrow.getDate() + 1);
               setSelectedDate(tomorrow.toISOString().split('T')[0]);
             }}
-            className="px-3 py-1.5 rounded-xl text-xs font-medium bg-white text-[#55776d] border border-[#dbe9e0] hover:bg-[#f3f9f5] hover:text-[#173d37] transition-all cursor-pointer"
+            className="h-8 px-3 rounded-lg text-xs font-medium bg-white text-[#55776d] border border-[#dbe9e0] hover:bg-[#f8faf8] hover:text-[#173d37] transition-colors cursor-pointer"
           >
             Tomorrow
           </button>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => fetchQueue()}
             disabled={refreshing}
-            title="Refresh OPD Queue"
-            className="p-2.5 rounded-xl border border-[#dbe9e0] bg-[#f8faf8] hover:bg-white text-[#55776d] hover:text-[#176e56] transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+            title="Refresh OPD queue"
+            className="h-9 w-9 rounded-lg border border-[#dbe9e0] bg-white hover:bg-[#f8faf8] text-[#55776d] hover:text-[#176e56] transition-colors flex items-center justify-center cursor-pointer disabled:opacity-50"
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-[#176e56]' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-[#176e56]' : ''}`} />
           </button>
 
           <button
+            type="button"
             onClick={() => setIsWalkInModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#176e56] hover:bg-[#125643] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+            className="h-9 flex items-center gap-1.5 px-3.5 rounded-lg bg-[#176e56] hover:bg-[#125643] text-white text-xs font-medium transition-colors cursor-pointer"
           >
-            <UserPlus className="w-4 h-4" />
-            <span>+ Add Walk-in Entry</span>
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>Add walk-in entry</span>
           </button>
         </div>
       </div>
 
       {/* Doctor Tabs Filter */}
-      <div className="flex items-center gap-2 border-b border-[#dbe9e0] pb-2 overflow-x-auto">
+      <div className="flex items-center gap-1.5 border-b border-[#e2ece6] pb-2 overflow-x-auto">
         <button
+          type="button"
           onClick={() => setSelectedDoctor('ALL')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${selectedDoctor === 'ALL'
-              ? 'bg-[#176e56] text-white shadow-xs'
-              : 'bg-white text-[#55776d] border border-[#dbe9e0] hover:bg-[#f3f9f5] hover:text-[#173d37]'
+          className={`h-8 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer shrink-0 ${selectedDoctor === 'ALL'
+              ? 'bg-[#176e56] text-white'
+              : 'bg-white text-[#55776d] border border-[#dbe9e0] hover:bg-[#f8faf8]'
             }`}
         >
-          <Users className="w-4 h-4" />
-          <span>All Doctors</span>
+          <Users className="w-3.5 h-3.5" />
+          <span>All doctors</span>
         </button>
 
         {DOCTORS.map((doc) => {
@@ -492,16 +499,17 @@ export const OpdQueueView: React.FC = () => {
           return (
             <button
               key={doc.name}
+              type="button"
               onClick={() => setSelectedDoctor(doc.name)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${isSelected
-                  ? 'bg-[#176e56] text-white shadow-xs'
-                  : 'bg-white text-[#55776d] border border-[#dbe9e0] hover:bg-[#f3f9f5] hover:text-[#173d37]'
+              className={`h-8 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer shrink-0 ${isSelected
+                  ? 'bg-[#176e56] text-white'
+                  : 'bg-white text-[#55776d] border border-[#dbe9e0] hover:bg-[#f8faf8]'
                 }`}
             >
-              <Stethoscope className="w-4 h-4" />
+              <Stethoscope className="w-3.5 h-3.5" />
               <span>{doc.name}</span>
               <span
-                className={`text-[10px] px-1.5 py-0.5 rounded-md ${isSelected ? 'bg-white/20 text-white' : 'bg-[#eaf5ef] text-[#176e56]'
+                className={`text-[10px] px-1.5 py-0.2 rounded ${isSelected ? 'bg-white/20 text-white' : 'bg-[#f0f5f2] text-[#176e56]'
                   }`}
               >
                 {doc.name.includes('Vipeen') ? 'Ortho' : 'Gynae'}
@@ -512,86 +520,88 @@ export const OpdQueueView: React.FC = () => {
       </div>
 
       {/* Stat Cards Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white rounded-2xl border border-[#dbe9e0] p-4 shadow-xs">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-white rounded-xl border border-[#e2ece6] p-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#55776d]">Total Tokens</span>
-            <div className="w-8 h-8 rounded-xl bg-[#eaf5ef] text-[#176e56] flex items-center justify-center">
-              <Users className="w-4 h-4" />
+            <span className="text-xs text-[#55776d]">Total tokens</span>
+            <div className="w-7 h-7 rounded-md bg-[#f0f5f2] text-[#176e56] flex items-center justify-center">
+              <Users className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="text-2xl font-black text-[#173d37] mt-2">{stats.total}</div>
-          <p className="text-[11px] text-[#77a193] mt-0.5 font-medium">Scheduled + Walk-ins</p>
+          <div className="text-xl font-semibold text-[#173d37] mt-1 tabular-nums">{stats.total}</div>
+          <p className="text-[11px] text-[#77a193] mt-0.5">Scheduled and walk-ins</p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-[#fde68a] bg-gradient-to-br from-white to-[#fffbeb] p-4 shadow-xs">
+        <div className="bg-white rounded-xl border border-[#e2ece6] p-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#92400e]">Waiting</span>
-            <div className="w-8 h-8 rounded-xl bg-[#fef3c7] text-[#d97706] flex items-center justify-center">
-              <Clock className="w-4 h-4" />
+            <span className="text-xs text-[#55776d]">Waiting</span>
+            <div className="w-7 h-7 rounded-md bg-[#fef3c7] text-[#92400e] flex items-center justify-center">
+              <Clock className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="text-2xl font-black text-[#92400e] mt-2">{stats.waiting}</div>
-          <p className="text-[11px] text-[#b45309] mt-0.5 font-medium">In waiting room</p>
+          <div className="text-xl font-semibold text-[#92400e] mt-1 tabular-nums">{stats.waiting}</div>
+          <p className="text-[11px] text-[#77a193] mt-0.5">In waiting room</p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-[#a3e2c3] bg-gradient-to-br from-white to-[#f0fdf4] p-4 shadow-xs">
+        <div className="bg-white rounded-xl border border-[#e2ece6] p-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#166534]">In Consultation</span>
-            <div className="w-8 h-8 rounded-xl bg-[#dcfce7] text-[#15803d] flex items-center justify-center">
-              <Activity className="w-4 h-4 animate-pulse" />
+            <span className="text-xs text-[#55776d]">In consultation</span>
+            <div className="w-7 h-7 rounded-md bg-[#eaf5ef] text-[#176e56] flex items-center justify-center">
+              <Activity className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="text-2xl font-black text-[#166534] mt-2">{stats.inConsultation}</div>
-          <p className="text-[11px] text-[#15803d] mt-0.5 font-medium">Active with doctor</p>
+          <div className="text-xl font-semibold text-[#176e56] mt-1 tabular-nums">{stats.inConsultation}</div>
+          <p className="text-[11px] text-[#77a193] mt-0.5">With doctor</p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-[#dbe9e0] p-4 shadow-xs">
+        <div className="bg-white rounded-xl border border-[#e2ece6] p-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#55776d]">Completed</span>
-            <div className="w-8 h-8 rounded-xl bg-[#eaf5ef] text-[#176e56] flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4" />
+            <span className="text-xs text-[#55776d]">Completed</span>
+            <div className="w-7 h-7 rounded-md bg-[#f0f5f2] text-[#176e56] flex items-center justify-center">
+              <CheckCircle2 className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="text-2xl font-black text-[#173d37] mt-2">{stats.completed}</div>
-          <p className="text-[11px] text-[#77a193] mt-0.5 font-medium">Consulted & done</p>
+          <div className="text-xl font-semibold text-[#173d37] mt-1 tabular-nums">{stats.completed}</div>
+          <p className="text-[11px] text-[#77a193] mt-0.5">Consulted and done</p>
         </div>
       </div>
 
       {/* Success Notification Alert */}
       {actionSuccessMsg && (
-        <div className="p-3 rounded-xl bg-[#dcfce7] border border-[#86efac] text-[#166534] text-xs font-semibold flex items-center gap-2 animate-in fade-in duration-200">
-          <Check className="w-4 h-4 text-[#166534] shrink-0" />
+        <div className="p-3 rounded-lg bg-[#eaf5ef] border border-[#c2e4cf] text-[#176e56] text-xs font-medium flex items-center gap-2">
+          <Check className="w-4 h-4 text-[#176e56] shrink-0" />
           <span>{actionSuccessMsg}</span>
         </div>
       )}
 
       {/* Search & Status Filters Bar */}
-      <div className="bg-white rounded-2xl border border-[#dbe9e0] p-3 sm:p-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="bg-white rounded-xl border border-[#e2ece6] p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
         {/* Search */}
         <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-[#77a193] absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 text-[#77a193] absolute left-3 top-3 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by patient name, phone, token #..."
-            className="w-full pl-9.5 pr-4 py-2 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] text-xs text-[#173d37] placeholder-[#77a193] focus:outline-none focus:border-[#54a987] focus:bg-white transition-all font-medium"
+            placeholder="Search patient, phone, token..."
+            className="w-full h-9 pl-8 pr-3 rounded-lg bg-[#f8faf8] border border-[#dbe9e0] text-xs text-[#173d37] placeholder-[#77a193] focus:outline-none focus:border-[#176e56] focus:bg-white transition-colors"
           />
         </div>
 
         {/* Status Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
+        <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto">
           {['ALL', 'Waiting', 'In Consultation', 'Completed', 'Cancelled'].map((st) => {
             const isSel = selectedStatus === st;
             return (
               <button
                 key={st}
+                type="button"
                 onClick={() => setSelectedStatus(st)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${isSel
-                    ? 'bg-[#176e56] text-white shadow-xs'
-                    : 'bg-[#f8faf8] text-[#55776d] border border-[#dbe9e0] hover:bg-[#eaf5ef] hover:text-[#176e56]'
-                  }`}
+                className={`h-7 px-2.5 rounded-md text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                  isSel
+                    ? 'bg-[#176e56] text-white'
+                    : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
+                }`}
               >
                 {st}
               </button>
@@ -601,7 +611,7 @@ export const OpdQueueView: React.FC = () => {
       </div>
 
       {/* OPD Queue Table / Cards */}
-      <div className="bg-white rounded-2xl border border-[#dbe9e0] shadow-xs overflow-hidden">
+      <div className="bg-white rounded-xl border border-[#e2ece6] overflow-hidden">
         {loading ? (
           <div className="py-16 flex flex-col items-center justify-center gap-3 text-center">
             <RefreshCw className="w-6 h-6 text-[#176e56] animate-spin" />
@@ -625,16 +635,16 @@ export const OpdQueueView: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-[#f8faf8] border-b border-[#dbe9e0] text-[#55776d] font-bold text-[11px] uppercase tracking-wider">
-                  <th className="py-3 px-4 w-16">Token</th>
-                  <th className="py-3 px-4">Patient Details</th>
-                  <th className="py-3 px-4">Doctor & Department</th>
-                  <th className="py-3 px-4">Time / Type</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                <tr className="bg-[#f8faf8] border-b border-[#e2ece6] text-[#55776d] font-medium text-xs">
+                  <th className="py-2.5 px-4 w-16">Token</th>
+                  <th className="py-2.5 px-4">Patient details</th>
+                  <th className="py-2.5 px-4">Doctor and department</th>
+                  <th className="py-2.5 px-4">Time and type</th>
+                  <th className="py-2.5 px-4">Status</th>
+                  <th className="py-2.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#dbe9e0]">
+              <tbody className="divide-y divide-[#edf5f0]">
                 {filteredQueue.map((item) => {
                   const isWaiting = item.status === 'Waiting';
                   const isInConsult = item.status === 'In Consultation';
@@ -648,24 +658,24 @@ export const OpdQueueView: React.FC = () => {
                         }`}
                     >
                       {/* Token Column */}
-                      <td className="py-3 px-4 font-black text-sm text-[#176e56]">
-                        <span className="inline-block px-2.5 py-1 rounded-xl bg-[#eaf5ef] border border-[#a3e2c3] text-[#176e56] font-mono shadow-2xs">
+                      <td className="py-2.5 px-4">
+                        <span className="inline-block px-2 py-0.5 rounded bg-[#f0f5f2] border border-[#dbe9e0] text-[#176e56] font-mono text-xs font-medium tabular-nums">
                           #{item.token}
                         </span>
                       </td>
 
                       {/* Patient Details */}
-                      <td className="py-3 px-4">
-                        <div className="font-bold text-[#173d37] text-sm">{formatNameDisplay(item.name)}</div>
-                        <div className="text-[11px] text-[#55776d] flex items-center gap-2 mt-0.5">
+                      <td className="py-2.5 px-4">
+                        <div className="font-medium text-[#173d37] text-xs">{formatNameDisplay(item.name)}</div>
+                        <div className="text-[11px] text-[#55776d] flex items-center gap-1.5 mt-0.5">
                           <span>
                             {item.age} {item.sex}
                           </span>
                           {item.uhid && (
-                            <span className="font-mono text-[#77a193]">({item.uhid})</span>
+                            <span className="font-mono tabular-nums text-[#77a193]">({item.uhid})</span>
                           )}
                         </div>
-                        <div className="text-[11px] text-[#77a193] font-mono flex items-center gap-1 mt-0.5">
+                        <div className="text-[11px] text-[#77a193] font-mono tabular-nums flex items-center gap-1 mt-0.5">
                           <Phone className="w-3 h-3 text-[#77a193]" />
                           <span>+{item.phone}</span>
                           {item.address && (
@@ -677,59 +687,61 @@ export const OpdQueueView: React.FC = () => {
                       </td>
 
                       {/* Doctor & Dept */}
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-[#173d37]">{item.doctor}</div>
+                      <td className="py-2.5 px-4">
+                        <div className="font-medium text-[#173d37] text-xs">{item.doctor}</div>
                         <div className="text-[11px] text-[#77a193]">{item.department}</div>
                       </td>
 
                       {/* Time / Type */}
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-[#173d37] font-mono">
+                      <td className="py-2.5 px-4">
+                        <div className="font-medium text-[#173d37] font-mono tabular-nums text-xs">
                           {formatTimeDisplay(item.time) || item.time || '10:30 AM'}
                         </div>
-                        <div className="text-[10px] inline-block px-1.5 py-0.5 rounded bg-[#f3f9f5] text-[#176e56] font-medium mt-0.5">
+                        <div className="text-[11px] inline-block px-1.5 py-0.2 rounded bg-[#f0f5f2] text-[#176e56] mt-0.5">
                           {item.visitType || 'Appointment'}
                         </div>
                       </td>
 
                       {/* Status */}
-                      <td className="py-3 px-4">
+                      <td className="py-2.5 px-4">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${isWaiting
+                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium ${
+                            isWaiting
                               ? 'bg-[#fffbeb] text-[#92400e] border border-[#fef3c7]'
                               : isInConsult
-                                ? 'bg-[#dcfce7] text-[#166534] border border-[#bbf7d0]'
-                                : isDone
-                                  ? 'bg-[#f3f4f6] text-[#4b5563] border border-[#e5e7eb]'
-                                  : 'bg-[#fee2e2] text-[#991b1b] border border-[#fca5a5]'
-                            }`}
+                              ? 'bg-[#dcfce7] text-[#166534] border border-[#bbf7d0]'
+                              : isDone
+                              ? 'bg-[#f3f4f6] text-[#4b5563] border border-[#e5e7eb]'
+                              : 'bg-[#fee2e2] text-[#991b1b] border border-[#fca5a5]'
+                          }`}
                         >
                           <span
-                            className={`w-1.5 h-1.5 rounded-full ${isWaiting
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              isWaiting
                                 ? 'bg-[#f59e0b]'
                                 : isInConsult
-                                  ? 'bg-[#22c55e] animate-pulse'
-                                  : isDone
-                                    ? 'bg-[#9ca3af]'
-                                    : 'bg-[#ef4444]'
-                              }`}
+                                ? 'bg-[#22c55e]'
+                                : isDone
+                                ? 'bg-[#9ca3af]'
+                                : 'bg-[#ef4444]'
+                            }`}
                           />
                           {item.status}
                         </span>
                       </td>
 
                       {/* Actions */}
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="py-2.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
                           {/* Alert Patient via WhatsApp Cloud API */}
                           <button
                             type="button"
                             onClick={() => handleCallPatient(item)}
                             disabled={isCalling}
-                            title="Send WhatsApp Alert: Your Turn to Enter OPD Room"
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#25D366] hover:bg-[#20ba59] active:scale-95 text-white text-[11px] font-bold transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                            title="Send WhatsApp turn alert"
+                            className="h-7 flex items-center gap-1 px-2.5 rounded-md bg-[#176e56] hover:bg-[#125643] text-white text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
                           >
-                            <Send className={`w-3.5 h-3.5 ${isCalling ? 'animate-spin' : ''}`} />
+                            <Send className={`w-3 h-3 ${isCalling ? 'animate-spin' : ''}`} />
                             <span>{isCalling ? 'Sending...' : 'WhatsApp'}</span>
                           </button>
 
@@ -744,10 +756,10 @@ export const OpdQueueView: React.FC = () => {
                               )}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              title="Open direct WhatsApp Web chat with patient"
-                              className="p-1.5 rounded-lg text-[#166534] bg-[#eaf5ef] hover:bg-[#dcfce7] border border-[#bbf7d0] transition-colors cursor-pointer"
+                              title="Open direct WhatsApp chat"
+                              className="h-7 w-7 rounded-md text-[#176e56] bg-[#f0f5f2] hover:bg-[#e4eee7] border border-[#dbe9e0] transition-colors flex items-center justify-center cursor-pointer"
                             >
-                              <ExternalLink className="w-3.5 h-3.5" />
+                              <ExternalLink className="w-3 h-3" />
                             </a>
                           )}
 
@@ -755,7 +767,7 @@ export const OpdQueueView: React.FC = () => {
                           <select
                             value={item.status}
                             onChange={(e) => handleUpdateStatus(item, e.target.value)}
-                            className="px-2 py-1 rounded-lg bg-[#f8faf8] border border-[#dbe9e0] text-[11px] font-semibold text-[#173d37] focus:outline-none focus:border-[#54a987] cursor-pointer"
+                            className="h-7 px-2 rounded-md bg-white border border-[#dbe9e0] text-xs font-medium text-[#173d37] focus:outline-none focus:border-[#176e56] cursor-pointer"
                           >
                             <option value="Waiting">Waiting</option>
                             <option value="In Consultation">In Consultation</option>
@@ -765,11 +777,12 @@ export const OpdQueueView: React.FC = () => {
 
                           {/* Delete Queue Entry Button */}
                           <button
+                            type="button"
                             onClick={() => handleDeleteQueueItem(item)}
-                            title="Delete this token entry from OPD queue"
-                            className="p-1.5 rounded-lg text-[#9ca3af] hover:text-[#dc2626] hover:bg-[#fee2e2] transition-colors cursor-pointer"
+                            title="Remove from queue"
+                            className="h-7 w-7 rounded-md text-[#9ca3af] hover:text-[#dc2626] hover:bg-[#fee2e2] transition-colors flex items-center justify-center cursor-pointer"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>
