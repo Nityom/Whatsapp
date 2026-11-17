@@ -29,6 +29,20 @@ export const saveWhatsAppSession = mutation({
     lastBookedDoctor: v.optional(v.string()),
     lastBookedDate: v.optional(v.string()),
     lastBookedPatientName: v.optional(v.string()),
+    consentGranted: v.optional(v.boolean()),
+    rescheduleDraft: v.optional(
+      v.object({
+        appointmentId: v.optional(v.string()),
+        doctorName: v.optional(v.string()),
+        specialty: v.optional(v.string()),
+        date: v.optional(v.string()),
+        time: v.optional(v.string()),
+        patientName: v.optional(v.string()),
+        slot: v.optional(v.string()),
+        slotTime: v.optional(v.string()),
+      })
+    ),
+    clearRescheduleDraft: v.optional(v.boolean()),
     resetSession: v.optional(v.boolean()),
     clearBookingDraft: v.optional(v.boolean()),
     clearPatient: v.optional(v.boolean()),
@@ -123,6 +137,8 @@ export const saveWhatsAppSession = mutation({
         lastBookedDoctor: args.lastBookedDoctor ?? existing.lastBookedDoctor,
         lastBookedDate: args.lastBookedDate ?? existing.lastBookedDate,
         lastBookedPatientName: args.lastBookedPatientName ?? existing.lastBookedPatientName,
+        consentGranted: args.consentGranted ?? existing.consentGranted,
+        rescheduleDraft: args.clearRescheduleDraft ? undefined : (args.rescheduleDraft ?? existing.rescheduleDraft),
         bookingDraft: finalDraft,
         updatedAt: now,
       });
@@ -147,6 +163,8 @@ export const saveWhatsAppSession = mutation({
       lastBookedDoctor: args.lastBookedDoctor,
       lastBookedDate: args.lastBookedDate,
       lastBookedPatientName: args.lastBookedPatientName,
+      consentGranted: args.consentGranted,
+      rescheduleDraft: args.rescheduleDraft,
       bookingDraft: args.bookingDraft,
       createdAt: now,
       updatedAt: now,
@@ -276,14 +294,25 @@ export const logChatMessage = mutation({
       });
     }
 
+    if (args.sender === "assistant" || args.sender === "staff") {
+      const metricDoc = await ctx.db
+        .query("metrics")
+        .withIndex("by_key", (q) => q.eq("key", "messages_sent"))
+        .first();
+      if (metricDoc) {
+        await ctx.db.patch(metricDoc._id, { count: metricDoc.count + 1 });
+      }
+    }
+
     return id;
   },
 });
 
 export const listAllSessions = query({
-  args: {},
-  handler: async (ctx) => {
-    const sessions = await ctx.db.query("whatsappSessions").order("desc").collect();
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const limit = args.limit || 100;
+    const sessions = await ctx.db.query("whatsappSessions").order("desc").take(limit);
 
     const enriched = await Promise.all(
       sessions.map(async (sess) => {
@@ -371,6 +400,14 @@ export const sendStaffMessage = mutation({
       });
     }
 
+    const metricDoc = await ctx.db
+      .query("metrics")
+      .withIndex("by_key", (q) => q.eq("key", "messages_sent"))
+      .first();
+    if (metricDoc) {
+      await ctx.db.patch(metricDoc._id, { count: metricDoc.count + 1 });
+    }
+
     return { success: true, messageId: msgId };
   },
 });
@@ -433,6 +470,14 @@ export const sendBulkMessage = mutation({
       }
     }
 
+    const metricDoc = await ctx.db
+      .query("metrics")
+      .withIndex("by_key", (q) => q.eq("key", "messages_sent"))
+      .first();
+    if (metricDoc) {
+      await ctx.db.patch(metricDoc._id, { count: metricDoc.count + args.phoneNumbers.length });
+    }
+
     return { success: true, campaignId, count: args.phoneNumbers.length };
   },
 });
@@ -473,14 +518,25 @@ export const updateSessionMeta = mutation({
 export const getDashboardStats = query({
   args: {},
   handler: async (ctx) => {
-    const sessions = await ctx.db.query("whatsappSessions").collect();
-    const messages = await ctx.db.query("chatMessages").collect();
+    const sessions = await ctx.db.query("whatsappSessions").order("desc").take(200);
     const campaigns = await ctx.db.query("broadcastCampaigns").order("desc").take(5);
 
     const totalChats = sessions.length;
     const replied = sessions.filter((s) => s.lastMessage || s.isHandedOver).length;
     const newLeads = sessions.filter((s) => s.tags?.includes("Lead") || !s.patientReference).length;
-    const messagesSent = messages.filter((m) => m.sender === "assistant" || m.sender === "staff").length;
+
+    // Fast metric lookup without full table scan of chatMessages
+    const metricDoc = await ctx.db
+      .query("metrics")
+      .withIndex("by_key", (q) => q.eq("key", "messages_sent"))
+      .first();
+
+    let messagesSent = metricDoc?.count;
+    if (messagesSent === undefined) {
+      // Fallback estimate from campaigns + replied sessions without full table scan
+      const campaignCount = campaigns.reduce((acc, c) => acc + (c.recipientCount || 0), 0);
+      messagesSent = campaignCount + replied;
+    }
 
     return {
       totalChats,
@@ -489,6 +545,24 @@ export const getDashboardStats = query({
       messagesSent,
       campaigns,
     };
+  },
+});
+
+export const initializeMetrics = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const messages = await ctx.db.query("chatMessages").collect();
+    const count = messages.filter((m) => m.sender === "assistant" || m.sender === "staff").length;
+    const existing = await ctx.db
+      .query("metrics")
+      .withIndex("by_key", (q) => q.eq("key", "messages_sent"))
+      .first();
+    if (existing) {
+      await ctx.db.patch(existing._id, { count });
+    } else {
+      await ctx.db.insert("metrics", { key: "messages_sent", count });
+    }
+    return count;
   },
 });
 

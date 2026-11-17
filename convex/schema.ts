@@ -20,6 +20,19 @@ export default defineSchema({
     lastBookedDoctor: v.optional(v.string()),
     lastBookedDate: v.optional(v.string()),
     lastBookedPatientName: v.optional(v.string()),
+    consentGranted: v.optional(v.boolean()),
+    rescheduleDraft: v.optional(
+      v.object({
+        appointmentId: v.optional(v.string()),
+        doctorName: v.optional(v.string()),
+        specialty: v.optional(v.string()),
+        date: v.optional(v.string()),
+        time: v.optional(v.string()),
+        patientName: v.optional(v.string()),
+        slot: v.optional(v.string()),
+        slotTime: v.optional(v.string()),
+      })
+    ),
     bookingDraft: v.optional(
       v.object({
         doctorName: v.optional(v.string()),
@@ -88,4 +101,41 @@ export default defineSchema({
     sentAt: v.number(),
     tags: v.optional(v.array(v.string())),
   }),
+
+  // Aggregate stats counters (avoids full table scans for dashboard counts)
+  metrics: defineTable({
+    key: v.string(),
+    count: v.number(),
+  }).index("by_key", ["key"]),
+
+  // P0-5: Appointment Reminders (Scheduled 1 hour before appointment slot)
+  appointmentReminders: defineTable({
+    appointmentId: v.string(),
+    phoneNumber: v.string(),
+    patientName: v.string(),
+    doctorName: v.string(),
+    date: v.string(), // YYYY-MM-DD
+    time: v.string(), // e.g. "11:45 AM - 12:00 PM"
+    slotTime: v.string(), // "11:45"
+    token: v.optional(v.string()), // e.g. "#5"
+    reminderScheduledFor: v.number(), // Epoch ms (1 hour before slot)
+    status: v.string(), // "PENDING" | "SENT" | "CANCELLED"
+    sentAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_status_and_time", ["status", "reminderScheduledFor"])
+    .index("by_appointmentId", ["appointmentId"])
+    .index("by_phone", ["phoneNumber"]),
+
+  // P0-1: Audit Logs for critical system, webhook, consent & appointment lifecycle events
+  auditLogs: defineTable({
+    eventType: v.string(), // "WEBHOOK_EVENT" | "APPOINTMENT_BOOKED" | "APPOINTMENT_RESCHEDULED" | "APPOINTMENT_CANCELLED" | "QR_CHECKIN" | "REMINDER_SCHEDULED" | "REMINDER_SENT" | "CONSENT_RECORDED" | "HANDOVER_TO_RECEPTION" | "BOT_RESUMED" | "EMERGENCY_TRIGGERED"
+    phoneNumber: v.string(),
+    patientName: v.optional(v.string()),
+    details: v.string(),
+    metadata: v.optional(v.any()),
+    timestamp: v.number(),
+  })
+    .index("by_event", ["eventType", "timestamp"])
+    .index("by_phone", ["phoneNumber", "timestamp"]),
 });

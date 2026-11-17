@@ -1,6 +1,7 @@
 export type NavTab =
   | 'dashboard'
   | 'chats'
+  | 'opd'
   | 'broadcast'
   | 'automation'
   | 'templates'

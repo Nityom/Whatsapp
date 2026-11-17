@@ -160,11 +160,10 @@ export const SimulatorDrawer: React.FC<SimulatorDrawerProps> = ({ onRefreshSessi
   return (
     <div className="space-y-4">
       {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white border border-[#dbe9e0] shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-white border border-[#e2ece6]">
         <div>
-          <h2 className="text-base font-bold text-[#173d37] flex items-center gap-2">
-            <Smartphone className="w-5 h-5 text-[#176e56]" />
-            <span>Interactive Svaasth Connect WhatsApp Simulator</span>
+          <h2 className="text-base font-semibold text-[#173d37]">
+            Interactive WhatsApp simulator
           </h2>
           <p className="text-xs text-[#55776d] mt-0.5">
             Test the live WhatsApp AI state machine directly in the browser as a simulated patient.
@@ -172,32 +171,33 @@ export const SimulatorDrawer: React.FC<SimulatorDrawerProps> = ({ onRefreshSessi
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] text-xs font-mono">
+          <div className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-[#f8faf8] border border-[#dbe9e0] text-xs font-mono tabular-nums">
             <span className="text-[#77a193]">+</span>
             <input
               type="text"
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
-              className="bg-transparent text-[#173d37] font-bold w-28 focus:outline-none"
+              className="bg-transparent text-[#173d37] font-medium w-28 focus:outline-none"
             />
           </div>
 
           <button
+            type="button"
             onClick={handleReset}
             disabled={loading}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#eaf5ef] hover:bg-[#d9efe2] text-[#176e56] text-xs font-bold transition-all border border-[#cbe4d5]"
+            className="h-8 flex items-center gap-1.5 px-3 rounded-lg bg-white hover:bg-[#f8faf8] text-[#173d37] text-xs font-medium transition-colors border border-[#dbe9e0] cursor-pointer"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset Chat</span>
+            <RotateCcw className="w-3.5 h-3.5 text-[#55776d]" />
+            <span>Reset chat</span>
           </button>
         </div>
       </div>
 
       {/* Simulator Device Frame */}
-      <div className="max-w-md mx-auto bg-white border-4 border-[#dbe9e0] rounded-3xl shadow-xl overflow-hidden flex flex-col h-[640px]">
+      <div className="max-w-md mx-auto bg-white border border-[#dbe9e0] rounded-2xl shadow-sm overflow-hidden flex flex-col h-[640px]">
         {/* Device Status Bar */}
-        <div className="bg-[#176e56] text-white px-4 py-2 flex items-center justify-between text-[11px] font-semibold">
-          <span>9:41</span>
+        <div className="bg-[#176e56] text-white px-4 py-1.5 flex items-center justify-between text-[11px] font-medium">
+          <span className="tabular-nums">9:41</span>
           <div className="flex items-center gap-1.5">
             <span>5G</span>
             <span>100%</span>
@@ -205,71 +205,76 @@ export const SimulatorDrawer: React.FC<SimulatorDrawerProps> = ({ onRefreshSessi
         </div>
 
         {/* WhatsApp Chat Header */}
-        <div className="bg-[#176e56] text-white p-3 flex items-center gap-3 shadow-xs">
-          <div className="w-9 h-9 rounded-full bg-white text-[#176e56] font-bold text-xs flex items-center justify-center">
+        <div className="bg-[#176e56] text-white p-3 flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-[#f0f5f2] text-[#176e56] font-medium text-xs flex items-center justify-center">
             SC
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-xs font-bold truncate leading-tight">Svaasth Connect</h3>
-            <p className="text-[10px] text-[#77d1a5] font-medium leading-tight">
-              Hospital Virtual Assistant • Online
+            <h3 className="text-xs font-medium truncate leading-tight">Svaasth Connect</h3>
+            <p className="text-[11px] text-[#77d1a5] leading-tight">
+              Virtual assistant • Online
             </p>
           </div>
         </div>
 
         {/* Quick Test Chips */}
-        <div className="bg-[#f3f9f5] px-3 py-1.5 border-b border-[#dbe9e0] flex items-center gap-1.5 overflow-x-auto text-[10px]">
-          <span className="text-[#55776d] font-bold shrink-0">Quick reply:</span>
+        <div className="bg-[#f8faf8] px-3 py-1.5 border-b border-[#e2ece6] flex items-center gap-1.5 overflow-x-auto text-[11px]">
+          <span className="text-[#55776d] shrink-0">Quick reply:</span>
           <button
+            type="button"
             onClick={() => sendToSimulator('1')}
-            className="px-2 py-0.5 rounded-full bg-white text-[#176e56] font-bold border border-[#dbe9e0] hover:bg-[#eaf5ef]"
+            className="px-2 py-0.5 rounded bg-white text-[#176e56] border border-[#dbe9e0] hover:bg-[#f0f5f2]"
           >
             1 (English)
           </button>
           <button
+            type="button"
             onClick={() => sendToSimulator('Hi')}
-            className="px-2 py-0.5 rounded-full bg-white text-[#176e56] font-bold border border-[#dbe9e0] hover:bg-[#eaf5ef]"
+            className="px-2 py-0.5 rounded bg-white text-[#176e56] border border-[#dbe9e0] hover:bg-[#f0f5f2]"
           >
             Hi
           </button>
           <button
+            type="button"
             onClick={() => sendToSimulator('1')}
-            className="px-2 py-0.5 rounded-full bg-white text-[#176e56] font-bold border border-[#dbe9e0] hover:bg-[#eaf5ef]"
+            className="px-2 py-0.5 rounded bg-white text-[#176e56] border border-[#dbe9e0] hover:bg-[#f0f5f2]"
           >
             1. Book
           </button>
           <button
+            type="button"
             onClick={() => sendToSimulator('3')}
-            className="px-2 py-0.5 rounded-full bg-white text-[#176e56] font-bold border border-[#dbe9e0] hover:bg-[#eaf5ef]"
+            className="px-2 py-0.5 rounded bg-white text-[#176e56] border border-[#dbe9e0] hover:bg-[#f0f5f2]"
           >
             3. Prescription
           </button>
           <button
+            type="button"
             onClick={handleSendLocation}
-            className="px-2 py-0.5 rounded-full bg-white text-[#176e56] font-bold border border-[#dbe9e0] hover:bg-[#eaf5ef] flex items-center gap-1"
+            className="px-2 py-0.5 rounded bg-white text-[#176e56] border border-[#dbe9e0] hover:bg-[#f0f5f2] flex items-center gap-1"
           >
-            <MapPin className="w-2.5 h-2.5" />
+            <MapPin className="w-3 h-3" />
             <span>Location</span>
           </button>
         </div>
 
         {/* Chat Feed */}
-        <div className="flex-1 p-3 overflow-y-auto space-y-2.5 bg-[#f5f8f6]">
+        <div className="flex-1 p-3 overflow-y-auto space-y-2.5 bg-[#f8faf8]">
           {messages.map((m) => {
             const isUser = m.sender === 'user';
             return (
               <div key={m.id} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
                 <div
-                  className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed shadow-2xs ${
+                  className={`max-w-[85%] p-3 rounded-xl text-xs leading-relaxed ${
                     isUser
                       ? 'bg-[#dcf8c6] text-[#111b21] rounded-tr-xs'
-                      : 'bg-white text-[#111b21] border border-[#dbe9e0] rounded-tl-xs'
+                      : 'bg-white text-[#111b21] border border-[#e2ece6] rounded-tl-xs'
                   }`}
                 >
                   <p className="whitespace-pre-wrap">{m.text}</p>
-                  <div className="flex items-center justify-end gap-1 mt-1 text-[9px] text-gray-500">
+                  <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-gray-500 tabular-nums">
                     <span>{m.timestamp}</span>
-                    {isUser && <CheckCheck className="w-3 h-3 text-[#54a987]" />}
+                    {isUser && <CheckCheck className="w-3 h-3 text-[#176e56]" />}
                   </div>
                 </div>
 
@@ -279,8 +284,9 @@ export const SimulatorDrawer: React.FC<SimulatorDrawerProps> = ({ onRefreshSessi
                     {m.interactive.buttons?.map((b: any) => (
                       <button
                         key={b.id}
+                        type="button"
                         onClick={() => sendToSimulator(b.title)}
-                        className="w-full py-1.5 px-3 rounded-xl bg-white border border-[#54a987] text-[#176e56] text-[11px] font-bold hover:bg-[#eaf5ef] transition-colors text-center shadow-xs"
+                        className="w-full py-1.5 px-3 rounded-lg bg-white border border-[#176e56] text-[#176e56] text-xs font-medium hover:bg-[#f0f5f2] transition-colors text-center"
                       >
                         {b.title}
                       </button>
@@ -292,7 +298,7 @@ export const SimulatorDrawer: React.FC<SimulatorDrawerProps> = ({ onRefreshSessi
           })}
           {loading && (
             <div className="text-[11px] text-[#77a193] italic">
-              Svaasth Connect is typing...
+              Typing response...
             </div>
           )}
           <div ref={messagesEndRef} />
@@ -304,19 +310,19 @@ export const SimulatorDrawer: React.FC<SimulatorDrawerProps> = ({ onRefreshSessi
             e.preventDefault();
             sendToSimulator(inputText);
           }}
-          className="p-2.5 bg-white border-t border-[#dbe9e0] flex items-center gap-2"
+          className="p-2.5 bg-white border-t border-[#e2ece6] flex items-center gap-2"
         >
           <input
             type="text"
             placeholder="Reply as patient..."
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            className="flex-1 px-3 py-2 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] text-xs text-[#173d37] focus:outline-none focus:border-[#54a987]"
+            className="flex-1 h-9 px-3 rounded-lg bg-[#f8faf8] border border-[#dbe9e0] text-xs text-[#173d37] focus:outline-none focus:border-[#176e56]"
           />
           <button
             type="submit"
             disabled={!inputText.trim() || loading}
-            className="w-8 h-8 rounded-xl bg-[#176e56] text-white flex items-center justify-center disabled:opacity-50"
+            className="h-9 w-9 rounded-lg bg-[#176e56] text-white flex items-center justify-center disabled:opacity-40 transition-colors"
           >
             <Send className="w-3.5 h-3.5" />
           </button>

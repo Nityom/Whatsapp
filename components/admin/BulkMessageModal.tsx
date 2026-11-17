@@ -486,82 +486,77 @@ export const BulkMessageModal: React.FC<BulkMessageModalProps> = ({
   const pendingTemplates = metaTemplates.filter((t) => t.status === 'PENDING');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-200">
-      <div className="bg-white border border-[#dbe9e0] rounded-2xl sm:rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[96vh] sm:max-h-[94vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-2 sm:p-4">
+      <div className="bg-white border border-[#e2ece6] rounded-xl w-full max-w-5xl shadow-lg overflow-hidden flex flex-col max-h-[96vh] sm:max-h-[94vh]">
         {/* MODAL HEADER */}
-        <div className="p-3.5 sm:p-5 border-b border-[#dbe9e0] flex items-center justify-between bg-[#f8faf8]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#eaf5ef] text-[#176e56] flex items-center justify-center shadow-xs">
-              <Megaphone className="w-5 h-5" />
+        <div className="p-3.5 sm:p-4 border-b border-[#e2ece6] flex items-center justify-between bg-[#f8faf8]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#f0f5f2] text-[#176e56] flex items-center justify-center">
+              <Megaphone className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-[#173d37]">Send Bulk WhatsApp Broadcast</h2>
-                <span className="text-[10px] bg-[#eaf5ef] text-[#176e56] font-bold px-2 py-0.5 rounded-full border border-[#c2e4cf] flex items-center gap-1">
+                <h2 className="text-sm font-semibold text-[#173d37]">Send bulk broadcast</h2>
+                <span className="text-[10px] bg-[#f0f5f2] text-[#176e56] font-medium px-2 py-0.2 rounded border border-[#dbe9e0] flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3 text-[#176e56]" />
-                  Meta Official API
+                  Official API
                 </span>
               </div>
               <p className="text-xs text-[#55776d] mt-0.5">
-                Send guaranteed broadcasts to all contacts outside 24h via Meta Templates, or auto-submit custom templates for instant approval.
+                Send broadcasts to contacts outside 24h via Meta templates, or submit custom templates for approval.
               </p>
             </div>
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-[#55776d] hover:text-[#173d37] hover:bg-[#eaf5ef] transition-colors cursor-pointer"
+            className="p-1 rounded-md text-[#55776d] hover:text-[#173d37] hover:bg-[#f0f5f2] transition-colors cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* BROADCAST CHANNEL MODE SELECTOR */}
-        <div className="px-6 py-2.5 bg-white border-b border-[#eaf2ed] flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-xs">
+        <div className="px-5 py-2.5 bg-white border-b border-[#e2ece6] flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex items-center gap-1.5 text-xs">
             <button
               type="button"
               onClick={() => setDispatchMode('meta_approved')}
-              className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`h-7 px-2.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
                 dispatchMode === 'meta_approved'
-                  ? 'bg-[#176e56] text-white shadow-xs'
-                  : 'bg-[#f4f8f5] text-[#176e56] hover:bg-[#eaf5ef] border border-[#dbe9e0]'
+                  ? 'bg-[#176e56] text-white'
+                  : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
               }`}
             >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Meta Approved Template ({approvedTemplates.length})</span>
-              <span className="text-[9px] bg-white/20 px-1.5 py-0.2 rounded-full font-mono">
-                Outside 24h Ready
-              </span>
+              <ShieldCheck className="w-3 h-3" />
+              <span>Approved templates ({approvedTemplates.length})</span>
             </button>
 
             <button
               type="button"
               onClick={() => setDispatchMode('meta_create')}
-              className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`h-7 px-2.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
                 dispatchMode === 'meta_create'
-                  ? 'bg-[#176e56] text-white shadow-xs'
-                  : 'bg-[#f4f8f5] text-[#176e56] hover:bg-[#eaf5ef] border border-[#dbe9e0]'
+                  ? 'bg-[#176e56] text-white'
+                  : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
               }`}
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Auto-Submit to Meta</span>
-              <span className="text-[9px] bg-amber-500 text-white px-1.5 py-0.2 rounded-full font-bold">
-                Auto-Review
-              </span>
+              <Plus className="w-3 h-3" />
+              <span>Submit new template</span>
             </button>
 
             <button
               type="button"
               onClick={() => setDispatchMode('custom_text')}
-              className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`h-7 px-2.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
                 dispatchMode === 'custom_text'
-                  ? 'bg-[#176e56] text-white shadow-xs'
-                  : 'bg-[#f4f8f5] text-[#55776d] hover:bg-[#eaf5ef] border border-[#dbe9e0]'
+                  ? 'bg-[#176e56] text-white'
+                  : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
               }`}
             >
-              <FileText className="w-3.5 h-3.5" />
-              <span>Active 24h Chat Message</span>
+              <FileText className="w-3 h-3" />
+              <span>Custom text</span>
             </button>
           </div>
 

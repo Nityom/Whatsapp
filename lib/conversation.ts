@@ -86,6 +86,8 @@ export async function processIncomingMessage(
     lastBookedDoctor: sessionDoc?.lastBookedDoctor,
     lastBookedDate: sessionDoc?.lastBookedDate,
     lastBookedPatientName: sessionDoc?.lastBookedPatientName,
+    consentGranted: sessionDoc?.consentGranted,
+    rescheduleDraft: sessionDoc?.rescheduleDraft,
     bookingDraft: sessionDoc?.bookingDraft,
   };
 
@@ -153,6 +155,13 @@ export async function processIncomingMessage(
       lastBookedDoctor: updatedContext.lastBookedDoctor,
       lastBookedDate: updatedContext.lastBookedDate,
       lastBookedPatientName: updatedContext.lastBookedPatientName,
+      consentGranted: updatedContext.consentGranted,
+      rescheduleDraft: agentResponse.updatedContext?.rescheduleDraft,
+      clearRescheduleDraft: Boolean(
+        agentResponse.updatedContext &&
+        "rescheduleDraft" in agentResponse.updatedContext &&
+        !agentResponse.updatedContext.rescheduleDraft
+      ),
       resetSession: Boolean(agentResponse.updatedContext?.resetSession),
       clearBookingDraft: shouldClearDraft || Boolean(agentResponse.updatedContext?.resetSession),
       clearPatient: shouldClearPatient || Boolean(agentResponse.updatedContext?.resetSession),

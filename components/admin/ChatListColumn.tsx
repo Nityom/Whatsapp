@@ -67,49 +67,39 @@ export const ChatListColumn: React.FC<ChatListColumnProps> = ({
     return phone?.slice(-2) || 'WA';
   };
 
-  const getAvatarColor = (index: number) => {
-    const palette = [
-      'bg-[#e2e8f0] text-[#334155]',
-      'bg-[#eaf5ef] text-[#176e56]',
-      'bg-[#ede9fe] text-[#6d28d9]',
-      'bg-[#fef3c7] text-[#92400e]',
-      'bg-[#e0f2fe] text-[#0369a1]',
-      'bg-[#ffe4e6] text-[#be123c]',
-    ];
-    return palette[index % palette.length];
-  };
-
   return (
-    <div className="w-full h-full bg-white border border-[#dbe9e0] rounded-2xl flex flex-col shadow-xs overflow-hidden">
+    <div className="w-full h-full bg-white border border-[#e2ece6] rounded-xl flex flex-col overflow-hidden">
       {/* Top Filter Tabs */}
-      <div className="p-3.5 border-b border-[#dbe9e0] space-y-3">
+      <div className="p-3 border-b border-[#e2ece6] space-y-2.5">
         <div className="flex items-center justify-between gap-1.5">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+          <div className="flex items-center gap-1 overflow-x-auto text-xs">
             <button
+              type="button"
               onClick={() => onChangeFilter('all')}
-              className={`px-3 py-1.5 rounded-full font-semibold transition-all ${
+              className={`h-7 px-2.5 rounded-md text-xs font-medium transition-colors ${
                 filter === 'all'
-                  ? 'bg-[#176e56] text-white shadow-xs'
-                  : 'bg-[#f3f9f5] text-[#55776d] hover:bg-[#eaf5ef]'
+                  ? 'bg-[#176e56] text-white'
+                  : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
               }`}
             >
               All
             </button>
 
             <button
+              type="button"
               onClick={() => onChangeFilter('unread')}
-              className={`px-3 py-1.5 rounded-full font-semibold transition-all flex items-center gap-1.5 ${
+              className={`h-7 px-2.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
                 filter === 'unread'
-                  ? 'bg-[#176e56] text-white shadow-xs'
-                  : 'bg-[#f3f9f5] text-[#55776d] hover:bg-[#eaf5ef]'
+                  ? 'bg-[#176e56] text-white'
+                  : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
               }`}
             >
               <span>Unread</span>
               {unreadTotal > 0 && (
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full tabular-nums ${
                     filter === 'unread'
-                      ? 'bg-white text-[#176e56] font-bold'
+                      ? 'bg-white text-[#176e56] font-medium'
                       : 'bg-[#176e56] text-white'
                   }`}
                 >
@@ -119,22 +109,24 @@ export const ChatListColumn: React.FC<ChatListColumnProps> = ({
             </button>
 
             <button
+              type="button"
               onClick={() => onChangeFilter('assigned')}
-              className={`px-3 py-1.5 rounded-full font-semibold transition-all ${
+              className={`h-7 px-2.5 rounded-md text-xs font-medium transition-colors ${
                 filter === 'assigned'
-                  ? 'bg-[#176e56] text-white shadow-xs'
-                  : 'bg-[#f3f9f5] text-[#55776d] hover:bg-[#eaf5ef]'
+                  ? 'bg-[#176e56] text-white'
+                  : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
               }`}
             >
               Assigned
             </button>
 
             <button
+              type="button"
               onClick={() => onChangeFilter('bot')}
-              className={`px-3 py-1.5 rounded-full font-semibold transition-all ${
+              className={`h-7 px-2.5 rounded-md text-xs font-medium transition-colors ${
                 filter === 'bot'
-                  ? 'bg-[#176e56] text-white shadow-xs'
-                  : 'bg-[#f3f9f5] text-[#55776d] hover:bg-[#eaf5ef]'
+                  ? 'bg-[#176e56] text-white'
+                  : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
               }`}
             >
               Bot
@@ -142,24 +134,24 @@ export const ChatListColumn: React.FC<ChatListColumnProps> = ({
           </div>
 
           <button
+            type="button"
             title="Filter options"
-            className="p-1.5 rounded-lg text-[#55776d] hover:text-[#176e56] hover:bg-[#f3f9f5] transition-colors shrink-0"
+            className="p-1 rounded-md text-[#55776d] hover:text-[#173d37] hover:bg-[#f0f5f2] transition-colors shrink-0"
           >
-            <SlidersHorizontal className="w-4 h-4" />
+            <SlidersHorizontal className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {/* Search Bar */}
         <div className="relative">
-          <Search className="w-4 h-4 text-[#77a193] absolute left-3 top-2.5" />
+          <Search className="w-3.5 h-3.5 text-[#77a193] absolute left-3 top-3 pointer-events-none" />
           <input
             type="text"
-            placeholder="Search chats, name or number..."
+            placeholder="Search conversations..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-9 pr-8 py-2 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] text-xs text-[#173d37] placeholder-[#77a193] focus:outline-none focus:border-[#54a987] focus:bg-white transition-all"
+            className="w-full h-9 pl-8 pr-3 rounded-lg bg-[#f8faf8] border border-[#dbe9e0] text-xs text-[#173d37] placeholder-[#77a193] focus:outline-none focus:border-[#176e56] focus:bg-white transition-colors"
           />
-          <ChevronDown className="w-3.5 h-3.5 text-[#77a193] absolute right-3 top-3 pointer-events-none" />
         </div>
       </div>
 
@@ -170,34 +162,32 @@ export const ChatListColumn: React.FC<ChatListColumnProps> = ({
             <p>No conversations found</p>
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => onSearchChange('')}
-                className="mt-2 text-[#176e56] font-semibold underline"
+                className="mt-2 text-[#176e56] font-medium underline"
               >
                 Clear search
               </button>
             )}
           </div>
         ) : (
-          filteredSessions.map((session, idx) => {
+          filteredSessions.map((session) => {
             const isSelected = selectedPhone === session.phoneNumber;
             const initials = getAvatarInitials(session.patientName, session.phoneNumber);
-            const avatarColor = getAvatarColor(idx);
             const unread = session.unreadCount || 0;
 
             return (
               <div
                 key={session.phoneNumber}
                 onClick={() => onSelectSession(session.phoneNumber)}
-                className={`p-3.5 flex items-start gap-3 cursor-pointer transition-all border-l-3 ${
+                className={`p-3 flex items-start gap-2.5 cursor-pointer transition-colors border-l-2 ${
                   isSelected
-                    ? 'bg-[#eaf5ef] border-[#176e56]'
+                    ? 'bg-[#f0f5f2] border-[#176e56]'
                     : 'bg-white border-transparent hover:bg-[#f8faf8]'
                 }`}
               >
                 {/* Avatar */}
-                <div
-                  className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${avatarColor}`}
-                >
+                <div className="w-9 h-9 rounded-full bg-[#f0f5f2] border border-[#dbe9e0] text-[#176e56] font-medium text-xs flex items-center justify-center shrink-0">
                   {initials}
                 </div>
 
@@ -205,26 +195,26 @@ export const ChatListColumn: React.FC<ChatListColumnProps> = ({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-1">
                     <h3
-                      className={`text-sm truncate ${
+                      className={`text-xs truncate ${
                         isSelected || unread > 0
-                          ? 'font-bold text-[#173d37]'
-                          : 'font-semibold text-[#173d37]'
+                          ? 'font-semibold text-[#173d37]'
+                          : 'font-medium text-[#173d37]'
                       }`}
                     >
                       {session.patientName || `+${session.phoneNumber}`}
                     </h3>
-                    <span className="text-[11px] text-[#77a193] shrink-0 whitespace-nowrap">
+                    <span className="text-[11px] text-[#77a193] shrink-0 tabular-nums">
                       {formatTime(session.lastMessageTimestamp || session.updatedAt)}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 mt-1">
+                  <div className="flex items-center justify-between gap-2 mt-0.5">
                     <p className="text-xs text-[#55776d] truncate">
-                      {session.lastMessage || 'Tap to view chat history'}
+                      {session.lastMessage || 'No recent messages'}
                     </p>
 
                     {unread > 0 && (
-                      <span className="w-5 h-5 rounded-full bg-[#176e56] text-white text-[11px] font-bold flex items-center justify-center shrink-0">
+                      <span className="w-4 h-4 rounded-full bg-[#176e56] text-white text-[10px] font-medium tabular-nums flex items-center justify-center shrink-0">
                         {unread}
                       </span>
                     )}

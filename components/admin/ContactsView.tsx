@@ -61,26 +61,26 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
   const pagedSessions = filtered.slice(startIndex, endIndex);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-[#173d37]">Patients & Contacts Directory</h2>
-          <p className="text-xs text-[#55776d] mt-1">
-            Manage your patient contacts, UHID identifiers, and conversation records.
+          <h2 className="text-lg font-semibold text-[#173d37]">Patients and contacts</h2>
+          <p className="text-xs text-[#55776d] mt-0.5">
+            Manage your patient directory, UHID identifiers, and conversation records.
           </p>
         </div>
 
         {/* Search & Filter */}
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Search className="w-4 h-4 text-[#77a193] absolute left-3 top-2.5" />
+            <Search className="w-3.5 h-3.5 text-[#77a193] absolute left-3 top-3 pointer-events-none" />
             <input
               type="text"
               placeholder="Search name, phone, UHID..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 rounded-xl bg-white border border-[#dbe9e0] text-xs text-[#173d37] focus:outline-none focus:border-[#54a987]"
+              className="h-9 pl-8 pr-3 rounded-lg bg-white border border-[#dbe9e0] text-xs text-[#173d37] placeholder-[#77a193] focus:outline-none focus:border-[#176e56]"
             />
           </div>
 
@@ -88,11 +88,12 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
             {['all', 'patients', 'leads'].map((t) => (
               <button
                 key={t}
+                type="button"
                 onClick={() => setFilterTag(t)}
-                className={`px-3 py-2 rounded-xl font-semibold capitalize transition-all ${
+                className={`h-7 px-2.5 rounded-md text-xs font-medium capitalize transition-colors cursor-pointer ${
                   filterTag === t
-                    ? 'bg-[#176e56] text-white shadow-xs'
-                    : 'bg-white border border-[#dbe9e0] text-[#55776d] hover:bg-[#eaf5ef]'
+                    ? 'bg-[#176e56] text-white'
+                    : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
                 }`}
               >
                 {t}
@@ -103,18 +104,18 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
       </div>
 
       {/* Contacts List Table */}
-      <div className="bg-white border border-[#dbe9e0] rounded-2xl shadow-xs overflow-hidden">
+      <div className="bg-white border border-[#e2ece6] rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-[#f8faf8] border-b border-[#dbe9e0] text-[#55776d] font-bold uppercase tracking-wider text-[11px]">
-                <th className="py-3 px-4">Contact / Patient</th>
-                <th className="py-3 px-4">Phone Number</th>
-                <th className="py-3 px-4">UHID / Reference</th>
-                <th className="py-3 px-4">Tags</th>
-                <th className="py-3 px-4">Assigned To</th>
-                <th className="py-3 px-4">Last Activity</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+              <tr className="bg-[#f8faf8] border-b border-[#e2ece6] text-[#55776d] font-medium text-xs">
+                <th className="py-2.5 px-4">Contact / patient</th>
+                <th className="py-2.5 px-4">Phone number</th>
+                <th className="py-2.5 px-4">UHID / reference</th>
+                <th className="py-2.5 px-4">Tags</th>
+                <th className="py-2.5 px-4">Assigned to</th>
+                <th className="py-2.5 px-4">Last activity</th>
+                <th className="py-2.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#edf5f0]">
@@ -128,28 +129,28 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                 pagedSessions.map((s) => {
                   const tags = s.tags || ['Patient'];
                   return (
-                    <tr key={s.phoneNumber} className="hover:bg-[#fcfdfc] transition-colors">
-                      <td className="py-3.5 px-4">
+                    <tr key={s.phoneNumber} className="hover:bg-[#f8faf8] transition-colors">
+                      <td className="py-2.5 px-4">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-[#ede9fe] text-[#6d28d9] font-bold text-xs flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-full bg-[#f0f5f2] border border-[#dbe9e0] text-[#176e56] font-medium text-xs flex items-center justify-center shrink-0">
                             {s.patientName ? s.patientName.slice(0, 2).toUpperCase() : 'WA'}
                           </div>
                           <div>
-                            <p className="font-bold text-[#173d37]">
+                            <p className="font-medium text-[#173d37]">
                               {s.patientName || `+${s.phoneNumber}`}
                             </p>
-                            <p className="text-[10px] text-[#77a193]">
-                              {s.isHandedOver ? 'Staff Handover' : 'Bot Active'}
+                            <p className="text-[11px] text-[#77a193]">
+                              {s.isHandedOver ? 'Staff handover' : 'Bot active'}
                             </p>
                           </div>
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4 font-mono text-[#55776d]">+{s.phoneNumber}</td>
+                      <td className="py-2.5 px-4 font-mono tabular-nums text-[#55776d]">+{s.phoneNumber}</td>
 
-                      <td className="py-3.5 px-4">
+                      <td className="py-2.5 px-4">
                         {s.patientReference ? (
-                          <span className="px-2 py-0.5 rounded-md bg-[#eaf5ef] text-[#176e56] font-mono font-bold text-[11px]">
+                          <span className="px-1.5 py-0.2 rounded bg-[#f0f5f2] border border-[#dbe9e0] text-[#176e56] font-mono text-[11px] tabular-nums">
                             {s.patientReference}
                           </span>
                         ) : (
@@ -157,12 +158,12 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                         )}
                       </td>
 
-                      <td className="py-3.5 px-4">
+                      <td className="py-2.5 px-4">
                         <div className="flex flex-wrap gap-1">
                           {tags.map((t, i) => (
                             <span
                               key={i}
-                              className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#f3f9f5] text-[#176e56] border border-[#dbe9e0]"
+                              className="px-2 py-0.2 rounded text-[11px] font-medium bg-[#f0f5f2] text-[#176e56] border border-[#dbe9e0]"
                             >
                               {t}
                             </span>
@@ -170,9 +171,9 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4 text-[#55776d]">{s.assignedTo || 'Unassigned'}</td>
+                      <td className="py-2.5 px-4 text-[#55776d]">{s.assignedTo || 'Unassigned'}</td>
 
-                      <td className="py-3.5 px-4 text-[#77a193]">
+                      <td className="py-2.5 px-4 text-[#77a193] tabular-nums">
                         {new Date(s.lastMessageTimestamp || s.updatedAt).toLocaleDateString([], {
                           month: 'short',
                           day: 'numeric',
@@ -181,21 +182,23 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                         })}
                       </td>
 
-                      <td className="py-3.5 px-4 text-right">
+                      <td className="py-2.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
+                            type="button"
                             onClick={() => onOpenChat(s.phoneNumber)}
-                            className="px-2.5 py-1.5 rounded-lg bg-[#eaf5ef] hover:bg-[#176e56] hover:text-white text-[#176e56] font-bold transition-all text-xs flex items-center gap-1"
+                            className="h-7 px-2.5 rounded-md bg-[#176e56] hover:bg-[#125643] text-white font-medium transition-colors text-xs flex items-center gap-1"
                           >
                             <MessageSquare className="w-3 h-3" />
                             <span>Chat</span>
                           </button>
 
                           <button
+                            type="button"
                             onClick={() => onBookAppointment(s.phoneNumber)}
-                            className="px-2.5 py-1.5 rounded-lg bg-white border border-[#dbe9e0] hover:bg-[#f3f9f5] text-[#173d37] font-semibold transition-all text-xs flex items-center gap-1"
+                            className="h-7 px-2.5 rounded-md bg-white border border-[#dbe9e0] hover:bg-[#f8faf8] text-[#173d37] font-medium transition-colors text-xs flex items-center gap-1"
                           >
-                            <Calendar className="w-3 h-3 text-[#54a987]" />
+                            <Calendar className="w-3 h-3 text-[#176e56]" />
                             <span>Book</span>
                           </button>
                         </div>
@@ -209,7 +212,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
         </div>
 
         {/* Pagination Controls */}
-        <div className="p-3.5 bg-[#f8faf8] border-t border-[#dbe9e0] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#55776d]">
+        <div className="p-3 bg-[#f8faf8] border-t border-[#e2ece6] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#55776d]">
           {/* Showing Count */}
           <div>
             Showing{' '}

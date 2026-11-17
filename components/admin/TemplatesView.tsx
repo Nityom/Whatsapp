@@ -292,27 +292,28 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
   const pendingMeta = metaTemplates.filter((t) => t.status === 'PENDING');
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-[#173d37]">WhatsApp Message Templates</h2>
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#eaf5ef] text-[#176e56] border border-[#dbe9e0]">
+            <h2 className="text-lg font-semibold text-[#173d37]">Message templates</h2>
+            <span className="px-2 py-0.2 rounded text-[11px] font-medium bg-[#f0f5f2] text-[#176e56] border border-[#dbe9e0]">
               Meta Cloud API
             </span>
           </div>
-          <p className="text-xs text-[#55776d] mt-1">
-            Meta-approved templates required for outbound broadcasts &amp; messaging patients outside the 24-hour service window.
+          <p className="text-xs text-[#55776d] mt-0.5">
+            Meta-approved templates required for outbound broadcasts and messaging outside the 24-hour service window.
           </p>
         </div>
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={fetchMetaTemplates}
             disabled={isLoadingMeta}
-            className="p-2 rounded-xl bg-white border border-[#dbe9e0] hover:bg-[#eaf5ef] text-[#176e56] text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs"
+            className="h-9 px-3 rounded-lg bg-white border border-[#dbe9e0] hover:bg-[#f8faf8] text-[#176e56] text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
             title="Refresh templates from Meta"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoadingMeta ? 'animate-spin' : ''}`} />
@@ -320,25 +321,24 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
           </button>
 
           <button
+            type="button"
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#176e56] hover:bg-[#125844] text-white text-xs font-bold transition-all shadow-xs"
+            className="h-9 flex items-center gap-1.5 px-3.5 rounded-lg bg-[#176e56] hover:bg-[#125844] text-white text-xs font-medium transition-colors cursor-pointer"
           >
-            <Plus className="w-4 h-4" />
-            <span>+ Create Meta Template</span>
+            <Plus className="w-3.5 h-3.5" />
+            <span>Create Meta template</span>
           </button>
         </div>
       </div>
 
-
-
-
       {/* Delete Notice Banner */}
       {deleteNotice && (
         <div
-          className={`p-3 rounded-xl border text-xs flex items-center justify-between ${deleteNotice.type === 'success'
-            ? 'bg-[#eaf5ef] border-[#77d1a5] text-[#176e56]'
-            : 'bg-rose-50 border-rose-200 text-rose-700'
-            }`}
+          className={`p-3 rounded-lg border text-xs flex items-center justify-between ${
+            deleteNotice.type === 'success'
+              ? 'bg-[#eaf5ef] border-[#c2e4cf] text-[#176e56]'
+              : 'bg-rose-50 border-rose-200 text-rose-700'
+          }`}
         >
           <div className="flex items-center gap-2">
             {deleteNotice.type === 'success' ? (
@@ -349,6 +349,7 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
             <span className="font-medium">{deleteNotice.message}</span>
           </div>
           <button
+            type="button"
             onClick={() => setDeleteNotice(null)}
             className="p-1 rounded hover:bg-black/5 text-[#55776d] cursor-pointer"
           >
@@ -358,51 +359,59 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
       )}
 
       {/* Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#dbe9e0] pb-2">
-        <div className="flex items-center gap-1.5 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e2ece6] pb-2">
+        <div className="flex items-center gap-1 text-xs">
           <button
+            type="button"
             onClick={() => setActiveTab('all')}
-            className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${activeTab === 'all'
-              ? 'bg-[#176e56] text-white shadow-xs'
-              : 'bg-white border border-[#dbe9e0] text-[#55776d] hover:bg-[#eaf5ef]'
-              }`}
+            className={`h-7 px-2.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+              activeTab === 'all'
+                ? 'bg-[#176e56] text-white'
+                : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
+            }`}
           >
             All ({metaTemplates.length + quickReplies.length})
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('meta_approved')}
-            className={`px-3.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all ${activeTab === 'meta_approved'
-              ? 'bg-[#176e56] text-white shadow-xs'
-              : 'bg-white border border-[#dbe9e0] text-[#176e56] hover:bg-[#eaf5ef]'
-              }`}
+            className={`h-7 px-2.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+              activeTab === 'meta_approved'
+                ? 'bg-[#176e56] text-white'
+                : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
+            }`}
           >
-            <CheckCircle2 className="w-3.5 h-3.5 text-[#54a987]" />
-            Meta Approved ({approvedMeta.length})
+            <CheckCircle2 className="w-3 h-3 text-[#176e56]" />
+            <span>Approved ({approvedMeta.length})</span>
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('meta_pending')}
-            className={`px-3.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all ${activeTab === 'meta_pending'
-              ? 'bg-[#176e56] text-white shadow-xs'
-              : 'bg-white border border-[#dbe9e0] text-amber-700 hover:bg-amber-50'
-              }`}
+            className={`h-7 px-2.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+              activeTab === 'meta_pending'
+                ? 'bg-[#176e56] text-white'
+                : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
+            }`}
           >
-            <Clock className="w-3.5 h-3.5 text-amber-500" />
-            Meta In-Review ({pendingMeta.length})
+            <Clock className="w-3 h-3 text-amber-500" />
+            <span>In review ({pendingMeta.length})</span>
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('quick_reply')}
-            className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${activeTab === 'quick_reply'
-              ? 'bg-[#176e56] text-white shadow-xs'
-              : 'bg-white border border-[#dbe9e0] text-[#55776d] hover:bg-[#eaf5ef]'
-              }`}
+            className={`h-7 px-2.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+              activeTab === 'quick_reply'
+                ? 'bg-[#176e56] text-white'
+                : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
+            }`}
           >
-            24h Chat Snippets ({quickReplies.length})
+            Quick replies ({quickReplies.length})
           </button>
         </div>
 
-        <div className="text-[11px] text-[#55776d] flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-[#54a987] animate-pulse"></span>
-          <span>Meta WABA ID: <strong>479847545221049</strong></span>
+        <div className="text-[11px] text-[#55776d] flex items-center gap-1.5 font-mono tabular-nums">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span>
+          <span>WABA ID: 479847545221049</span>
         </div>
       </div>
 
@@ -410,21 +419,20 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
       {(activeTab === 'all' || activeTab === 'meta_approved' || activeTab === 'meta_pending') && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#55776d] flex items-center gap-1.5">
-              <Megaphone className="w-3.5 h-3.5 text-[#176e56]" />
-              Official Meta Cloud API Templates (Broadcast Capable)
+            <h3 className="text-xs font-medium text-[#55776d]">
+              Meta Cloud API templates
             </h3>
             {isLoadingMeta && <span className="text-[11px] text-[#55776d]">Checking Meta status...</span>}
           </div>
 
           {metaError && (
-            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
+            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{metaError}</span>
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {metaTemplates
               .filter((t) => {
                 if (activeTab === 'meta_approved') return t.status === 'APPROVED';
@@ -438,21 +446,16 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
                 return (
                   <div
                     key={tmpl.id}
-                    className="p-5 rounded-2xl bg-white border border-[#dbe9e0] shadow-xs hover:border-[#54a987] hover:shadow-sm transition-all flex flex-col justify-between"
+                    className="p-4 rounded-xl bg-white border border-[#e2ece6] flex flex-col justify-between"
                   >
                     <div>
                       {/* Badge Row */}
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1.5">
-                          <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${tmpl.category === 'UTILITY'
-                              ? 'bg-[#eaf5ef] text-[#176e56]'
-                              : 'bg-purple-50 text-purple-700'
-                              }`}
-                          >
+                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#f0f5f2] text-[#176e56] border border-[#dbe9e0]">
                             {tmpl.category}
                           </span>
-                          <span className="text-[10px] text-[#77a193] uppercase font-mono">{tmpl.language}</span>
+                          <span className="text-[10px] text-[#77a193] font-mono uppercase">{tmpl.language}</span>
                         </div>
 
                         {/* Status Badge & Delete Icon on TOP of Card */}

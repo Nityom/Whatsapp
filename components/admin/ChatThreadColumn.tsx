@@ -154,7 +154,7 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
       const container = messagesContainerRef.current;
       if (messages.length !== prevMessagesLengthRef.current) {
         prevMessagesLengthRef.current = messages.length;
-        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        container.scrollTop = container.scrollHeight;
       }
     }
   }, [messages.length]);
@@ -253,7 +253,7 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
   const isHandedOver = session.isHandedOver ?? false;
 
   return (
-    <div className="w-full h-full bg-white border border-[#dbe9e0] rounded-2xl flex flex-col shadow-xs overflow-hidden relative">
+    <div className="w-full h-full bg-white border border-[#e2ece6] rounded-xl flex flex-col overflow-hidden relative">
       {/* Hidden File Input */}
       <input
         type="file"
@@ -280,33 +280,27 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
           <button
             type="button"
             onClick={onOpenProfile}
-            className="flex items-center gap-2 sm:gap-3 text-left p-1 rounded-xl hover:bg-[#f3f9f5] transition-all group cursor-pointer min-w-0"
-            title="Click to view patient profile & actions"
+            className="flex items-center gap-2 sm:gap-2.5 text-left p-1 rounded-lg hover:bg-[#f8faf8] transition-colors group cursor-pointer min-w-0"
+            title="View patient profile"
           >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#ede9fe] text-[#6d28d9] font-bold text-xs flex items-center justify-center shrink-0 group-hover:ring-2 group-hover:ring-[#54a987] transition-all">
+            <div className="w-9 h-9 rounded-full bg-[#f0f5f2] border border-[#dbe9e0] text-[#176e56] font-medium text-xs flex items-center justify-center shrink-0">
               {initials}
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <h2 className="text-xs sm:text-sm font-bold text-[#173d37] leading-tight group-hover:text-[#176e56] transition-colors truncate">
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-xs sm:text-sm font-semibold text-[#173d37] leading-tight truncate">
                   {session.patientName || `+${session.phoneNumber}`}
                 </h2>
-                <span
-                  className={`text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full font-semibold transition-colors shrink-0 ${
-                    isProfileOpen
-                      ? 'bg-[#176e56] text-white'
-                      : 'bg-[#eaf5ef] text-[#176e56] group-hover:bg-[#176e56] group-hover:text-white'
-                  }`}
-                >
+                <span className="text-[11px] px-1.5 py-0.5 rounded border border-[#dbe9e0] bg-[#f0f5f2] text-[#176e56] font-medium shrink-0">
                   {isProfileOpen ? 'Profile ▾' : 'Profile ▸'}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5">
-                <span className="text-[11px] sm:text-xs text-[#55776d] font-mono truncate">
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-xs text-[#55776d] font-mono tabular-nums truncate">
                   +{session.phoneNumber}
                 </span>
                 {session.patientReference && (
-                  <span className="text-[10px] text-[#77a193] font-mono hidden sm:inline">
+                  <span className="text-[11px] text-[#77a193] font-mono hidden sm:inline">
                     • {session.patientReference}
                   </span>
                 )}
@@ -318,11 +312,12 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
         {/* Bot Handover Switch Button */}
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={onToggleBotHandover}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-xs cursor-pointer ${
+            className={`h-8 flex items-center gap-1.5 px-2.5 rounded-lg text-xs font-medium transition-colors border cursor-pointer ${
               isHandedOver
-                ? 'bg-[#fee2e2] text-[#991b1b] border-[#fca5a5] hover:bg-[#fecaca]'
-                : 'bg-[#eaf5ef] text-[#176e56] border-[#a3e2c3] hover:bg-[#d5ece0]'
+                ? 'bg-[#fef2f2] text-[#991b1b] border-[#fecaca] hover:bg-[#fee2e2]'
+                : 'bg-[#f0f5f2] text-[#176e56] border-[#dbe9e0] hover:bg-[#e4eee7]'
             }`}
             title={
               isHandedOver
@@ -332,15 +327,15 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
           >
             {isHandedOver ? (
               <>
-                <UserCheck className="w-4 h-4 text-[#dc2626]" />
-                <span>Staff Active</span>
-                <span className="w-2 h-2 rounded-full bg-[#dc2626] animate-pulse"></span>
+                <UserCheck className="w-3.5 h-3.5 text-[#991b1b]" />
+                <span>Staff active</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#dc2626]"></span>
               </>
             ) : (
               <>
-                <Bot className="w-4 h-4 text-[#176e56]" />
-                <span>AI Bot Active</span>
-                <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse"></span>
+                <Bot className="w-3.5 h-3.5 text-[#176e56]" />
+                <span>AI bot active</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span>
               </>
             )}
           </button>
@@ -651,34 +646,34 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
       {/* Bottom Message Input Bar */}
       <form
         onSubmit={handleSend}
-        className="p-3 bg-white border-t border-[#dbe9e0] flex items-center gap-2 shrink-0"
+        className="p-2.5 bg-white border-t border-[#e2ece6] flex items-center gap-2 shrink-0"
       >
         {/* Emoji Button */}
         <button
           type="button"
-          title="Open Emoji Picker"
+          title="Open emoji picker"
           onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-          className={`p-2 rounded-xl transition-colors cursor-pointer ${
+          className={`h-9 w-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
             showEmojiPicker
-              ? 'bg-[#176e56] text-white shadow-2xs'
-              : 'text-[#55776d] hover:text-[#176e56] hover:bg-[#f3f9f5]'
+              ? 'bg-[#176e56] text-white'
+              : 'text-[#55776d] hover:text-[#173d37] hover:bg-[#f0f5f2]'
           }`}
         >
-          <Smile className="w-5 h-5" />
+          <Smile className="w-4 h-4" />
         </button>
 
         {/* Paperclip Attachment Button */}
         <button
           type="button"
-          title="Attach Document or Image"
+          title="Attach document or image"
           onClick={() => fileInputRef.current?.click()}
-          className={`p-2 rounded-xl transition-colors cursor-pointer ${
+          className={`h-9 w-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
             selectedAttachment
-              ? 'bg-[#eaf5ef] text-[#176e56] ring-2 ring-[#54a987]'
-              : 'text-[#55776d] hover:text-[#176e56] hover:bg-[#f3f9f5]'
+              ? 'bg-[#eaf5ef] text-[#176e56] border border-[#176e56]'
+              : 'text-[#55776d] hover:text-[#173d37] hover:bg-[#f0f5f2]'
           }`}
         >
-          <Paperclip className="w-5 h-5" />
+          <Paperclip className="w-4 h-4" />
         </button>
 
         {/* Text Input */}
@@ -688,17 +683,18 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
           placeholder={selectedAttachment ? 'Add a caption for this file (optional)...' : 'Type a message...'}
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
-          className="flex-1 px-4 py-2.5 rounded-xl bg-[#f8faf8] border border-[#dbe9e0] text-xs text-[#173d37] placeholder-[#77a193] focus:outline-none focus:border-[#54a987] focus:bg-white transition-all font-medium"
+          className="flex-1 h-9 px-3 rounded-lg bg-[#f8faf8] border border-[#dbe9e0] text-xs text-[#173d37] placeholder-[#77a193] focus:outline-none focus:border-[#176e56] focus:bg-white transition-colors"
         />
 
         {/* Send Button */}
         <button
           type="submit"
           disabled={(!inputText.trim() && !selectedAttachment) || isSending}
-          className="w-10 h-10 rounded-xl bg-[#176e56] hover:bg-[#125643] disabled:opacity-50 text-white flex items-center justify-center transition-all shadow-xs shrink-0 cursor-pointer"
+          className="h-9 px-3 rounded-lg bg-[#176e56] hover:bg-[#125643] disabled:opacity-40 text-white flex items-center justify-center transition-colors shrink-0 cursor-pointer text-xs font-medium gap-1.5"
           title="Send message or attachment"
         >
-          <Send className="w-4 h-4" />
+          <Send className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Send</span>
         </button>
       </form>
     </div>

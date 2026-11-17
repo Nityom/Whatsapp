@@ -1,6 +1,6 @@
 # 🏥 Svaasth Connect — AI WhatsApp Patient Engagement Hub & Hospital Administration Dashboard
 
-> **Bridging Patients & Hospital Care via Official WhatsApp Business Cloud API & Cortex PMS**  
+> **Bridging Patients & Hospital Care**  
 
 
 ---
