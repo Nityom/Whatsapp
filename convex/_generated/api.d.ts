@@ -8,7 +8,9 @@
  * @module
  */
 
+import type * as audit from "../audit.js";
 import type * as http from "../http.js";
+import type * as reminders from "../reminders.js";
 import type * as sessions from "../sessions.js";
 
 import type {
@@ -18,7 +20,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  audit: typeof audit;
   http: typeof http;
+  reminders: typeof reminders;
   sessions: typeof sessions;
 }>;
 

@@ -29,7 +29,11 @@ import {
   DetailedSlot,
   calculateNextDailyToken,
   upsertOpdQueueItem,
+  fetchLiveOpdQueue,
+  getCortexConvexClient,
+  isPhoneMatch,
 } from "./cortexClient";
+import { api } from "@/convex/_generated/api";
 import { WhatsAppLocationPayload, WhatsAppInteractive } from "./whatsapp";
 
 export interface AgentContext {
@@ -50,6 +54,17 @@ export interface AgentContext {
   lastBookedDate?: string;
   lastBookedPatientName?: string;
   resetSession?: boolean;
+  consentGranted?: boolean;
+  rescheduleDraft?: {
+    appointmentId?: string;
+    doctorName?: string;
+    specialty?: string;
+    date?: string;
+    time?: string;
+    patientName?: string;
+    slot?: string;
+    slotTime?: string;
+  };
   bookingDraft?: {
     doctorName?: string;
     specialty?: string;
@@ -430,38 +445,38 @@ export function menuList(language: string): WhatsAppInteractive {
     ? [
         { id: "menu_1", title: "1. अपॉइंटमेंट बुक करें" },
         { id: "menu_2", title: "2. मेरी अपॉइंटमेंट" },
-        { id: "menu_3", title: "3. प्रिस्क्रिप्शन देखें" },
-        { id: "menu_4", title: "4. बिल और भुगतान" },
-        { id: "menu_5", title: "5. अगली फ़ॉलो-अप" },
-        { id: "menu_6", title: "6. डॉक्टर का समय" },
-        { id: "menu_7", title: "7. अस्पताल का पता" },
-        { id: "menu_8", title: "8. रिसेप्शन से बात करें" },
-        { id: "menu_9", title: "9. भाषा बदलें" },
+        { id: "menu_checkin", title: "3. QR चेक-इन व टोकन" },
+        { id: "menu_queue", title: "4. लाइव OPD कतार" },
+        { id: "menu_3", title: "5. प्रिस्क्रिप्शन देखें" },
+        { id: "menu_4", title: "6. बिल और भुगतान" },
+        { id: "menu_5", title: "7. अगली फ़ॉलो-अप" },
+        { id: "menu_6", title: "8. डॉक्टर का समय" },
+        { id: "menu_8", title: "9. रिसेप्शन से बात करें" },
         { id: "menu_10", title: "10. परिजन प्रोफाइल" },
       ]
     : isMr
     ? [
         { id: "menu_1", title: "1. अपॉइंटमेंट बुक करा" },
         { id: "menu_2", title: "2. माझी अपॉइंटमेंट" },
-        { id: "menu_3", title: "3. प्रिस्क्रिप्शन पहा" },
-        { id: "menu_4", title: "4. बिल आणि पेमेंट" },
-        { id: "menu_5", title: "5. पुढील फॉलो-अप" },
-        { id: "menu_6", title: "6. डॉक्टरांची वेळ" },
-        { id: "menu_7", title: "7. हॉस्पिटलचा पत्ता" },
-        { id: "menu_8", title: "8. रिसेप्शनशी बोला" },
-        { id: "menu_9", title: "9. भाषा बदला" },
+        { id: "menu_checkin", title: "3. QR चेक-इन व टोकन" },
+        { id: "menu_queue", title: "4. थेट OPD रांग" },
+        { id: "menu_3", title: "5. प्रिस्क्रिप्शन पहा" },
+        { id: "menu_4", title: "6. बिल आणि पेमेंट" },
+        { id: "menu_5", title: "7. पुढील फॉलो-अप" },
+        { id: "menu_6", title: "8. डॉक्टरांची वेळ" },
+        { id: "menu_8", title: "9. रिसेप्शनशी बोला" },
         { id: "menu_10", title: "10. कुटुंब प्रोफाइल" },
       ]
     : [
         { id: "menu_1", title: "1. Book Appointment" },
         { id: "menu_2", title: "2. My Appointments" },
-        { id: "menu_3", title: "3. View Prescription" },
-        { id: "menu_4", title: "4. Bills & Payments" },
-        { id: "menu_5", title: "5. Next Follow-up" },
-        { id: "menu_6", title: "6. Doctor Timings" },
-        { id: "menu_7", title: "7. Hospital Address" },
-        { id: "menu_8", title: "8. Talk to Reception" },
-        { id: "menu_9", title: "9. Change Language" },
+        { id: "menu_checkin", title: "3. QR Check-In & Token" },
+        { id: "menu_queue", title: "4. Live OPD Queue" },
+        { id: "menu_3", title: "5. View Prescription" },
+        { id: "menu_4", title: "6. Bills & Payments" },
+        { id: "menu_5", title: "7. Next Follow-up" },
+        { id: "menu_6", title: "8. Doctor Timings" },
+        { id: "menu_8", title: "9. Talk to Reception" },
         { id: "menu_10", title: "10. Family Profiles" },
       ];
 
@@ -723,6 +738,7 @@ export async function handleConversationTurn(
   const isGlobalMenuStep = !context.currentStep || context.currentStep === "IDLE" || context.currentStep === "WELCOME";
   if (
     (isGlobalMenuStep && (normalizedText === "8" || normalizedText === "9")) ||
+    choiceId === "menu_8" ||
     lower.includes("reception") ||
     lower.includes("human") ||
     lower.includes("operator") ||
@@ -732,6 +748,16 @@ export async function handleConversationTurn(
     lower.includes("bolayche aahe") ||
     lower.includes("connect to reception")
   ) {
+    try {
+      const convex = getCortexConvexClient();
+      await convex.mutation(api.audit.logAuditEvent, {
+        eventType: "HANDOVER_TO_RECEPTION",
+        phoneNumber: input.phoneNumber,
+        patientName: context.patientName,
+        details: "Patient requested human receptionist handover",
+      });
+    } catch {}
+
     return {
       text: inLanguage(
         lang,
@@ -750,6 +776,16 @@ export async function handleConversationTurn(
 
   // 5. Medical Emergency Safety Rule (Section 12)
   if (isEmergencyQuery(userText)) {
+    try {
+      const convex = getCortexConvexClient();
+      await convex.mutation(api.audit.logAuditEvent, {
+        eventType: "EMERGENCY_TRIGGERED",
+        phoneNumber: input.phoneNumber,
+        patientName: context.patientName,
+        details: `Emergency advisory triggered: ${userText.slice(0, 80)}`,
+      });
+    } catch {}
+
     return {
       text: inLanguage(
         lang,
@@ -847,6 +883,12 @@ export async function handleConversationTurn(
     }
   }
 
+  if (context.currentStep === "RESCHEDULE_SELECT_DATE") {
+    return await handleRescheduleSelectDate(userText, context);
+  }
+  if (context.currentStep === "RESCHEDULE_SELECT_SLOT") {
+    return await handleRescheduleSelectSlot(userText, context);
+  }
   if (context.currentStep === "BOOKING_SELECT_DOCTOR") {
     return await handleBookingSelectDoctor(userText, context);
   }
@@ -1030,6 +1072,66 @@ export async function handleConversationTurn(
     return await initiateAppointmentBooking(userText, context);
   }
 
+  // P0-3: Reschedule Appointment
+  if (
+    choiceId === "btn_reschedule" ||
+    lower === "reschedule" ||
+    lower.includes("reschedule appointment") ||
+    lower.includes("change slot") ||
+    lower.includes("change time") ||
+    lower.includes("change date") ||
+    lower.includes("tarikh badla") ||
+    lower.includes("time badla")
+  ) {
+    return await handleRescheduleRequest(input.phoneNumber, userText, context);
+  }
+
+  // P0-4: QR Check-In & Token
+  if (
+    choiceId === "btn_checkin" ||
+    choiceId === "menu_checkin" ||
+    choiceId === "checkin" ||
+    choiceId === "check_in" ||
+    lower.includes("check in") ||
+    lower.includes("checkin") ||
+    lower.includes("arrived") ||
+    lower.includes("pohochlo") ||
+    lower.includes("pohachlo") ||
+    lower.includes("i am here") ||
+    lower.includes("qr code") ||
+    lower.includes("qr check") ||
+    lower === "qr"
+  ) {
+    return await handleQrCheckIn(input.phoneNumber, context);
+  }
+
+  // P0-4: Live OPD Queue & Waiting Token
+  if (
+    choiceId === "btn_queue" ||
+    choiceId === "menu_queue" ||
+    choiceId === "queue" ||
+    lower.includes("live queue") ||
+    lower.includes("opd queue") ||
+    lower.includes("token number") ||
+    lower.includes("my token") ||
+    lower.includes("waiting time") ||
+    lower.includes("how many patients") ||
+    lower === "queue" ||
+    lower === "token"
+  ) {
+    return await handleLiveQueueStatus(input.phoneNumber, context);
+  }
+
+  // P0-5: Consent & Privacy Policy
+  if (
+    lower === "consent" ||
+    lower.includes("privacy") ||
+    lower.includes("digital consent") ||
+    lower.includes("terms")
+  ) {
+    return await handleConsentQuery(input.phoneNumber, context);
+  }
+
   // 2: My Appointments
   if (
     normalizedText === "2" ||
@@ -1037,8 +1139,7 @@ export async function handleConversationTurn(
     lower.includes("check appointment") ||
     lower.includes("upcoming appointment") ||
     lower.includes("booked appointment") ||
-    lower.includes("cancel appointment") ||
-    lower.includes("reschedule")
+    lower.includes("cancel appointment")
   ) {
     return await handleMyAppointments(input.phoneNumber, userText, context);
   }
@@ -2341,14 +2442,37 @@ Your health matters to us. We look forward to serving you! ❤️`,
       `👥 आपण कुटुंबातील दुसऱ्या व्यक्तीसाठी अपॉइंटमेंट बुक करू इच्छिता का?`
     );
 
-    const interactiveBody = `${confirmationText}\n\n━━━━━━━━━━━━━━━━━━━━━\n${followupPrompt}`.slice(0, 1024);
+    // P0-5: Schedule 1-Hour Reminder & P0-1: Log Audit Event
+    try {
+      const convex = getCortexConvexClient();
+      await convex.mutation(api.reminders.scheduleReminder, {
+        appointmentId,
+        phoneNumber: context.phoneNumber,
+        patientName: draft.patientName || patientInfo?.name || "Patient",
+        doctorName: chosenDoctor,
+        date: draft.date,
+        time: draft.slot || slotDisplay,
+        slotTime: draft.slotTime || "10:30",
+        token: `#${tokenNumber}`,
+      });
+
+      await convex.mutation(api.audit.logAuditEvent, {
+        eventType: "APPOINTMENT_BOOKED",
+        phoneNumber: context.phoneNumber,
+        patientName: draft.patientName || patientInfo?.name || "Patient",
+        details: `Booked appointment ${appointmentId} with ${chosenDoctor} on ${dateDmy} at ${slotDisplay} (Token: #${tokenNumber})`,
+        metadata: { appointmentId, doctor: chosenDoctor, date: draft.date, slot: slotDisplay, token: `#${tokenNumber}` },
+      });
+    } catch (schedErr) {
+      console.warn("[Reminder/Audit Error]", schedErr);
+    }
 
     return {
       text: confirmationText,
       nextStep: "IDLE",
       interactive: {
         kind: "buttons",
-        body: interactiveBody,
+        body: followupPrompt,
         buttons: [
           {
             id: "book_another_member",
@@ -2479,6 +2603,374 @@ function matchProfileFromInput(
       (pRef && lower.includes(pRef))
     );
   });
+}
+
+/* =========================================================================
+   P0-3: RESCHEDULE APPOINTMENT FLOW
+   ========================================================================= */
+
+async function handleRescheduleRequest(
+  phoneNumber: string,
+  userText: string,
+  context: AgentContext
+): Promise<AgentResponse> {
+  const lang = context.language || "en";
+  const appts = await getPatientAppointments(phoneNumber, context.patientName, context.patientReference);
+  const activeAppts = appts.filter((a) => a.status !== "CANCELLED");
+
+  if (activeAppts.length === 0) {
+    return {
+      text: inLanguage(
+        lang,
+        "⚠️ You don't have any active appointments to reschedule.\n\nReply *1* to Book an Appointment.",
+        "⚠️ आपके पास पुनर्निर्धारित (reschedule) करने के लिए कोई सक्रिय अपॉइंटमेंट नहीं है।\n\nअपॉइंटमेंट बुक करने के लिए *1* भेजें।",
+        "⚠️ आपल्याकडे बदलण्यासाठी कोणतीही सक्रिय अपॉइंटमेंट नाही.\n\nनवीन अपॉइंटमेंट बुक करण्यासाठी *1* पाठवा."
+      ),
+      nextStep: "IDLE",
+      interactive: {
+        kind: "buttons",
+        body: "Choose an option:",
+        buttons: [
+          { id: "menu_1", title: "🏥 Book Slot" },
+          { id: "menu_start", title: "🏠 Main Menu" },
+        ],
+      },
+    };
+  }
+
+  const target = activeAppts[0];
+  const nextDates = getNextAvailableDates();
+
+  const rescheduleDraft = {
+    appointmentId: target._id,
+    doctorName: target.doctor_name,
+    specialty: target.doctor_name?.includes("Shillpa") ? "Gynecology" : "Orthopaedics",
+    date: target.date,
+    time: target.time,
+    patientName: target.name,
+  };
+
+  return {
+    text: inLanguage(
+      lang,
+      `🔄 *Reschedule Appointment*\n👤 *Patient:* ${target.name}\n👨‍⚕️ *Doctor:* ${target.doctor_name}\n📅 *Current Slot:* ${formatDisplayDate(target.date || "")} at ${target.time}\n\nPlease select your *new appointment date* below:`,
+      `🔄 *अपॉइंटमेंट की तारीख बदलें*\n👤 *मरीज:* ${target.name}\n👨‍⚕️ *डॉक्टर:* ${target.doctor_name}\n📅 *वर्तमान समय:* ${formatDisplayDate(target.date || "")} को ${target.time}\n\nकृपया नीचे से *नई तारीख* चुनें:`,
+      `🔄 *अपॉइंटमेंटची तारीख बदला*\n👤 *रुग्ण:* ${target.name}\n👨‍⚕️ *डॉक्टर:* ${target.doctor_name}\n📅 *सध्याची वेळ:* ${formatDisplayDate(target.date || "")} रोजी ${target.time}\n\nकृपया खालीलपैकी *नवीन तारीख* निवडा:`
+    ),
+    nextStep: "RESCHEDULE_SELECT_DATE",
+    updatedContext: {
+      rescheduleDraft,
+    },
+    interactive: {
+      kind: "buttons",
+      body: inLanguage(lang, "Select New Date:", "नई तारीख चुनें:", "नवीन तारीख निवडा:"),
+      buttons: nextDates.map((d, idx) => ({
+        id: `date_${idx + 1}`,
+        title: inLanguage(lang, d.labelEn, d.labelHi, d.labelMr).slice(0, 20),
+      })),
+    },
+  };
+}
+
+async function handleRescheduleSelectDate(
+  userText: string,
+  context: AgentContext
+): Promise<AgentResponse> {
+  const lang = context.language || "en";
+  const parsedDate = parseDateInput(userText);
+  const draft = context.rescheduleDraft;
+
+  if (!parsedDate || !draft) {
+    const nextDates = getNextAvailableDates();
+    return {
+      text: inLanguage(
+        lang,
+        "Please select a valid new date below (or enter DD/MM/YY):",
+        "कृपया नीचे नई तारीख चुनें (या DD/MM/YY लिखें):",
+        "कृपया खाली नवीन तारीख निवडा (किंवा DD/MM/YY लिहा):"
+      ),
+      nextStep: "RESCHEDULE_SELECT_DATE",
+      interactive: {
+        kind: "buttons",
+        body: inLanguage(lang, "Select New Date:", "नई तारीख चुनें:", "नवीन तारीख निवडा:"),
+        buttons: nextDates.map((d, idx) => ({
+          id: `date_${idx + 1}`,
+          title: inLanguage(lang, d.labelEn, d.labelHi, d.labelMr).slice(0, 20),
+        })),
+      },
+    };
+  }
+
+  const updatedDraft = {
+    ...draft,
+    date: parsedDate,
+  };
+
+  const slotView = await showAvailableSlotsForSession(
+    parsedDate,
+    draft.doctorName || "Dr. Vipeen Raut",
+    "morning",
+    updatedDraft,
+    context
+  );
+
+  return {
+    ...slotView,
+    nextStep: "RESCHEDULE_SELECT_SLOT",
+    updatedContext: {
+      ...slotView.updatedContext,
+      rescheduleDraft: updatedDraft,
+    },
+  };
+}
+
+async function handleRescheduleSelectSlot(
+  userText: string,
+  context: AgentContext
+): Promise<AgentResponse> {
+  const lang = context.language || "en";
+  const draft = context.rescheduleDraft;
+  if (!draft || !draft.appointmentId || !draft.date) {
+    return {
+      text: "Unable to find appointment to reschedule. Please type *Menu*.",
+      nextStep: "IDLE",
+    };
+  }
+
+  const dateStr = draft.date;
+  const docName = draft.doctorName || "Dr. Vipeen Raut";
+  const slotData = await getAvailableSlots(dateStr, docName);
+  const cleanInput = userText.toLowerCase().trim();
+
+  const slotsList = slotData.morningSlots.concat(slotData.eveningSlots);
+  const slotMatch = cleanInput.match(/^slot_(\d+)$/i);
+  const numIndex = slotMatch ? parseInt(slotMatch[1], 10) : parseInt(cleanInput, 10);
+
+  let chosenSlot: DetailedSlot | undefined;
+  if (!isNaN(numIndex) && numIndex >= 1 && numIndex <= slotsList.length) {
+    chosenSlot = slotsList[numIndex - 1];
+  } else {
+    chosenSlot = slotsList.find((s) => cleanInput.includes(s.slot.toLowerCase()));
+  }
+
+  const newTime = chosenSlot ? chosenSlot.display : userText;
+  const ok = await rescheduleAppointment(draft.appointmentId, dateStr, newTime);
+  const newDateDmy = formatDisplayDate(dateStr);
+
+  if (ok) {
+    // Schedule / Update reminder 1 hour before new slot & log audit
+    try {
+      const convex = getCortexConvexClient();
+      await convex.mutation(api.reminders.scheduleReminder, {
+        appointmentId: draft.appointmentId,
+        phoneNumber: context.phoneNumber,
+        patientName: draft.patientName || "Patient",
+        doctorName: docName,
+        date: dateStr,
+        time: newTime,
+        slotTime: chosenSlot ? chosenSlot.slot : "10:30",
+      });
+
+      await convex.mutation(api.audit.logAuditEvent, {
+        eventType: "APPOINTMENT_RESCHEDULED",
+        phoneNumber: context.phoneNumber,
+        patientName: draft.patientName || "Patient",
+        details: `Rescheduled appointment ${draft.appointmentId} to ${newDateDmy} at ${newTime}`,
+        metadata: { appointmentId: draft.appointmentId, newDate: dateStr, newTime },
+      });
+    } catch (e) {
+      console.warn("[Reschedule Audit Error]", e);
+    }
+
+    return {
+      text: inLanguage(
+        lang,
+        `✅ *APPOINTMENT RESCHEDULED!* 🎉\n━━━━━━━━━━━━━━━━━━━━━\n👤 *Patient:* ${draft.patientName || "Patient"}\n👨‍⚕️ *Doctor:* ${docName}\n📅 *New Date:* ${newDateDmy}\n⏰ *New Time:* ${newTime}\n📍 *Location:* Cortex Hospital, Aarti Chowk, Wardha\n\n⏰ *Reminder:* A WhatsApp reminder has been set 1 hour before your new slot.`,
+        `✅ *अपॉइंटमेंट सफलतापूर्वक बदल दी गई!* 🎉\n━━━━━━━━━━━━━━━━━━━━━\n👤 *मरीज:* ${draft.patientName || "मरीज"}\n👨‍⚕️ *डॉक्टर:* ${docName}\n📅 *नई तारीख:* ${newDateDmy}\n⏰ *नया समय:* ${newTime}\n📍 *स्थान:* Cortex Hospital, आरती चौक, वर्धा\n\n⏰ *रिमाइंडर:* नए समय से 1 घंटे पहले WhatsApp रिमाइंडर सेट कर दिया गया है।`,
+        `✅ *अपॉइंटमेंट यशस्वीरीत्या बदलण्यात आली!* 🎉\n━━━━━━━━━━━━━━━━━━━━━\n👤 *रुग्ण:* ${draft.patientName || "रुग्ण"}\n👨‍⚕️ *डॉक्टर:* ${docName}\n📅 *नवीन तारीख:* ${newDateDmy}\n⏰ *नवीन वेळ:* ${newTime}\n📍 *ठिकाण:* Cortex Hospital, आरती चौक, वर्धा\n\n⏰ *स्मरणपत्र:* नवीन वेळेच्या 1 तास आधी WhatsApp रिमाइंडर सेट केले आहे.`
+      ),
+      nextStep: "IDLE",
+      updatedContext: {
+        rescheduleDraft: undefined,
+      },
+      interactive: {
+        kind: "buttons",
+        body: "What would you like to do next?",
+        buttons: [
+          { id: "menu_2", title: "📅 View Appointments" },
+          { id: "menu_queue", title: "📊 Live OPD Queue" },
+          { id: "menu_start", title: "🏠 Main Menu" },
+        ],
+      },
+    };
+  }
+
+  return {
+    text: inLanguage(
+      lang,
+      "⚠️ Unable to reschedule at this time. Please try another slot or call reception 07152-255795.",
+      "⚠️ अपॉइंटमेंट बदलने में समस्या आई। कृपया दूसरा समय चुनें या 07152-255795 पर कॉल करें।",
+      "⚠️ अपॉइंटमेंट बदलण्यात त्रुटी आली. कृपया दुसरी वेळ निवडा किंवा 07152-255795 वर संपर्क साधा."
+    ),
+    nextStep: "IDLE",
+  };
+}
+
+/* =========================================================================
+   P0-4: QR CHECK-IN & TOKEN FLOW
+   ========================================================================= */
+
+async function handleQrCheckIn(
+  phoneNumber: string,
+  context: AgentContext
+): Promise<AgentResponse> {
+  const lang = context.language || "en";
+  const now = new Date();
+  const todayStr = formatDate(now);
+  const appts = await getPatientAppointments(phoneNumber, context.patientName, context.patientReference);
+  const todayAppt = appts.find(
+    (a) => (a.date === todayStr || a.status === "CONFIRMED") && a.status !== "CANCELLED"
+  );
+
+  const docName = todayAppt?.doctor_name || context.lastBookedDoctor || "Dr. Vipeen Raut";
+  const patientName = todayAppt?.name || context.patientName || "Patient";
+  const token = await calculateNextDailyToken(docName, todayStr);
+
+  try {
+    await upsertOpdQueueItem({
+      id: todayAppt?._id || `Q-${phoneNumber.slice(-4)}-${Date.now()}`,
+      patientId: todayAppt?._id || `PAT-${phoneNumber.slice(-4)}`,
+      name: patientName,
+      age: "N/A",
+      sex: "Other",
+      phone: phoneNumber,
+      token,
+      doctor: docName,
+      status: "ARRIVED",
+    });
+
+    const convex = getCortexConvexClient();
+    await convex.mutation(api.audit.logAuditEvent, {
+      eventType: "QR_CHECKIN",
+      phoneNumber,
+      patientName,
+      details: `Patient checked in via QR / WhatsApp: Token ${token} with ${docName}`,
+      metadata: { token, doctor: docName },
+    });
+  } catch (err) {
+    console.warn("[QR Checkin Sync Error]", err);
+  }
+
+  const queue = await fetchLiveOpdQueue({ date: todayStr, doctor: docName });
+  const waitingPatients = queue.filter((q) => q.status === "ARRIVED" || q.status === "WAITING");
+  const inConsultation = queue.find((q) => q.status === "IN_CONSULTATION");
+  const servingToken = inConsultation?.token ? `#${inConsultation.token}` : "#1";
+  const myPos = waitingPatients.findIndex((q) => q.phone && isPhoneMatch(q.phone, phoneNumber)) + 1;
+  const aheadCount = myPos > 1 ? myPos - 1 : 0;
+  const estWait = aheadCount > 0 ? aheadCount * 12 : 5;
+
+  return {
+    text: inLanguage(
+      lang,
+      `✅ *OPD CHECK-IN SUCCESSFUL!* 🏥\n━━━━━━━━━━━━━━━━━━━━━\n👤 *Patient:* ${patientName}\n👨‍⚕️ *Consulting:* ${docName}\n🎫 *Your OPD Token:* *#${token}*\n\n📊 *Live Queue Status:*\n🟢 *Currently Consulting:* Token ${servingToken}\n⏳ *Patients Ahead of You:* ${aheadCount}\n⏱️ *Estimated Wait Time:* ~${estWait} mins\n📍 *Room:* OPD Consultation Room 1, Ground Floor\n\n_Please be seated in the patient waiting area. Your token will be announced on the display board._`,
+      `✅ *OPD चेक-इन सफल!* 🏥\n━━━━━━━━━━━━━━━━━━━━━\n👤 *मरीज:* ${patientName}\n👨‍⚕️ *डॉक्टर:* ${docName}\n🎫 *आपका टोकन नंबर:* *#${token}*\n\n📊 *लाइव कतार स्थिति:*\n🟢 *अभी चल रहा है:* टोकन ${servingToken}\n⏳ *आपसे आगे मरीज:* ${aheadCount}\n⏱️ *अनुमानित प्रतीक्षा समय:* ~${estWait} मिनट\n📍 *कक्ष:* OPD रूम 1, भूतल\n\n_कृपया प्रतीक्षा कक्ष में बैठें। टोकन नंबर डिस्प्ले बोर्ड पर दिखाया जाएगा।_`,
+      `✅ *OPD चेक-इन यशस्वी!* 🏥\n━━━━━━━━━━━━━━━━━━━━━\n👤 *रुग्ण:* ${patientName}\n👨‍⚕️ *डॉक्टर:* ${docName}\n🎫 *आपला OPD टोकन नंबर:* *#${token}*\n\n📊 *थेट रांग स्थिती:*\n🟢 *सध्या तपासणी सुरू:* टोकन ${servingToken}\n⏳ *तुमच्या पुढे रुग्ण:* ${aheadCount}\n⏱️ *अंदाजे प्रतीक्षा वेळ:* ~${estWait} मिनिटे\n📍 *खोली:* OPD रूम 1, तळमजला\n\n_कृपया प्रतीक्षा कक्षात बसावे. आपला टोकन नंबर स्क्रीनवर दाखवला जाईल._`
+    ),
+    nextStep: "IDLE",
+    interactive: {
+      kind: "buttons",
+      body: inLanguage(lang, "Live Queue Actions:", "कतार विकल्प:", "रांग पर्याय:"),
+      buttons: [
+        { id: "menu_queue", title: "🔄 Refresh Queue" },
+        { id: "menu_8", title: "☎️ Talk to Reception" },
+        { id: "menu_start", title: "🏠 Main Menu" },
+      ],
+    },
+  };
+}
+
+/* =========================================================================
+   P0-4: LIVE OPD QUEUE STATUS
+   ========================================================================= */
+
+async function handleLiveQueueStatus(
+  phoneNumber: string,
+  context: AgentContext
+): Promise<AgentResponse> {
+  const lang = context.language || "en";
+  const now = new Date();
+  const todayStr = formatDate(now);
+  const queue = await fetchLiveOpdQueue({ date: todayStr });
+
+  const waitingCount = queue.filter((q) => q.status === "ARRIVED" || q.status === "WAITING").length;
+  const inConsultation = queue.find((q) => q.status === "IN_CONSULTATION");
+  const currentToken = inConsultation?.token ? `#${inConsultation.token}` : "#2";
+
+  const patientItem = queue.find((q) => q.phone && isPhoneMatch(q.phone, phoneNumber));
+  const myTokenInfo = patientItem
+    ? `🎫 *Your Token:* #${patientItem.token} (Status: ${patientItem.status})`
+    : `ℹ️ *Your Token:* Not checked in yet. (Type *Check in* when at hospital)`;
+
+  return {
+    text: inLanguage(
+      lang,
+      `📊 *CORTEX HOSPITAL – LIVE OPD QUEUE* 🏥\n━━━━━━━━━━━━━━━━━━━━━\n📅 *Today's OPD:* ${formatDisplayDate(todayStr)}\n\n🟢 *Now Consulting:* Token ${currentToken}\n⏳ *Total Patients Waiting:* ${waitingCount}\n⏱️ *Average Consultation Time:* ~10-15 mins per patient\n\n${myTokenInfo}\n\n👨‍⚕️ *Doctors on Duty:*\n• *Dr. Vipeen Raut* (Orthopaedics) – Available\n• *Dr. Shillpa Raut* (Gynecology) – Available`,
+      `📊 *Cortex Hospital – लाइव OPD कतार स्थिति* 🏥\n━━━━━━━━━━━━━━━━━━━━━\n📅 *आज की OPD:* ${formatDisplayDate(todayStr)}\n\n🟢 *अभी चल रहा है:* टोकन ${currentToken}\n⏳ *प्रतीक्षारत मरीज:* ${waitingCount}\n⏱️ *औसत समय:* ~10-15 मिनट प्रति मरीज\n\n${myTokenInfo}\n\n👨‍⚕️ *उपस्थित डॉक्टर:*\n• *Dr. Vipeen Raut* (हड्डी रोग) – उपलब्ध\n• *Dr. Shillpa Raut* (स्त्री रोग) – उपलब्ध`,
+      `📊 *Cortex Hospital – थेट OPD रांग स्थिती* 🏥\n━━━━━━━━━━━━━━━━━━━━━\n📅 *आजची OPD:* ${formatDisplayDate(todayStr)}\n\n🟢 *सध्या सुरू:* टोकन ${currentToken}\n⏳ *प्रतीक्षेत असलेले रुग्ण:* ${waitingCount}\n⏱️ *सरासरी वेळ:* ~10-15 मिनिटे प्रति रुग्ण\n\n${myTokenInfo}\n\n👨‍⚕️ *हजर डॉक्टर:*\n• *Dr. Vipeen Raut* (हाडे व सांधे) – उपलब्ध\n• *Dr. Shillpa Raut* (स्त्रीरोग) – उपलब्ध`
+    ),
+    nextStep: "IDLE",
+    interactive: {
+      kind: "buttons",
+      body: inLanguage(lang, "Queue Options:", "कतार विकल्प:", "रांग पर्याय:"),
+      buttons: [
+        { id: "menu_checkin", title: "📍 QR Check-In" },
+        { id: "menu_1", title: "🏥 Book Slot" },
+        { id: "menu_start", title: "🏠 Main Menu" },
+      ],
+    },
+  };
+}
+
+/* =========================================================================
+   P0-5: DIGITAL HEALTH CONSENT & PRIVACY
+   ========================================================================= */
+
+async function handleConsentQuery(
+  phoneNumber: string,
+  context: AgentContext
+): Promise<AgentResponse> {
+  const lang = context.language || "en";
+
+  try {
+    const convex = getCortexConvexClient();
+    await convex.mutation(api.audit.logAuditEvent, {
+      eventType: "CONSENT_RECORDED",
+      phoneNumber,
+      patientName: context.patientName,
+      details: "Patient acknowledged digital healthcare & WhatsApp communication consent",
+    });
+  } catch {}
+
+  return {
+    text: inLanguage(
+      lang,
+      `📋 *PATIENT CONSENT & DATA PRIVACY (ABDM)*\n━━━━━━━━━━━━━━━━━━━━━\n🏥 *Svaasth Connect – Cortex Hospital*\n\n✅ *Digital Healthcare Consent:*\nBy interacting with Svaasth Connect, you give informed consent to receive:\n1. 🎫 OPD tokens & appointment confirmations\n2. ⏰ 1-hour appointment reminders\n3. 💊 Official signed digital prescriptions & lab reports\n4. 🧾 Billing estimates & payment receipts\n\n🔒 *Privacy & Security:*\n• Your health data is strictly encrypted and shared only with consulting doctors and authorized hospital staff.\n• We adhere to the Telemedicine Practice Guidelines and Digital Personal Data Protection (DPDP) Act.\n\nType *Menu* to return to the main services.`,
+      `📋 *डिजिटल स्वास्थ्य सहमति और डेटा गोपनीयता (ABDM)*\n━━━━━━━━━━━━━━━━━━━━━\n🏥 *Svaasth Connect – Cortex Hospital*\n\n✅ *सहमति विवरण:*\nSvaasth Connect का उपयोग करने पर आप WhatsApp पर निम्नलिखित प्राप्त करने की सहमति देते हैं:\n1. 🎫 OPD टोकन और अपॉइंटमेंट रसीद\n2. ⏰ 1 घंटे पूर्व अपॉइंटमेंट रिमाइंडर\n3. 💊 डिजिटल प्रिस्क्रिप्शन और जांच रिपोर्ट\n4. 🧾 बिलिंग विवरण और रसीद\n\n🔒 *डेटा सुरक्षा:*\nआपका डेटा पूरी तरह सुरक्षित है और केवल अधिकृत डॉक्टरों के साथ साझा किया जाता है।\n\nवापस जाने के लिए *Menu* लिखें।`,
+      `📋 *रुग्ण संमती आणि डेटा गोपनीयता (ABDM)*\n━━━━━━━━━━━━━━━━━━━━━\n🏥 *Svaasth Connect – Cortex Hospital*\n\n✅ *डिजिटल संमती तपशील:*\nSvaasth Connect वापरताना आपण WhatsApp वर खालील गोष्टी मिळवण्यास संमती देता:\n1. 🎫 OPD टोकन आणि अपॉइंटमेंट पावती\n2. ⏰ 1 तास आधी अपॉइंटमेंट रिमाइंडर\n3. 💊 डिजिटल प्रिस्क्रिप्शन आणि रिपोर्ट्स\n4. 🧾 बिलिंग तपशील\n\n🔒 *सुरक्षा:*\nआपली माहिती पूर्णपणे सुरक्षित असून फक्त तपासणी करणाऱ्या डॉक्टरांकडेच उपलब्ध असते.\n\nमुख्य मेनूसाठी *Menu* पाठवा.`
+    ),
+    nextStep: "IDLE",
+    updatedContext: {
+      consentGranted: true,
+    },
+    interactive: {
+      kind: "buttons",
+      body: "Choose an option:",
+      buttons: [
+        { id: "menu_1", title: "🏥 Book Appointment" },
+        { id: "menu_start", title: "🏠 Main Menu" },
+      ],
+    },
+  };
 }
 
 /* =========================================================================
@@ -2614,11 +3106,28 @@ async function displayAppointmentsForPatient(
   }
 
   // Check if user wants to cancel an appointment
-  if (userText && userText.toLowerCase().includes("cancel")) {
+  if (
+    userText &&
+    (userText.toLowerCase().includes("cancel") || userText.toLowerCase() === "btn_cancel_appt")
+  ) {
     const active = appts.find((a) => a.status !== "CANCELLED");
     if (active) {
       const ok = await cancelAppointment(active._id);
       if (ok) {
+        try {
+          const convex = getCortexConvexClient();
+          await convex.mutation(api.reminders.cancelReminder, { appointmentId: active._id });
+          await convex.mutation(api.audit.logAuditEvent, {
+            eventType: "APPOINTMENT_CANCELLED",
+            phoneNumber,
+            patientName: active.name || patientName || "Patient",
+            details: `Cancelled appointment ${active._id} with ${active.doctor_name}`,
+            metadata: { appointmentId: active._id },
+          });
+        } catch (cErr) {
+          console.warn("[Cancel Reminder Error]", cErr);
+        }
+
         return {
           text: inLanguage(
             lang,
@@ -2627,6 +3136,14 @@ async function displayAppointmentsForPatient(
             `🚫 *अपॉइंटमेंट यशस्वीरीत्या रद्द करण्यात आली*\n*${active.name || patientName || "रुग्ण"}* यांची *${active.doctor_name}* यांच्यासोबत *${formatDisplayDate(active.date || "")} रोजी ${active.time}* ची अपॉइंटमेंट रद्द झाली आहे.\n\nपुन्हा बुक करण्यासाठी *1* पाठवा.`
           ),
           nextStep: "IDLE",
+          interactive: {
+            kind: "buttons",
+            body: "Choose an action:",
+            buttons: [
+              { id: "menu_1", title: "🏥 Book New Slot" },
+              { id: "menu_start", title: "🏠 Main Menu" },
+            ],
+          },
         };
       }
     }
@@ -2643,11 +3160,20 @@ async function displayAppointmentsForPatient(
   return {
     text: inLanguage(
       lang,
-      `📋 *Appointments – Svaasth Connect:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\n👇 *Options:*\n1️⃣ Cancel this appointment\n2️⃣ Book for Someone Else / New Appointment\n🔄 Reply *Switch* to view another family member\n3️⃣ Main Menu`,
-      `📋 *Svaasth Connect में आपकी अपॉइंटमेंट:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\n👇 *विकल्प:*\n1️⃣ अपॉइंटमेंट रद्द करें\n2️⃣ नए मरीज या अन्य परिजन के लिए बुक करें\n🔄 अन्य परिजन के लिए *Switch* लिखें\n3️⃣ मुख्य मेनू`,
-      `📋 *Svaasth Connect मधील अपॉइंटमेंट्स:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\n👇 *पर्याय:*\n1️⃣ अपॉइंटमेंट रद्द करा\n2️⃣ नवीन किंवा इतर व्यक्तीसाठी बुक करा\n🔄 इतर व्यक्तीसाठी *Switch* लिहा\n3️⃣ मुख्य मेनू`
+      `📋 *Appointments – Svaasth Connect:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\nPlease choose an action below:`,
+      `📋 *Svaasth Connect में आपकी अपॉइंटमेंट:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\nकृपया नीचे विकल्प चुनें:`,
+      `📋 *Svaasth Connect मधील अपॉइंटमेंट्स:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\nकृपया खालील पर्याय निवडा:`
     ),
     nextStep: "IDLE",
+    interactive: {
+      kind: "buttons",
+      body: "Appointment Actions:",
+      buttons: [
+        { id: "btn_reschedule", title: "🔄 Reschedule" },
+        { id: "btn_cancel_appt", title: "❌ Cancel" },
+        { id: "btn_checkin", title: "📍 QR Check-In" },
+      ],
+    },
   };
 }
 

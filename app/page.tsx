@@ -119,14 +119,31 @@ export default function AdminDashboardPage() {
   }, [selectedPhone, fetchChatHistory]);
 
   // Periodic poll to keep conversations reactive & in real-time sync with WhatsApp
+  // Bounded to 15s when active tab, and completely paused when tab is hidden in background
   useEffect(() => {
-    const interval = setInterval(() => {
+    const handlePoll = () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        return;
+      }
       fetchDashboardData();
       if (selectedPhone) {
         fetchChatHistory(selectedPhone);
       }
-    }, 2000);
-    return () => clearInterval(interval);
+    };
+
+    const interval = setInterval(handlePoll, 15000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handlePoll();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [fetchDashboardData, fetchChatHistory, selectedPhone]);
 
   // Active selected session object
