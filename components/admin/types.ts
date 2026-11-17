@@ -11,7 +11,7 @@ export type NavTab =
   | 'simulator'
   | 'settings';
 
-export type ChatFilter = 'all' | 'unread' | 'assigned' | 'bot';
+export type ChatFilter = 'all' | 'unread' | 'handover' | 'assigned' | 'bot';
 
 export interface WhatsAppSession {
   _id: string;

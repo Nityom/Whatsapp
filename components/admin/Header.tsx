@@ -9,6 +9,8 @@ interface HeaderProps {
   dateRange: string;
   onChangeDateRange: (range: string) => void;
   onOpenMobileMenu?: () => void;
+  handoverCount?: number;
+  onOpenHandover?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,6 +18,8 @@ export const Header: React.FC<HeaderProps> = ({
   dateRange,
   onChangeDateRange,
   onOpenMobileMenu,
+  handoverCount = 0,
+  onOpenHandover,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -61,6 +65,19 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Action Controls */}
       <div className="flex items-center gap-2.5">
+        {/* Reception Handover Alert Pill (Visible when patients waiting) */}
+        {handoverCount > 0 && onOpenHandover && (
+          <button
+            type="button"
+            onClick={onOpenHandover}
+            className="h-9 flex items-center gap-2 px-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold shadow-xs animate-pulse transition-colors cursor-pointer"
+            title="Patients waiting for reception staff"
+          >
+            <span className="w-2 h-2 rounded-full bg-white"></span>
+            <span>☎️ {handoverCount} {handoverCount === 1 ? 'Handover' : 'Handovers'}</span>
+          </button>
+        )}
+
         {/* Date Filter Dropdown */}
         <div ref={dropdownRef} className="relative">
           <button
