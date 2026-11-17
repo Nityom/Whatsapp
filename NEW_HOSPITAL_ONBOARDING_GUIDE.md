@@ -76,6 +76,21 @@ Before beginning the technical setup, ensure you have:
 4. Under **Webhook Fields**, click **Manage** and subscribe to:
    - ☑️ **`messages`**
 
+> [!TIP]
+> **Subscribed Apps & Override Webhook URL**:
+> If messages are not hitting your webhook endpoint, check if an existing integration has an `override_callback_uri` registered on the WABA. You can verify and update the WABA subscribed app callback directly via Graph API:
+> ```bash
+> # Check subscribed apps
+> curl -H "Authorization: Bearer $WHATSAPP_ACCESS_TOKEN" \
+>   "https://graph.facebook.com/v19.0/$WHATSAPP_BUSINESS_ACCOUNT_ID/subscribed_apps"
+> 
+> # Point WABA webhook directly to your deployment
+> curl -X POST "https://graph.facebook.com/v19.0/$WHATSAPP_BUSINESS_ACCOUNT_ID/subscribed_apps" \
+>   -H "Authorization: Bearer $WHATSAPP_ACCESS_TOKEN" \
+>   -d "override_callback_uri=https://<your-domain>/api/whatsapp/webhook" \
+>   -d "verify_token=$WHATSAPP_VERIFY_TOKEN"
+> ```
+
 ---
 
 ## 3. Hospital PMS & Database Setup
