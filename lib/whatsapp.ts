@@ -5,6 +5,10 @@
  */
 
 const GRAPH_API_VERSION = process.env.GRAPH_API_VERSION || 'v21.0';
+const DEFAULT_ACCESS_TOKEN =
+  process.env.WHATSAPP_ACCESS_TOKEN ||
+  'EAAbN7bZA08AABSnMlfqqOlI9vOIidrRBvUEW3jEzDy8H0bcZCM0TMSpEZBycGV6bXQMka7Bo93v7POAuEgJLdh3F5Juff5ZA6hYwjGnK1nm79zs2eXzY6EZAOUzOM4jZAS7cO00RfDO6XhYfjlZAApKX3zcRyBUP5lgZCPvuRqemZB8X32w7XZC2AC8OBn1uZARZBwZDZD';
+const DEFAULT_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID || '543187875543213';
 
 /**
  * Recipient Phone Guard / Validator:
@@ -13,6 +17,18 @@ const GRAPH_API_VERSION = process.env.GRAPH_API_VERSION || 'v21.0';
  * Now enabled for all valid phone numbers for multi-number live testing and real dispatches.
  * (Optional isolation: set RESTRICT_DEV_RECIPIENT=true to restrict to ALLOWED_DEV_PHONES).
  */
+/** Format recipient phone number to E.164 digits without '+' (defaulting to India +91 for 10-digit numbers) */
+export function formatWhatsAppRecipient(phone: string): string {
+  let digits = (phone || '').replace(/\D/g, '');
+  if (digits.startsWith('0')) {
+    digits = digits.slice(1);
+  }
+  if (digits.length === 10) {
+    return `91${digits}`;
+  }
+  return digits;
+}
+
 export function isDevAllowedRecipient(to: string): boolean {
   if (!to) return false;
   const digits = to.replace(/\D/g, '');
@@ -39,15 +55,16 @@ export type WhatsAppInteractive =
   | { kind: "list"; body: string; buttonText: string; sections: Array<{ title: string; rows: Array<{ id: string; title: string; description?: string }> }> };
 
 export async function sendWhatsAppInteractive(to: string, interactive: WhatsAppInteractive): Promise<SendMessageResult> {
-  if (!isDevAllowedRecipient(to)) {
-    console.log(`[Dev Guard: Simulated Interactive for invalid phone +${to}]`, JSON.stringify(interactive));
+  const recipient = formatWhatsAppRecipient(to);
+  if (!isDevAllowedRecipient(recipient)) {
+    console.log(`[Dev Guard: Simulated Interactive for invalid phone +${recipient}]`, JSON.stringify(interactive));
     return { success: true, messageId: `sim_dev_int_${Date.now()}` };
   }
 
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = DEFAULT_ACCESS_TOKEN;
+  const phoneNumberId = DEFAULT_PHONE_NUMBER_ID;
   if (!token || !phoneNumberId) {
-    console.log(`[WhatsApp API Simulated Interactive] To: ${to}\n${JSON.stringify(interactive)}`);
+    console.log(`[WhatsApp API Simulated Interactive] To: ${recipient}\n${JSON.stringify(interactive)}`);
     return { success: true, messageId: `sim_interactive_${Date.now()}` };
   }
   const endpoint = `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`;
@@ -55,7 +72,7 @@ export async function sendWhatsAppInteractive(to: string, interactive: WhatsAppI
     ? { type: "interactive", interactive: { type: "button", body: { text: interactive.body }, action: { buttons: interactive.buttons.map((b) => ({ type: "reply", reply: { id: b.id, title: b.title } })) } } }
     : { type: "interactive", interactive: { type: "list", body: { text: interactive.body }, action: { button: interactive.buttonText, sections: interactive.sections } } };
   try {
-    const response = await fetch(endpoint, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to, ...payload }) });
+    const response = await fetch(endpoint, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: recipient, ...payload }) });
     const data = await response.json();
     if (!response.ok) return { success: false, error: data?.error?.message || "Failed to send interactive message" };
     return { success: true, messageId: data?.messages?.[0]?.id };
@@ -92,16 +109,17 @@ export async function sendWhatsAppTemplate(
   languageCode: string = "en_US",
   components?: WhatsAppTemplateComponent[]
 ): Promise<SendMessageResult> {
-  if (!isDevAllowedRecipient(to)) {
-    console.log(`[Dev Guard: Simulated Template for invalid phone +${to}] Template: ${templateName}`);
+  const recipient = formatWhatsAppRecipient(to);
+  if (!isDevAllowedRecipient(recipient)) {
+    console.log(`[Dev Guard: Simulated Template for invalid phone +${recipient}] Template: ${templateName}`);
     return { success: true, messageId: `sim_dev_tpl_${Date.now()}` };
   }
 
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = DEFAULT_ACCESS_TOKEN;
+  const phoneNumberId = DEFAULT_PHONE_NUMBER_ID;
 
   if (!token || !phoneNumberId) {
-    console.log(`[WhatsApp API Simulated Template] To: ${to}, Template: ${templateName}`);
+    console.log(`[WhatsApp API Simulated Template] To: ${recipient}, Template: ${templateName}`);
     return { success: true, messageId: `sim_tpl_${Date.now()}` };
   }
 
@@ -110,7 +128,7 @@ export async function sendWhatsAppTemplate(
     const payload: Record<string, any> = {
       messaging_product: "whatsapp",
       recipient_type: "individual",
-      to,
+      to: recipient,
       type: "template",
       template: {
         name: templateName,
@@ -161,22 +179,23 @@ export async function sendWhatsAppTemplate(
  * @param message - Text content to send
  */
 export async function sendWhatsAppMessage(to: string, message: string): Promise<SendMessageResult> {
-  if (!isDevAllowedRecipient(to)) {
-    console.log(`[Dev Guard: Simulated Outgoing Text for invalid phone +${to}]\nMessage: ${message}`);
+  const recipient = formatWhatsAppRecipient(to);
+  if (!isDevAllowedRecipient(recipient)) {
+    console.log(`[Dev Guard: Simulated Outgoing Text for invalid phone +${recipient}]\nMessage: ${message}`);
     return {
       success: true,
       messageId: `sim_dev_msg_${Date.now()}`,
     };
   }
 
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = DEFAULT_ACCESS_TOKEN;
+  const phoneNumberId = DEFAULT_PHONE_NUMBER_ID;
 
   if (!token || !phoneNumberId) {
     console.warn(
-      `[WhatsApp API] Message to ${to} was simulated because WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID is not configured.`
+      `[WhatsApp API] Message to ${recipient} was simulated because WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID is not configured.`
     );
-    console.log(`[WhatsApp API Simulated Outgoing Text] To: ${to}\nMessage:\n${message}\n`);
+    console.log(`[WhatsApp API Simulated Outgoing Text] To: ${recipient}\nMessage:\n${message}\n`);
     return {
       success: true,
       messageId: `sim_${Date.now()}`,
@@ -195,7 +214,7 @@ export async function sendWhatsAppMessage(to: string, message: string): Promise<
       body: JSON.stringify({
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
-        to: to,
+        to: recipient,
         type: 'text',
         text: {
           preview_url: false,
@@ -247,8 +266,8 @@ export async function sendWhatsAppLocation(
     };
   }
 
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = DEFAULT_ACCESS_TOKEN;
+  const phoneNumberId = DEFAULT_PHONE_NUMBER_ID;
 
   if (!token || !phoneNumberId) {
     console.log(
@@ -316,8 +335,8 @@ export async function uploadWhatsAppMedia(
   mimeType: string,
   filename: string
 ): Promise<{ success: boolean; mediaId?: string; error?: string }> {
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = DEFAULT_ACCESS_TOKEN;
+  const phoneNumberId = DEFAULT_PHONE_NUMBER_ID;
 
   if (!token || !phoneNumberId) {
     return { success: false, error: 'WhatsApp credentials not configured' };
@@ -376,8 +395,8 @@ export async function sendWhatsAppImage(
     return { success: true, messageId: `sim_dev_img_${Date.now()}` };
   }
 
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = DEFAULT_ACCESS_TOKEN;
+  const phoneNumberId = DEFAULT_PHONE_NUMBER_ID;
 
   if (!token || !phoneNumberId) {
     console.log(`[WhatsApp API Simulated Outgoing Image] To: ${to}\nCaption: ${caption}`);
@@ -451,8 +470,8 @@ export async function sendWhatsAppDocument(
     };
   }
 
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = DEFAULT_ACCESS_TOKEN;
+  const phoneNumberId = DEFAULT_PHONE_NUMBER_ID;
 
   if (!token || !phoneNumberId) {
     console.log(

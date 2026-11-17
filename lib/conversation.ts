@@ -35,7 +35,7 @@ function sanitizeBookingDraft(draft?: Record<string, any>) {
   const allowedKeys = new Set([
     "doctorName", "specialty", "date", "session", "currentSession",
     "slot", "slotTime", "patientName", "patientAge", "patientPhone",
-    "patientAddress", "sex", "complaint",
+    "patientAddress", "sex", "complaint", "isSecondBooking", "previousPatientName",
     "startDate", "pickupTime", "returnDate", "returnTime", "customerName",
     "customerLatitude", "customerLongitude", "distanceKm", "locationName",
     "locationAddress", "vehicleName", "vehiclePrice"
@@ -114,11 +114,24 @@ export async function processIncomingMessage(
 
   // 5. Update and persist session in Convex
   const nextStep = agentResponse.nextStep ?? context.currentStep;
+  const shouldClearDraft =
+    Boolean(agentResponse.updatedContext && "bookingDraft" in agentResponse.updatedContext && !agentResponse.updatedContext.bookingDraft);
+  const shouldClearPatient =
+    Boolean(agentResponse.updatedContext && "patientName" in agentResponse.updatedContext && !agentResponse.updatedContext.patientName);
+
   const updatedContext = {
     ...context,
     currentStep: nextStep,
     ...(agentResponse.updatedContext || {}),
   };
+  if (shouldClearDraft) {
+    updatedContext.bookingDraft = undefined;
+  }
+  if (shouldClearPatient) {
+    updatedContext.patientName = undefined;
+    updatedContext.patientId = undefined;
+    updatedContext.patientReference = undefined;
+  }
 
   let savedSession: any = null;
   try {
@@ -126,9 +139,9 @@ export async function processIncomingMessage(
       phoneNumber: phone,
       currentStep: nextStep,
       language: updatedContext.language,
-      patientId: updatedContext.patientId,
-      patientReference: updatedContext.patientReference,
-      patientName: updatedContext.patientName,
+      patientId: shouldClearPatient ? "" : updatedContext.patientId,
+      patientReference: shouldClearPatient ? "" : updatedContext.patientReference,
+      patientName: shouldClearPatient ? "" : updatedContext.patientName,
       isVerified: updatedContext.isVerified,
       verificationOtp: updatedContext.verificationOtp,
       otpExpiresAt: updatedContext.otpExpiresAt,
@@ -137,7 +150,10 @@ export async function processIncomingMessage(
       handoverReason: updatedContext.handoverReason,
       lastBookedDoctor: updatedContext.lastBookedDoctor,
       lastBookedDate: updatedContext.lastBookedDate,
-      bookingDraft: sanitizeBookingDraft(updatedContext.bookingDraft),
+      clearBookingDraft: shouldClearDraft,
+      clearPatient: shouldClearPatient,
+      replaceDraft: true,
+      bookingDraft: shouldClearDraft ? undefined : sanitizeBookingDraft(updatedContext.bookingDraft),
     });
   } catch (err) {
     console.error("[Session Save Error]", err);
