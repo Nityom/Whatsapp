@@ -49,6 +49,7 @@ export interface AgentContext {
   lastBookedDoctor?: string;
   lastBookedDate?: string;
   lastBookedPatientName?: string;
+  resetSession?: boolean;
   bookingDraft?: {
     doctorName?: string;
     specialty?: string;
@@ -514,6 +515,45 @@ export async function handleConversationTurn(
   const normalizedText = lower.startsWith("menu_")
     ? lower.replace("menu_", "")
     : lower;
+
+  // DEMO RESET: Keyword to treat as a brand-new first-time user
+  if (
+    lower === "#demo" ||
+    lower === "demo" ||
+    lower === "#reset" ||
+    lower === "reset" ||
+    lower === "#fresh" ||
+    lower === "fresh" ||
+    lower === "#first" ||
+    lower === "first time" ||
+    lower === "/reset" ||
+    lower === "/demo"
+  ) {
+    return {
+      text: languagePrompt(),
+      interactive: languageButtons(),
+      nextStep: "LANGUAGE_SELECT",
+      updatedContext: {
+        currentStep: "LANGUAGE_SELECT",
+        language: undefined,
+        patientId: undefined,
+        patientReference: undefined,
+        patientName: undefined,
+        bookingDraft: undefined,
+        lastBookedDoctor: undefined,
+        lastBookedDate: undefined,
+        lastBookedPatientName: undefined,
+        isHandedOver: false,
+        handoverReason: undefined,
+        handoverTimestamp: undefined,
+        isVerified: false,
+        verificationOtp: undefined,
+        otpExpiresAt: undefined,
+        pendingAction: undefined,
+        resetSession: true,
+      },
+    };
+  }
 
   // 0. Human Handover / Staff Conversation Guard
   // When staff is managing this chat or bot is paused (isHandedOver === true or currentStep === "HANDED_OVER"),

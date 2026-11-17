@@ -153,8 +153,9 @@ export async function processIncomingMessage(
       lastBookedDoctor: updatedContext.lastBookedDoctor,
       lastBookedDate: updatedContext.lastBookedDate,
       lastBookedPatientName: updatedContext.lastBookedPatientName,
-      clearBookingDraft: shouldClearDraft,
-      clearPatient: shouldClearPatient,
+      resetSession: Boolean(agentResponse.updatedContext?.resetSession),
+      clearBookingDraft: shouldClearDraft || Boolean(agentResponse.updatedContext?.resetSession),
+      clearPatient: shouldClearPatient || Boolean(agentResponse.updatedContext?.resetSession),
       replaceDraft: true,
       bookingDraft: shouldClearDraft ? undefined : sanitizeBookingDraft(updatedContext.bookingDraft),
     });
