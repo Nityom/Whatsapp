@@ -57,7 +57,7 @@ Hello *${reminder.patientName}*, your appointment is coming up today:
 
       const interactive = {
         kind: "buttons" as const,
-        body: "Please confirm your arrival or choose an option:",
+        body: reminderText,
         buttons: [
           { id: "btn_checkin", title: "📍 I'm Here / Check In" },
           { id: "btn_reschedule", title: "🔄 Reschedule" },
@@ -65,24 +65,26 @@ Hello *${reminder.patientName}*, your appointment is coming up today:
         ],
       };
 
-      // 1. Try sending free-form reminder message
-      const textRes = await sendWhatsAppMessage(phoneToSend, reminderText);
-      if (textRes.success) {
-        await sendWhatsAppInteractive(phoneToSend, interactive);
-      } else {
-        // 2. Outside 24-hour service window: fallback to Meta approved utility template
-        console.warn(`[Reminder 24h Window Fallback] Text message failed (${textRes.error}). Dispatching approved template.`);
-        await sendWhatsAppTemplate(phoneToSend, "svaasth_opd_update", "en_US", [
-          {
-            type: "body",
-            parameters: [
-              { type: "text", text: reminder.patientName },
-              { type: "text", text: reminder.token || "#1" },
-              { type: "text", text: reminder.doctorName },
-              { type: "text", text: `${reminder.date} at ${reminder.time}` },
-            ],
-          },
-        ]);
+      // 1. Send interactive reminder card with quick-action buttons
+      const intRes = await sendWhatsAppInteractive(phoneToSend, interactive);
+      if (!intRes.success) {
+        // Fallback A: Try plain text
+        const textRes = await sendWhatsAppMessage(phoneToSend, reminderText);
+        if (!textRes.success) {
+          // Fallback B: Outside 24-hour service window -> Dispatch Meta approved utility template
+          console.warn(`[Reminder 24h Window Fallback] Text & interactive failed (${textRes.error}). Dispatching approved template.`);
+          await sendWhatsAppTemplate(phoneToSend, "svaasth_opd_update", "en_US", [
+            {
+              type: "body",
+              parameters: [
+                { type: "text", text: reminder.patientName },
+                { type: "text", text: reminder.token || "#1" },
+                { type: "text", text: reminder.doctorName },
+                { type: "text", text: `${reminder.date} at ${reminder.time}` },
+              ],
+            },
+          ]);
+        }
       }
 
       // Mark sent in database

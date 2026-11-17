@@ -30,17 +30,24 @@ export const scheduleReminder = mutation({
       if (isPm) slotHour += 12;
     }
 
-    // Appointment timestamp (Asia/Kolkata approx offset or standard ISO parse)
+    // Appointment timestamp in Indian Standard Time (UTC+05:30)
     const [year, month, day] = args.date.split("-").map(Number);
-    const appointmentDate = new Date(year, month - 1, day, slotHour, slotMinute, 0);
-    const appointmentEpoch = appointmentDate.getTime();
+    const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+    const appointmentEpoch = Date.UTC(year, month - 1, day, slotHour, slotMinute, 0) - IST_OFFSET_MS;
 
     // Exactly 1 hour before the appointment slot:
     let reminderScheduledFor = appointmentEpoch - 60 * 60 * 1000;
 
-    // If test mode or if the slot is in the past/very soon, set to fire in 60 seconds so demo works smoothly
-    if (args.testMode || reminderScheduledFor <= now) {
-      reminderScheduledFor = now + 60 * 1000;
+    // Scheduling rules:
+    if (args.testMode) {
+      reminderScheduledFor = now + 60 * 1000; // 1 min for instant testing/verification
+    } else if (appointmentEpoch <= now) {
+      // Appointment is already in the past - do not schedule
+      return null;
+    } else if (reminderScheduledFor <= now) {
+      // If booked less than 1 hour before the slot (e.g. 30 mins before),
+      // schedule reminder to fire in 2 minutes so patient still gets arrival guidance
+      reminderScheduledFor = now + 2 * 60 * 1000;
     }
 
     // Check if a reminder for this appointment already exists; update it if so
