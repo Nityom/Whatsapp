@@ -180,6 +180,10 @@ export async function POST(request: NextRequest) {
 
             if (!isDuplicateOfInteractive) {
               await sendWhatsAppMessage(sender, result.text);
+              if (result.interactive) {
+                // Short pause ensures WhatsApp displays confirmation card first, then action buttons
+                await new Promise((resolve) => setTimeout(resolve, 350));
+              }
             }
           }
 
