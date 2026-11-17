@@ -394,23 +394,13 @@ export function parseDateInput(input: string): string | null {
    ========================================================================= */
 
 export function languagePrompt(): string {
-  return `👋 *Welcome to Svaasth Connect*
-━━━━━━━━━━━━━━━━━━━━━
-Please select your preferred language:
-कृपया अपनी पसंदीदा भाषा चुनें:
-कृपया आपली भाषा निवडा:
-
-1️⃣ English
-2️⃣ हिन्दी (Hindi)
-3️⃣ मराठी (Marathi)
-
-👉 *Tap a button below or reply with 1, 2, or 3:*`;
+  return `👋 *Welcome to Svaasth Connect*\n\nPlease select your preferred language / भाषा चुनें:`;
 }
 
 export function languageButtons(): WhatsAppInteractive {
   return {
     kind: "buttons",
-    body: "👋 Welcome to Svaasth Connect / Svaasth Connect में आपका स्वागत है / Svaasth Connect मध्ये आपले स्वागत आहे.\n\nPlease select your language / कृपया भाषा चुनें / कृपया भाषा निवडा:",
+    body: "Please select your language / कृपया भाषा चुनें / कृपया भाषा निवडा:",
     buttons: [
       { id: "lang_en", title: "1. English" },
       { id: "lang_hi", title: "2. हिन्दी" },
@@ -421,65 +411,14 @@ export function languageButtons(): WhatsAppInteractive {
 
 export function mainMenu(language: string): string {
   if (language === "hi") {
-    return `🏥 *Svaasth Connect* (Hospital Assistant)
-नमस्ते! 👋 मैं आपका डिजिटल अस्पताल सहायक हूँ।
-
-मैं आपकी क्या सहायता कर सकता हूँ?
-👇 *नीचे दिए गए बटन पर टैप करें या 1 से 9 में से नंबर भेजें:*
-
-1️⃣ 🏥 अपॉइंटमेंट बुक करें
-2️⃣ 📅 मेरी अपॉइंटमेंट
-3️⃣ 💊 प्रिस्क्रिप्शन देखें
-4️⃣ 🧾 बिल और भुगतान
-5️⃣ 🔔 अगली फ़ॉलो-अप तारीख
-6️⃣ 👨‍⚕️ डॉक्टर का समय
-7️⃣ 📍 अस्पताल का पता और स्थान
-8️⃣ ☎️ रिसेप्शन से बात करें
-9️⃣ 🌐 भाषा बदलें (Change Language)
-🔟 👤 परिजन प्रोफाइल (Switch / Add Member)
-
-आपकी सेहत और सुविधा हमारी प्राथमिकता है। ❤️`;
+    return `🏥 *Svaasth Connect*\nनमस्ते! 👋 मैं आपका डिजिटल अस्पताल सहायक हूँ।\n\nकृपया नीचे दिए गए मेनू से विकल्प चुनें:`;
   }
 
   if (language === "mr") {
-    return `🏥 *Svaasth Connect* (Hospital Assistant)
-नमस्कार! 👋 मी आपला डिजिटल हॉस्पिटल सहाय्यक आहे.
-
-मी आपली काय मदत करू शकतो?
-👇 *खालील पर्यायावर टॅप करा किंवा 1 ते 10 मधील क्रमांक पाठवा:*
-
-1️⃣ 🏥 नवीन अपॉइंटमेंट बुक करा
-2️⃣ 📅 माझी अपॉइंटमेंट
-3️⃣ 💊 माझे प्रिस्क्रिप्शन पहा
-4️⃣ 🧾 हॉस्पिटल बिल व पेमेंट
-5️⃣ 🔔 पुढील फॉलो-अप तारीख
-6️⃣ 👨‍⚕️ डॉक्टरांची वेळ व माहिती
-7️⃣ 📍 हॉस्पिटलचा पत्ता
-8️⃣ ☎️ रिसेप्शनशी बोला
-9️⃣ 🌐 भाषा बदला (Change Language)
-🔟 👤 कुटुंब प्रोफाइल (Switch / Add Member)
-
-आपले आरोग्य आणि सोय हीच आमची प्राथमिकता आहे. ❤️`;
+    return `🏥 *Svaasth Connect*\nनमस्कार! 👋 मी आपला डिजिटल हॉस्पिटल सहाय्यक आहे.\n\nकृपया खालील मेनूमधून पर्याय निवडा:`;
   }
 
-  return `🏥 *Svaasth Connect* (Hospital Assistant)
-Hello! 👋 I am your virtual hospital assistant, available 24/7.
-
-How can I assist you today?
-👇 *Tap an option below or reply with a number from 1 to 10:*
-
-1️⃣ 🏥 Book an Appointment
-2️⃣ 📅 My Appointments
-3️⃣ 💊 View Prescription
-4️⃣ 🧾 Bills & Payments
-5️⃣ 🔔 Next Follow-up Date
-6️⃣ 👨‍⚕️ Doctor Availability
-7️⃣ 📍 Hospital Address & Location
-8️⃣ ☎️ Talk to Reception
-9️⃣ 🌐 Change Language
-🔟 👤 Family Profiles (Switch / Add Member)
-
-Your health and comfort are our highest priority. ❤️`;
+  return `🏥 *Svaasth Connect*\nHello! 👋 I am your virtual hospital assistant.\n\nPlease choose an option from the menu below:`;
 }
 
 export function menuList(language: string): WhatsAppInteractive {
@@ -1211,20 +1150,14 @@ async function initiateAppointmentBooking(
   // Step 1: If doctor not specified, ask doctor
   if (!draft.doctorName) {
     const docs = await fetchDoctors();
-    const docOptions = docs
-      .map(
-        (d, idx) =>
-          `*${idx + 1}️⃣ ${d.name}*\n   👨‍⚕️ _${d.specialty}_\n   💰 ${inLanguage(lang, "Fee", "परामर्श शुल्क", "सल्ला शुल्क")}: ₹${d.consultationFee.firstVisit} (${inLanguage(lang, "First Visit", "पहला", "पहिली भेट")}) / ₹${d.consultationFee.followupVisit} (${inLanguage(lang, "Follow-up", "फ़ॉलो-अप", "फॉलो-अप")})`
-      )
-      .join("\n\n");
 
     return {
-      text: `${inLanguage(
+      text: inLanguage(
         lang,
-        "🏥 *Book an Appointment – Svaasth Connect*\n\nWhich specialist doctor would you like to consult?",
-        "🏥 *Svaasth Connect में अपॉइंटमेंट बुक करें*\n\nआप किस विशेषज्ञ डॉक्टर से परामर्श लेना चाहते हैं?",
-        "🏥 *Svaasth Connect मध्ये अपॉइंटमेंट बुक करा*\n\nआपल्याला कोणत्या तज्ज्ञ डॉक्टरांचा सल्ला घ्यायचा आहे?"
-      )}\n\n${docOptions}\n\n👉 ${inLanguage(lang, "Please reply *1* or *2* (or tap a doctor below).", "कृपया *1* या *2* भेजें (या नीचे दिए गए डॉक्टर पर टैप करें)।", "कृपया *1* किंवा *2* पाठवा (किंवा खालील पर्यायावर टॅप करा).")}`,
+        "🏥 *Book Appointment*\nPlease select a doctor below:",
+        "🏥 *अपॉइंटमेंट बुकिंग*\nकृपया नीचे डॉक्टर चुनें:",
+        "🏥 *अपॉइंटमेंट बुकिंग*\nकृपया खालील डॉक्टर निवडा:"
+      ),
       nextStep: "BOOKING_SELECT_DOCTOR",
       updatedContext: { bookingDraft: draft },
       interactive: {
@@ -1241,17 +1174,14 @@ async function initiateAppointmentBooking(
   // Step 2: If date not specified, ask date
   if (!draft.date) {
     const nextDates = getNextAvailableDates();
-    const dateOptionsText = nextDates
-      .map((d, i) => `${i + 1}️⃣ ${inLanguage(lang, d.labelEn, d.labelHi, d.labelMr)}`)
-      .join("\n");
 
     return {
-      text: `${inLanguage(
+      text: inLanguage(
         lang,
-        `Great! Let's book your appointment with:\n👨‍⚕️ *${draft.doctorName}* (${draft.specialty})\n\n📅 *Select Appointment Date:*\n${dateOptionsText}\n4️⃣ Or reply with any date in DD/MM/YY format\n\n_(Note: OPD is closed on Sundays)_`,
-        `बहुत बढ़िया! आइए अपॉइंटमेंट बुक करते हैं:\n👨‍⚕️ *${draft.doctorName}* (${draft.specialty})\n\n📅 *अपॉइंटमेंट की तारीख चुनें:*\n${dateOptionsText}\n4️⃣ या DD/MM/YY प्रारूप में तारीख लिखें\n\n_(ध्यान दें: रविवार को OPD बंद रहता है)_`,
-        `उत्तम! चला अपॉइंटमेंट बुक करूया:\n👨‍⚕️ *${draft.doctorName}* (${draft.specialty})\n\n📅 *अपॉइंटमेंटची तारीख निवडा:*\n${dateOptionsText}\n4️⃣ किंवा DD/MM/YY स्वरूपात तारीख लिहा\n\n_(टीप: रविवारी OPD बंद असते)_`
-      )}\n\n👉 ${inLanguage(lang, "Tap an option below or reply with 1, 2, or 3.", "नीचे टैप करें या 1, 2, 3 भेजें।", "खाली टॅप करा किंवा 1, 2, 3 पाठवा.")}`,
+        `👨‍⚕️ *${draft.doctorName}*\nPlease select an appointment date below (or enter DD/MM/YY):`,
+        `👨‍⚕️ *${draft.doctorName}*\nकृपया नीचे तारीख चुनें (या DD/MM/YY लिखें):`,
+        `👨‍⚕️ *${draft.doctorName}*\nकृपया खाली तारीख निवडा (किंवा DD/MM/YY लिहा):`
+      ),
       nextStep: "BOOKING_SELECT_DATE",
       updatedContext: { bookingDraft: draft },
       interactive: {
@@ -1302,9 +1232,9 @@ async function handleBookingSelectDoctor(
     return {
       text: inLanguage(
         lang,
-        `Please select a doctor:\n1️⃣ ${docs[0]?.name || "Dr. Vipeen Raut"} (Orthopaedics)\n2️⃣ ${docs[1]?.name || "Dr. Shillpa Raut"} (Gynecology)\n\n👉 Reply *1* or *2* (or tap below).`,
-        `कृपया डॉक्टर चुनें:\n1️⃣ ${docs[0]?.name || "Dr. Vipeen Raut"} (हड्डी रोग)\n2️⃣ ${docs[1]?.name || "Dr. Shillpa Raut"} (स्त्री रोग)\n\n👉 *1* या *2* भेजें (या नीचे टैप करें)।`,
-        `कृपया डॉक्टर निवडा:\n1️⃣ ${docs[0]?.name || "Dr. Vipeen Raut"} (हाडे व सांधे)\n2️⃣ ${docs[1]?.name || "Dr. Shillpa Raut"} (स्त्रीरोग)\n\n👉 *1* किंवा *2* पाठवा (किंवा खाली टॅप करा).`
+        "Please select a doctor below:",
+        "कृपया नीचे डॉक्टर चुनें:",
+        "कृपया खालील डॉक्टर निवडा:"
       ),
       nextStep: "BOOKING_SELECT_DOCTOR",
       interactive: {
@@ -1334,17 +1264,14 @@ async function handleBookingSelectDoctor(
   };
 
   const nextDates = getNextAvailableDates();
-  const dateOptionsText = nextDates
-    .map((d, i) => `${i + 1}️⃣ ${inLanguage(lang, d.labelEn, d.labelHi, d.labelMr)}`)
-    .join("\n");
 
   return {
-    text: `${inLanguage(
+    text: inLanguage(
       lang,
-      `Selected: 👨‍⚕️ *${selectedDoc.name}* (${selectedDoc.specialty})\n\n📅 *Select Appointment Date:*\n${dateOptionsText}\n4️⃣ Or reply with any date in DD/MM/YY format\n\n_(Note: OPD is closed on Sundays)_`,
-      `चुना गया: 👨‍⚕️ *${selectedDoc.name}* (${selectedDoc.specialty})\n\n📅 *तारीख चुनें:*\n${dateOptionsText}\n4️⃣ या DD/MM/YY प्रारूप में लिखें\n\n_(रविवार को OPD बंद रहता है)_`,
-      `निवडले: 👨‍⚕️ *${selectedDoc.name}* (${selectedDoc.specialty})\n\n📅 *तारीख निवडा:*\n${dateOptionsText}\n4️⃣ किंवा DD/MM/YY स्वरूपात लिहा\n\n_(रविवारी OPD बंद असते)_`
-    )}\n\n👉 ${inLanguage(lang, "Tap an option below or reply with 1, 2, or 3.", "नीचे टैप करें या 1, 2, 3 भेजें।", "खाली टॅप करा किंवा 1, 2, 3 पाठवा.")}`,
+      `👨‍⚕️ *${selectedDoc.name}*\nPlease select an appointment date below (or enter DD/MM/YY):`,
+      `👨‍⚕️ *${selectedDoc.name}*\nकृपया नीचे तारीख चुनें (या DD/MM/YY लिखें):`,
+      `👨‍⚕️ *${selectedDoc.name}*\nकृपया खाली तारीख निवडा (किंवा DD/MM/YY लिहा):`
+    ),
     nextStep: "BOOKING_SELECT_DATE",
     updatedContext: { bookingDraft: updatedDraft },
     interactive: {
@@ -1367,16 +1294,13 @@ async function handleBookingSelectDate(
 
   if (!parsedDate) {
     const nextDates = getNextAvailableDates();
-    const dateOptionsText = nextDates
-      .map((d, i) => `${i + 1}️⃣ ${inLanguage(lang, d.labelEn, d.labelHi, d.labelMr)}`)
-      .join("\n");
 
     return {
       text: inLanguage(
         lang,
-        `Please select a valid date:\n${dateOptionsText}\n4️⃣ Or write a date in DD/MM/YY format`,
-        `कृपया सही तारीख चुनें:\n${dateOptionsText}\n4️⃣ या DD/MM/YY प्रारूप में लिखें`,
-        `कृपया योग्य तारीख निवडा:\n${dateOptionsText}\n4️⃣ किंवा DD/MM/YY स्वरूपात लिहा`
+        "Please select a date below (or enter DD/MM/YY):",
+        "कृपया नीचे तारीख चुनें (या DD/MM/YY लिखें):",
+        "कृपया खालील तारीख निवडा (किंवा DD/MM/YY लिहा):"
       ),
       nextStep: "BOOKING_SELECT_DATE",
       interactive: {
@@ -1569,9 +1493,9 @@ async function proceedToPatientRegistration(
     return {
       text: inLanguage(
         lang,
-        `📅 *Appointment Date:* ${dateDmy}\n👨‍⚕️ *Doctor:* ${docName}\n⏰ *Slot:* ${chosenSlot}\n\n${promptTitle}\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n${someoneElseText}\n\n👉 *Tap an option below or reply with a number (1, 2...) or write the patient's name:*`,
-        `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n⏰ *समय:* ${chosenSlot}\n\n${promptTitle}\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n${someoneElseText}\n\n👉 *नीचे टैप करें या नंबर (1, 2...) भेजें या मरीज का नाम लिखें:*`,
-        `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n⏰ *वेळ:* ${chosenSlot}\n\n${promptTitle}\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n${someoneElseText}\n\n👉 *खाली टॅप करा किंवा नंबर (1, 2...) पाठवा किंवा रुग्णाचे नाव लिहा:*`
+        `📅 *Date:* ${dateDmy} | ⏰ *Slot:* ${chosenSlot}\n${promptTitle}`,
+        `📅 *तारीख:* ${dateDmy} | ⏰ *समय:* ${chosenSlot}\n${promptTitle}`,
+        `📅 *तारीख:* ${dateDmy} | ⏰ *वेळ:* ${chosenSlot}\n${promptTitle}`
       ),
       nextStep: "BOOKING_SELECT_PROFILE",
       updatedContext: {
@@ -1648,9 +1572,9 @@ async function promptBookingSession(
   return {
     text: inLanguage(
       lang,
-      `📅 *Appointment Date:* ${dateDmy}\n👨‍⚕️ *Doctor:* ${docName}\n\n👇 *Please choose an OPD session:*\n1️⃣ 🌅 Morning (10:30 AM – 1:00 PM)\n2️⃣ 🌆 Evening (6:00 PM – 7:30 PM)\n\n👉 *Tap an option below or reply with 1 (Morning) or 2 (Evening):*`,
-      `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n\n👇 *कृपया समय चुनें (Session):*\n1️⃣ 🌅 सुबह (Morning: 10:30 AM – 1:00 PM)\n2️⃣ 🌆 शाम (Evening: 6:00 PM – 7:30 PM)\n\n👉 *नीचे बटन दबाएं या 1 (सुबह) या 2 (शाम) भेजें:*`,
-      `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n\n👇 *कृपया सत्राची निवड करा (Session):*\n1️⃣ 🌅 सकाळ (Morning: 10:30 AM – 1:00 PM)\n2️⃣ 🌆 संध्याकाळ (Evening: 6:00 PM – 7:30 PM)\n\n👉 *खालील बटणावर टॅप करा किंवा 1 (सकाळ) किंवा 2 (संध्याकाळ) पाठवा:*`
+      `📅 *Date:* ${dateDmy} | 👨‍⚕️ *${docName}*\nPlease choose an OPD session below:`,
+      `📅 *तारीख:* ${dateDmy} | 👨‍⚕️ *${docName}*\nकृपया नीचे सेशन चुनें:`,
+      `📅 *तारीख:* ${dateDmy} | 👨‍⚕️ *${docName}*\nकृपया खाली सेशन निवडा:`
     ),
     nextStep: "BOOKING_SELECT_SESSION",
     updatedContext: { bookingDraft: updatedDraft },
@@ -1697,9 +1621,9 @@ async function handleBookingSelectSession(
     return {
       text: inLanguage(
         lang,
-        `Please choose a valid session:\n1️⃣ 🌅 Morning (10:30 AM – 1:00 PM)\n2️⃣ 🌆 Evening (6:00 PM – 7:30 PM)\n\n👉 Reply *1* or *2* (or tap below).`,
-        `कृपया सही विकल्प चुनें:\n1️⃣ 🌅 सुबह (10:30 AM – 1:00 PM)\n2️⃣ 🌆 शाम (6:00 PM – 7:30 PM)\n\n👉 *1* या *2* भेजें।`,
-        `कृपया योग्य पर्याय निवडा:\n1️⃣ 🌅 सकाळ (10:30 AM – 1:00 PM)\n2️⃣ 🌆 संध्याकाळ (6:00 PM – 7:30 PM)\n\n👉 *1* किंवा *2* पाठवा.`
+        "Please choose an OPD session below:",
+        "कृपया नीचे सेशन चुनें:",
+        "कृपया खाली सेशन निवडा:"
       ),
       nextStep: "BOOKING_SELECT_SESSION",
       interactive: {
@@ -1753,27 +1677,11 @@ async function showAvailableSlotsForSession(
     };
   }
 
-  let slotText = inLanguage(
+  const slotText = inLanguage(
     lang,
-    `📅 *${session === "morning" ? "🌅 Morning" : "🌆 Evening"} Slots on ${dateDmy}*\n👨‍⚕️ *Doctor:* ${docName}\n⏰ *OPD Timings:* ${session === "morning" ? "10:30 AM – 1:00 PM" : "6:00 PM – 7:30 PM"}\n\n👇 *Please select your preferred 15-min slot:*\n\n`,
-    `📅 *${session === "morning" ? "🌅 सुबह" : "🌆 शाम"} के स्लॉट: ${dateDmy}*\n👨‍⚕️ *डॉक्टर:* ${docName}\n⏰ *OPD समय:* ${session === "morning" ? "10:30 AM – 1:00 PM" : "6:00 PM – 7:30 PM"}\n\n👇 *कृपया 15 मिनट का समय चुनें:*\n\n`,
-    `📅 *${session === "morning" ? "🌅 सकाळ" : "🌆 संध्याकाळ"}च्या वेळा: ${dateDmy}*\n👨‍⚕️ *डॉक्टर:* ${docName}\n⏰ *OPD वेळ:* ${session === "morning" ? "10:30 AM – 1:00 PM" : "6:00 PM – 7:30 PM"}\n\n👇 *कृपया 15 मिनिटांची वेळ निवडा:*\n\n`
-  );
-
-  slotsList.forEach((s, idx) => {
-    const num = idx + 1;
-    if (s.isBooked) {
-      slotText += `*${num}.* ⏰ ${s.display} *(Booked 🚫)*\n`;
-    } else {
-      slotText += `*${num}.* ⏰ ${s.display}\n`;
-    }
-  });
-
-  slotText += inLanguage(
-    lang,
-    `\n👉 *Reply with the slot number (e.g. 1, 2, 3...) or tap below:*\n_(Reply *${oppositeSession}* to switch to ${oppositeLabel})_`,
-    `\n👉 *स्लॉट नंबर (जैसे 1, 2, 3...) भेजें या नीचे टैप करें:*\n_(${session === "morning" ? "शाम" : "सुबह"} के स्लॉट देखने के लिए *${session === "morning" ? "शाम" : "सुबह"}* लिखें)_`,
-    `\n👉 *वेळेचा नंबर (उदा. 1, 2, 3...) पाठवा किंवा खाली टॅप करा:*\n_(${session === "morning" ? "संध्याकाळ" : "सकाळ"}च्या वेळा पाहण्यासाठी *${session === "morning" ? "संध्याकाळ" : "सकाळ"}* लिहा)_`
+    `📅 *${dateDmy}* (${session === "morning" ? "Morning" : "Evening"})\nPlease tap *Choose Slot* below:`,
+    `📅 *${dateDmy}* (${session === "morning" ? "सुबह" : "शाम"})\nकृपया नीचे *समय चुनें* पर टैप करें:`,
+    `📅 *${dateDmy}* (${session === "morning" ? "सकाळ" : "संध्याकाळ"})\nकृपया खाली *वेळ निवडा* वर टॅप करा:`
   );
 
   const updatedDraft = {
@@ -2569,9 +2477,9 @@ async function handleMyAppointments(
     return {
       text: inLanguage(
         lang,
-        `📋 *Whose appointments would you like to view?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${allOptionNum}️⃣ 👥 All Appointments (Combined)*\n*${newOptionNum}️⃣ ➕ Book for Someone Else*\n\n👉 *Reply with a number (1, 2, 3...) or type the patient's name:*`,
-        `📋 *आप किसकी अपॉइंटमेंट देखना चाहते हैं?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${allOptionNum}️⃣ 👥 सभी अपॉइंटमेंट (एक साथ)*\n*${newOptionNum}️⃣ ➕ किसी अन्य के लिए बुक करें*\n\n👉 *नंबर (1, 2, 3...) भेजें या मरीज का नाम लिखें:*`,
-        `📋 *आपण कोणाच्या अपॉइंटमेंट्स पाहू इच्छिता?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${allOptionNum}️⃣ 👥 सर्व अपॉइंटमेंट्स (एकत्र)*\n*${newOptionNum}️⃣ ➕ इतर व्यक्तीसाठी बुक करा*\n\n👉 *नंबर (1, 2, 3...) पाठवा किंवा रुग्णाचे नाव लिहा:*`
+        "📋 *View Appointments*\nPlease select a patient profile below:",
+        "📋 *अपॉइंटमेंट देखें*\nकृपया नीचे मरीज चुनें:",
+        "📋 *अपॉइंटमेंट्स पहा*\nकृपया खालील रुग्ण निवडा:"
       ),
       nextStep: "VIEW_APPOINTMENTS_SELECT_PROFILE",
       interactive: {
@@ -2752,9 +2660,9 @@ async function handlePrescriptionQuery(
     return {
       text: inLanguage(
         lang,
-        `💊 *Whose prescription would you like to view?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${otherOptionNum}️⃣ ➕ Enter Reference Number / Someone Else*\n\n👉 *Reply with a number (1, 2...) or type the patient's name:*`,
-        `💊 *आप किसका डिजिटल पर्चा देखना चाहते हैं?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${otherOptionNum}️⃣ ➕ संदर्भ संख्या (Ref No.) दर्ज करें / अन्य*\n\n👉 *नंबर (1, 2...) भेजें या मरीज का नाम लिखें:*`,
-        `💊 *आपण कोणाचे डिजिटल प्रिस्क्रिप्शन पाहू इच्छिता?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${otherOptionNum}️⃣ ➕ रेफरन्स नंबर प्रविष्ट करा / इतर*\n\n👉 *नंबर (1, 2...) पाठवा किंवा रुग्णाचे नाव लिहा:*`
+        "💊 *View Prescription*\nPlease select a patient profile below:",
+        "💊 *प्रिस्क्रिप्शन देखें*\nकृपया नीचे मरीज चुनें:",
+        "💊 *प्रिस्क्रिप्शन पहा*\nकृपया खालील रुग्ण निवडा:"
       ),
       nextStep: "VIEW_PRESCRIPTION_SELECT_PROFILE",
       interactive: {
@@ -2910,9 +2818,9 @@ async function handleBillingQuery(
     return {
       text: inLanguage(
         lang,
-        `🧾 *Whose hospital bill / receipt would you like to view?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${allOptionNum}️⃣ 👥 Total Family Bill Summary*\n\n👉 *Reply with a number (1, 2...) or type the patient's name:*`,
-        `🧾 *आप किसका बिल / रसीद देखना चाहते हैं?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${allOptionNum}️⃣ 👥 परिवार का कुल बिल विवरण*\n\n👉 *नंबर (1, 2...) भेजें या मरीज का नाम लिखें:*`,
-        `🧾 *आपण कोणाचे बिल / पावती पाहू इच्छिता?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${allOptionNum}️⃣ 👥 कुटुंबाचे एकूण बिल तपशील*\n\n👉 *नंबर (1, 2...) पाठवा किंवा रुग्णाचे नाव लिहा:*`
+        "🧾 *Hospital Bills & Receipts*\nPlease select a patient profile below:",
+        "🧾 *अस्पताल बिल और रसीद*\nकृपया नीचे मरीज चुनें:",
+        "🧾 *हॉस्पिटल बिल आणि पावती*\nकृपया खालील रुग्ण निवडा:"
       ),
       nextStep: "VIEW_BILL_SELECT_PROFILE",
       interactive: {
@@ -3032,9 +2940,9 @@ async function handleFollowupQuery(
     return {
       text: inLanguage(
         lang,
-        `🔔 *Whose next follow-up checkup would you like to view?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n\n👉 *Reply with a number (1, 2...) or type the patient's name:*`,
-        `🔔 *आप किसकी अगली फ़ॉलो-अप जांच देखना चाहते हैं?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n\n👉 *नंबर (1, 2...) भेजें या मरीज का नाम लिखें:*`,
-        `🔔 *आपण कोणाची पुढील फॉलो-अप तपासणी पाहू इच्छिता?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n\n👉 *नंबर (1, 2...) पाठवा किंवा रुग्णाचे नाव लिहा:*`
+        "🔔 *Follow-up Checkup*\nPlease select a patient profile below:",
+        "🔔 *फ़ॉलो-अप जांच*\nकृपया नीचे मरीज चुनें:",
+        "🔔 *फॉलो-अप तपासणी*\nकृपया खालील रुग्ण निवडा:"
       ),
       nextStep: "VIEW_FOLLOWUP_SELECT_PROFILE",
       interactive: {
@@ -3172,9 +3080,9 @@ async function handleManageProfiles(
   return {
     text: inLanguage(
       lang,
-      `👤 *Family Profiles Linked to +${phoneNumber}:*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${addOptionNum}️⃣ ➕ Add a New Family Member*\n\n👉 *Reply with a number to select a profile, or reply *${addOptionNum}* to add someone new:*`,
-      `👤 *इस नंबर (+${phoneNumber}) से जुड़े परिजन:*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${addOptionNum}️⃣ ➕ नया परिजन जोड़ें*\n\n👉 *प्रोफ़ाइल चुनने के लिए नंबर भेजें, या नया सदस्य जोड़ने के लिए *${addOptionNum}* भेजें:*`,
-      `👤 *या नंबरशी (+${phoneNumber}) जोडलेले कुटुंब सदस्य:*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n*${addOptionNum}️⃣ ➕ नवीन कुटुंब सदस्य जोडा*\n\n👉 *प्रोफाइल निवडण्यासाठी नंबर पाठवा, किंवा नवीन सदस्य जोडण्यासाठी *${addOptionNum}* पाठवा:*`
+      `👤 *Family Profiles (+${phoneNumber})*\nPlease select a profile or add a new member below:`,
+      `👤 *+${phoneNumber} से जुड़े परिजन*\nकृपया नीचे प्रोफाइल चुनें या नया सदस्य जोड़ें:`,
+      `👤 *+${phoneNumber} शी जोडलेले कुटुंब सदस्य*\nकृपया खाली प्रोफाइल निवडा किंवा नवीन सदस्य जोडा:`
     ),
     nextStep: "MANAGE_PROFILES_ACTION",
     interactive: {
