@@ -29,6 +29,7 @@ export const saveWhatsAppSession = mutation({
     lastBookedDoctor: v.optional(v.string()),
     lastBookedDate: v.optional(v.string()),
     lastBookedPatientName: v.optional(v.string()),
+    resetSession: v.optional(v.boolean()),
     clearBookingDraft: v.optional(v.boolean()),
     clearPatient: v.optional(v.boolean()),
     replaceDraft: v.optional(v.boolean()),
@@ -74,6 +75,29 @@ export const saveWhatsAppSession = mutation({
     const now = Date.now();
 
     if (existing) {
+      if (args.resetSession) {
+        await ctx.db.patch(existing._id, {
+          currentStep: "LANGUAGE_SELECT",
+          language: undefined,
+          patientId: undefined,
+          patientReference: undefined,
+          patientName: undefined,
+          isVerified: false,
+          verificationOtp: undefined,
+          otpExpiresAt: undefined,
+          pendingAction: undefined,
+          isHandedOver: false,
+          handoverReason: undefined,
+          handoverTimestamp: undefined,
+          lastBookedDoctor: undefined,
+          lastBookedDate: undefined,
+          lastBookedPatientName: undefined,
+          bookingDraft: undefined,
+          updatedAt: now,
+        });
+        return await ctx.db.get(existing._id);
+      }
+
       let finalDraft = existing.bookingDraft;
       if (args.clearBookingDraft) {
         finalDraft = undefined;
