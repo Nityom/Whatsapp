@@ -48,6 +48,7 @@ export interface AgentContext {
   handoverTimestamp?: number;
   lastBookedDoctor?: string;
   lastBookedDate?: string;
+  lastBookedPatientName?: string;
   bookingDraft?: {
     doctorName?: string;
     specialty?: string;
@@ -739,10 +740,10 @@ export async function handleConversationTurn(
     };
   }
 
-  // 4. User requests Reception Handover (Option 8 or 9)
+  // 4. User requests Reception Handover (Option 8 or 9 from main menu)
+  const isGlobalMenuStep = !context.currentStep || context.currentStep === "IDLE" || context.currentStep === "WELCOME";
   if (
-    normalizedText === "8" ||
-    normalizedText === "9" ||
+    (isGlobalMenuStep && (normalizedText === "8" || normalizedText === "9")) ||
     lower.includes("reception") ||
     lower.includes("human") ||
     lower.includes("operator") ||
@@ -982,7 +983,7 @@ export async function handleConversationTurn(
           dateLabel: formatDisplayDate(dateStr),
           session: "morning",
           isSecondBooking: true,
-          previousPatientName: context.patientName,
+          previousPatientName: context.lastBookedPatientName || context.patientName,
         },
         {
           ...context,
@@ -1289,9 +1290,9 @@ async function handleBookingSelectDoctor(
   const clean = userText.toLowerCase().trim();
 
   let selectedDoc: DoctorInfo | undefined;
-  if (clean === "1" || clean === "doctor_1") {
+  if (clean === "1" || clean === "doctor_1" || clean === "doc_1") {
     selectedDoc = docs[0];
-  } else if (clean === "2" || clean === "doctor_2") {
+  } else if (clean === "2" || clean === "doctor_2" || clean === "doc_2") {
     selectedDoc = docs[1];
   } else {
     selectedDoc = matchDoctorByName(userText);
@@ -2419,6 +2420,7 @@ Your health matters to us. We look forward to serving you! ❤️`,
         bookingDraft: undefined,
         lastBookedDoctor: draft.doctorName,
         lastBookedDate: draft.date,
+        lastBookedPatientName: draft.patientName || patientInfo?.name,
         patientName: undefined,
         patientReference: undefined,
         patientId: undefined,

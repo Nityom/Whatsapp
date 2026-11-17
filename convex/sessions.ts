@@ -28,6 +28,7 @@ export const saveWhatsAppSession = mutation({
     handoverTimestamp: v.optional(v.number()),
     lastBookedDoctor: v.optional(v.string()),
     lastBookedDate: v.optional(v.string()),
+    lastBookedPatientName: v.optional(v.string()),
     clearBookingDraft: v.optional(v.boolean()),
     clearPatient: v.optional(v.boolean()),
     replaceDraft: v.optional(v.boolean()),
@@ -97,6 +98,7 @@ export const saveWhatsAppSession = mutation({
         handoverTimestamp: args.handoverTimestamp ?? existing.handoverTimestamp,
         lastBookedDoctor: args.lastBookedDoctor ?? existing.lastBookedDoctor,
         lastBookedDate: args.lastBookedDate ?? existing.lastBookedDate,
+        lastBookedPatientName: args.lastBookedPatientName ?? existing.lastBookedPatientName,
         bookingDraft: finalDraft,
         updatedAt: now,
       });
@@ -120,6 +122,7 @@ export const saveWhatsAppSession = mutation({
       handoverTimestamp: args.handoverTimestamp,
       lastBookedDoctor: args.lastBookedDoctor,
       lastBookedDate: args.lastBookedDate,
+      lastBookedPatientName: args.lastBookedPatientName,
       bookingDraft: args.bookingDraft,
       createdAt: now,
       updatedAt: now,

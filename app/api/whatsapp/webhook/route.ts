@@ -172,27 +172,36 @@ export async function POST(request: NextRequest) {
             longitude,
           });
 
-          // 1. Send formatted text reply if present and distinct from interactive body
-          if (result.text && result.text.trim().length > 0) {
-            const isDuplicateOfInteractive =
-              result.interactive &&
-              result.text.trim().toLowerCase() === result.interactive.body.trim().toLowerCase();
+          // 1. Check if interactive message already embeds the full text response
+          const isDuplicateOfInteractive = Boolean(
+            result.interactive &&
+            result.text &&
+            (result.text.trim().toLowerCase() === result.interactive.body.trim().toLowerCase() ||
+             result.interactive.body.includes(result.text.trim()))
+          );
 
-            if (!isDuplicateOfInteractive) {
-              await sendWhatsAppMessage(sender, result.text);
-              if (result.interactive) {
-                // Short pause ensures WhatsApp displays confirmation card first, then action buttons
-                await new Promise((resolve) => setTimeout(resolve, 350));
-              }
+          // 2. Send formatted text reply if present and not embedded inside the interactive body
+          if (result.text && result.text.trim().length > 0 && !isDuplicateOfInteractive) {
+            await sendWhatsAppMessage(sender, result.text);
+            if (result.interactive) {
+              // Pause ensures WhatsApp displays confirmation card first, then action buttons
+              await new Promise((resolve) => setTimeout(resolve, 400));
             }
           }
 
-          // 2. Send interactive quick buttons or list picker if present
+          // 3. Send interactive quick buttons or list picker if present
+          let interactiveSent = false;
           if (result.interactive) {
-            await sendWhatsAppInteractive(sender, result.interactive);
+            const intRes = await sendWhatsAppInteractive(sender, result.interactive);
+            interactiveSent = Boolean(intRes.success);
+            if (!interactiveSent && isDuplicateOfInteractive && result.text) {
+              // Fallback to text message if interactive failed to deliver
+              console.warn('[Webhook] Interactive delivery failed, falling back to text message');
+              await sendWhatsAppMessage(sender, result.text);
+            }
           }
 
-          // 3. If a native WhatsApp location was generated on confirmation, send native location pin
+          // 4. If a native WhatsApp location was generated on confirmation, send native location pin
           if (result.nativeLocation) {
             await sendWhatsAppLocation(sender, result.nativeLocation);
           }
