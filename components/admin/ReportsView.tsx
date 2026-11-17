@@ -36,11 +36,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const [chartView, setChartView] = useState<'pie' | 'bars'>('pie');
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
-  const totalChats = stats?.totalChats || sessions.length || 63;
-  const messagesSent = stats?.messagesSent || 962;
-  const newLeads = stats?.newLeads || 41;
-  const botResolvedPercent = 84.6;
-  const handoverCount = sessions.filter((s) => s.isHandedOver).length || 8;
+  const totalChats = stats?.totalChats || sessions.length || 0;
+  const messagesSent = stats?.messagesSent || 0;
+  const newLeads = stats?.newLeads || 0;
+  const handoverCount = sessions.filter((s) => s.isHandedOver).length;
+  const botResolvedPercent = sessions.length > 0
+    ? Number((((sessions.length - handoverCount) / sessions.length) * 100).toFixed(1))
+    : 100;
 
   const serviceBreakdown = [
     {

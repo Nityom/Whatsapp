@@ -145,4 +145,24 @@ export default defineSchema({
   })
     .index("by_event", ["eventType", "timestamp"])
     .index("by_phone", ["phoneNumber", "timestamp"]),
+
+  // Phase 1: Issue 10 - Temporary 5-Minute Slot Hold during booking confirmation
+  slotHolds: defineTable({
+    doctorName: v.string(),
+    date: v.string(), // YYYY-MM-DD
+    slot: v.string(), // e.g. "10:30" or "10:30 AM – 10:45 AM"
+    heldByPhone: v.string(),
+    expiresAt: v.number(), // Epoch ms
+    createdAt: v.number(),
+  })
+    .index("by_slot", ["doctorName", "date", "slot"])
+    .index("by_phone", ["heldByPhone"]),
+
+  // Phase 1: Issue 8 - Atomic Server-Issued Daily Sequential Tokens
+  dailyTokens: defineTable({
+    doctorName: v.string(),
+    date: v.string(), // YYYY-MM-DD
+    lastToken: v.number(), // Current highest token issued
+    updatedAt: v.number(),
+  }).index("by_doc_date", ["doctorName", "date"]),
 });

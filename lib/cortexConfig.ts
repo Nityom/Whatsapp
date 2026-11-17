@@ -56,28 +56,28 @@ export interface HospitalConfig {
 }
 
 export const CORTEX_HOSPITAL_CONFIG: HospitalConfig = {
-  name: "Cortex Hospital",
-  tagline: "Dedicated to Complete Orthopaedic, Maternity & Family Care",
+  name: process.env.HOSPITAL_NAME || "Cortex Hospital",
+  tagline: process.env.HOSPITAL_TAGLINE || "Dedicated to Complete Orthopaedic, Maternity & Family Care",
   address: {
-    line1: "Aarti Chowk",
-    line2: "Nagpur Road",
-    city: "Wardha",
-    state: "Maharashtra",
-    pincode: "442001",
-    fullFormatted: "Cortex Hospital, Aarti Chowk, Nagpur Road, Wardha - 442001, Maharashtra",
+    line1: process.env.HOSPITAL_ADDR_LINE1 || "Aarti Chowk",
+    line2: process.env.HOSPITAL_ADDR_LINE2 || "Nagpur Road",
+    city: process.env.HOSPITAL_CITY || "Wardha",
+    state: process.env.HOSPITAL_STATE || "Maharashtra",
+    pincode: process.env.HOSPITAL_PINCODE || "442001",
+    fullFormatted: process.env.HOSPITAL_FULL_ADDRESS || "Cortex Hospital, Aarti Chowk, Nagpur Road, Wardha - 442001, Maharashtra",
   },
   coordinates: {
-    latitude: 20.7453,
-    longitude: 78.5992,
+    latitude: process.env.HOSPITAL_LAT ? parseFloat(process.env.HOSPITAL_LAT) : 20.7453,
+    longitude: process.env.HOSPITAL_LON ? parseFloat(process.env.HOSPITAL_LON) : 78.5992,
   },
   contacts: {
-    phones: ["07152-255795", "+91 9373280505"],
-    mobile: "+91 9373280505",
-    landline: "07152-255795",
-    whatsapp: "+91 9373280505",
-    email: "cortexhospital@gmail.com",
-    website: "https://cortexhospital.com",
-    emergency: "112 / +91 9373280505",
+    phones: [process.env.HOSPITAL_LANDLINE || "07152-255795", process.env.HOSPITAL_PHONE || "+91 9373280505"],
+    mobile: process.env.HOSPITAL_PHONE || "+91 9373280505",
+    landline: process.env.HOSPITAL_LANDLINE || "07152-255795",
+    whatsapp: process.env.HOSPITAL_WHATSAPP || "+91 9373280505",
+    email: process.env.HOSPITAL_EMAIL || "cortexhospital@gmail.com",
+    website: process.env.HOSPITAL_WEBSITE || "https://cortexhospital.com",
+    emergency: process.env.HOSPITAL_EMERGENCY || "112 / +91 9373280505",
   },
   schedule: {
     opdTimings: "Mon. to Sat. - 10:30 AM to 1:00 PM & 6:00 PM to 7:30 PM | Sunday Closed",
@@ -120,8 +120,8 @@ export const CORTEX_HOSPITAL_CONFIG: HospitalConfig = {
   ],
 };
 
-export const BOT_NAME = "Svaasth Connect";
-export const BOT_TAGLINE = "Healthcare WhatsApp AI & Operations Hub";
+export const BOT_NAME = process.env.BOT_NAME || "Svaasth Connect";
+export const BOT_TAGLINE = process.env.BOT_TAGLINE || "Healthcare WhatsApp AI & Operations Hub";
 
 /**
  * Standard Default Welcome Message (Strictly adhering to Section 15 of System Prompt, numbered 1-9 for easy access)

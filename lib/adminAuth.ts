@@ -47,3 +47,4 @@ export function validateAdminAuth(request: NextRequest): { authorized: boolean; 
     ),
   };
 }
+

@@ -85,13 +85,31 @@ export const scheduleReminder = mutation({
  */
 export const cancelReminder = mutation({
   args: {
-    appointmentId: v.string(),
+    appointmentId: v.optional(v.string()),
+    phoneNumber: v.optional(v.string()),
+    reminderId: v.optional(v.id("appointmentReminders")),
   },
   handler: async (ctx, args) => {
-    const reminders = await ctx.db
-      .query("appointmentReminders")
-      .withIndex("by_appointmentId", (q) => q.eq("appointmentId", args.appointmentId))
-      .collect();
+    if (args.reminderId) {
+      const r = await ctx.db.get(args.reminderId);
+      if (r && r.status === "PENDING") {
+        await ctx.db.patch(r._id, { status: "CANCELLED" });
+      }
+      return { success: true, count: 1 };
+    }
+
+    let reminders: any[] = [];
+    if (args.appointmentId) {
+      reminders = await ctx.db
+        .query("appointmentReminders")
+        .withIndex("by_appointmentId", (q) => q.eq("appointmentId", args.appointmentId!))
+        .collect();
+    } else if (args.phoneNumber) {
+      reminders = await ctx.db
+        .query("appointmentReminders")
+        .withIndex("by_phone", (q) => q.eq("phoneNumber", args.phoneNumber!))
+        .collect();
+    }
 
     for (const r of reminders) {
       if (r.status === "PENDING") {

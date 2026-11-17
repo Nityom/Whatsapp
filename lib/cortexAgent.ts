@@ -32,6 +32,7 @@ import {
   upsertOpdQueueItem,
   fetchLiveOpdQueue,
   getCortexConvexClient,
+  getLocalConvexClient,
   isPhoneMatch,
 } from "./cortexClient";
 import { api } from "@/convex/_generated/api";
@@ -516,6 +517,7 @@ export async function handleConversationTurn(
 ): Promise<AgentResponse> {
   let userText = (input.text || "").trim();
   const choiceId = userText.toLowerCase();
+  const lang = context.language || "en";
 
   // Normalize interactive button / list clicks
   if (/^(doctor|date|slot|sex)_\d+$/.test(choiceId)) {
@@ -618,6 +620,104 @@ export async function handleConversationTurn(
     };
   }
 
+  // Phase 2: Issue 11 - DPDP & WhatsApp Policy Compliance: STOP / UNSUBSCRIBE Opt-out
+  if (
+    lower === "stop" ||
+    lower === "unsubscribe" ||
+    lower === "optout" ||
+    lower === "opt out" ||
+    lower === "stop messages" ||
+    lower === "cancel notifications"
+  ) {
+    try {
+      const localConvex = getLocalConvexClient();
+      await localConvex.mutation(api.sessions.saveWhatsAppSession, {
+        phoneNumber: input.phoneNumber,
+        currentStep: "IDLE",
+        consentGranted: false,
+      });
+      await localConvex.mutation(api.reminders.cancelReminder, {
+        phoneNumber: input.phoneNumber,
+      });
+      await localConvex.mutation(api.audit.logAuditEvent, {
+        eventType: "CONSENT_REVOKED",
+        phoneNumber: input.phoneNumber,
+        details: "Patient replied STOP - opted out of automated WhatsApp reminders and updates",
+      });
+    } catch (optErr) {
+      console.warn("[Opt-out Warning]", optErr);
+    }
+
+    return {
+      text: inLanguage(
+        lang,
+        "🛑 *Notifications Paused*\n\nYou have been unsubscribed from automated WhatsApp appointment reminders and hospital notifications.\n\nReply *START* or *OPTIN* at any time to resume notifications.",
+        "🛑 *सूचनाएं बंद कर दी गई हैं*\n\nआपको स्वचालित WhatsApp रिमाइंडर से हटा दिया गया है।\n\nपुनः शुरू करने के लिए कभी भी *START* भेजें।",
+        "🛑 *सूचना बंद करण्यात आल्या आहेत*\n\nआपण स्वयंचलित WhatsApp स्मरणपत्रांमधून बाहेर पडला आहात.\n\nपुन्हा सुरू करण्यासाठी कधीही *START* पाठवा."
+      ),
+      nextStep: "IDLE",
+      interactive: {
+        kind: "buttons",
+        body: "Preferences updated. Choose an option:",
+        buttons: [
+          { id: "consent_start", title: "🟢 Resume Notifications" },
+          { id: "menu_start", title: "🏠 Main Menu" },
+        ],
+      },
+      updatedContext: {
+        consentGranted: false,
+        currentStep: "IDLE",
+      },
+    };
+  }
+
+  // Phase 2: Issue 11 - DPDP START / OPTIN
+  if (
+    lower === "start" ||
+    lower === "optin" ||
+    lower === "unstop" ||
+    lower === "resume" ||
+    choiceId === "consent_start"
+  ) {
+    try {
+      const localConvex = getLocalConvexClient();
+      await localConvex.mutation(api.sessions.saveWhatsAppSession, {
+        phoneNumber: input.phoneNumber,
+        currentStep: "IDLE",
+        consentGranted: true,
+      });
+      await localConvex.mutation(api.audit.logAuditEvent, {
+        eventType: "CONSENT_RECORDED",
+        phoneNumber: input.phoneNumber,
+        details: "Patient replied START - opted into automated WhatsApp notifications",
+      });
+    } catch (inErr) {
+      console.warn("[Opt-in Warning]", inErr);
+    }
+
+    return {
+      text: inLanguage(
+        lang,
+        "✅ *Notifications Enabled!*\n\nYou are subscribed to official Cortex Hospital appointment reminders, digital prescriptions, and live queue updates.",
+        "✅ *सूचनाएं पुनः सक्रिय!*\n\nआप Cortex Hospital के अपॉइंटमेंट रिमाइंडर और लाइव कतार अपडेट्स प्राप्त करेंगे।",
+        "✅ *सूचना पुन्हा सुरू झाल्या!*\n\nआपल्याला Cortex Hospital कडून अपॉइंटमेंट स्मरणपत्रे आणि थेट रांग अपडेट्स मिळतील."
+      ),
+      nextStep: "IDLE",
+      interactive: {
+        kind: "buttons",
+        body: "What would you like to do?",
+        buttons: [
+          { id: "menu_1", title: "🏥 Book Appointment" },
+          { id: "menu_start", title: "🏠 Main Menu" },
+        ],
+      },
+      updatedContext: {
+        consentGranted: true,
+        currentStep: "IDLE",
+      },
+    };
+  }
+
   const isLangStep =
     !context.language ||
     context.currentStep === "WELCOME" ||
@@ -691,8 +791,6 @@ export async function handleConversationTurn(
     };
   }
 
-  const lang = context.language || "en";
-
   // 3. User says "Hi", "Hello", "Menu", "Start" while language IS ALREADY SELECTED ->
   // Show Main Menu directly in their selected language! DO NOT ask for language again!
   if (
@@ -746,7 +844,7 @@ export async function handleConversationTurn(
     lower.includes("connect to reception")
   ) {
     try {
-      const convex = getCortexConvexClient();
+      const convex = getLocalConvexClient();
       await convex.mutation(api.audit.logAuditEvent, {
         eventType: "HANDOVER_TO_RECEPTION",
         phoneNumber: input.phoneNumber,
@@ -774,7 +872,7 @@ export async function handleConversationTurn(
   // 5. Medical Emergency Safety Rule (Section 12)
   if (isEmergencyQuery(userText)) {
     try {
-      const convex = getCortexConvexClient();
+      const convex = getLocalConvexClient();
       await convex.mutation(api.audit.logAuditEvent, {
         eventType: "EMERGENCY_TRIGGERED",
         phoneNumber: input.phoneNumber,
@@ -872,6 +970,9 @@ export async function handleConversationTurn(
   }
   if (context.currentStep === "REGISTER_ADDRESS") {
     return await handleRegisterAddress(userText, context);
+  }
+  if (context.currentStep === "CHECKIN_SELECT_PROFILE") {
+    return await handleCheckinSelectProfile(userText, context, choiceId);
   }
 
   // 9. Top-Level Intent Routing
@@ -1892,6 +1993,30 @@ async function handleBookingSelectSlot(
   draft.slot = matchedDetailed.display;
   draft.slotTime = matchedDetailed.slot;
 
+  // Phase 1: Issue 10 - Acquire 5-Minute Temporary Slot Hold
+  try {
+    const localConvex = getLocalConvexClient();
+    const holdRes = await localConvex.mutation(api.sessions.holdSlot, {
+      doctorName: docName,
+      date: dateStr,
+      slot: matchedDetailed.slot,
+      phoneNumber: context.phoneNumber,
+    });
+    if (holdRes && !holdRes.success) {
+      return {
+        text: inLanguage(
+          lang,
+          `⚠️ The *${matchedDetailed.display}* slot is currently reserved by another patient. Please choose another available slot:`,
+          `⚠️ *${matchedDetailed.display}* समय अभी किसी अन्य मरीज द्वारा आरक्षित है। कृपया दूसरा समय चुनें:`,
+          `⚠️ *${matchedDetailed.display}* ही वेळ सध्या इतर रुग्णाने आरक्षित केली आहे. कृपया दुसरी वेळ निवडा:`
+        ),
+        nextStep: "BOOKING_SELECT_SLOT",
+      };
+    }
+  } catch (holdErr) {
+    console.warn("[Slot Hold Warning]", holdErr);
+  }
+
   // Proceed to patient identification / registration
   return await proceedToPatientRegistration(dateStr, docName, draft, context);
 }
@@ -2282,7 +2407,7 @@ async function executeBookingCreation(
       await upsertOpdQueueItem({
         id: `appointment_${appointmentId}`,
         token: tokenNumber,
-        uhid: patientInfo?.reference_number || "CRX0001",
+        uhid: patientInfo?.reference_number || undefined,
         patientId: (patientInfo as any)?._id,
         appointmentId,
         name: draft.patientName || patientInfo?.name || "Patient",
@@ -2381,10 +2506,10 @@ Your health matters to us. We look forward to serving you! ❤️`,
       `👥 आपण कुटुंबातील दुसऱ्या व्यक्तीसाठी अपॉइंटमेंट बुक करू इच्छिता का?`
     );
 
-    // P0-5: Schedule 1-Hour Reminder & P0-1: Log Audit Event
+    // P0-5: Schedule 1-Hour Reminder, P0-1: Log Audit Event & Phase 1: Issue 10 - Release Slot Hold
     try {
-      const convex = getCortexConvexClient();
-      await convex.mutation(api.reminders.scheduleReminder, {
+      const localConvex = getLocalConvexClient();
+      await localConvex.mutation(api.reminders.scheduleReminder, {
         appointmentId,
         phoneNumber: context.phoneNumber,
         patientName: draft.patientName || patientInfo?.name || "Patient",
@@ -2395,15 +2520,23 @@ Your health matters to us. We look forward to serving you! ❤️`,
         token: `#${tokenNumber}`,
       });
 
-      await convex.mutation(api.audit.logAuditEvent, {
+      await localConvex.mutation(api.audit.logAuditEvent, {
         eventType: "APPOINTMENT_BOOKED",
         phoneNumber: context.phoneNumber,
         patientName: draft.patientName || patientInfo?.name || "Patient",
         details: `Booked appointment ${appointmentId} with ${chosenDoctor} on ${dateDmy} at ${slotDisplay} (Token: #${tokenNumber})`,
         metadata: { appointmentId, doctor: chosenDoctor, date: draft.date, slot: slotDisplay, token: `#${tokenNumber}` },
       });
+
+      // Release temporary slot hold on successful booking
+      await localConvex.mutation(api.sessions.releaseSlotHold, {
+        doctorName: chosenDoctor,
+        date: draft.date,
+        slot: draft.slotTime || "10:30",
+        phoneNumber: context.phoneNumber,
+      });
     } catch (schedErr) {
-      console.warn("[Reminder/Audit Error]", schedErr);
+      console.warn("[Reminder/Audit/Hold Error]", schedErr);
     }
 
     return {
@@ -2411,7 +2544,7 @@ Your health matters to us. We look forward to serving you! ❤️`,
       nextStep: "IDLE",
       interactive: {
         kind: "buttons",
-        body: followupPrompt,
+        body: confirmationText,
         buttons: [
           {
             id: "book_another_member",
@@ -2699,7 +2832,7 @@ async function handleRescheduleSelectSlot(
   if (ok) {
     // Schedule / Update reminder 1 hour before new slot & log audit
     try {
-      const convex = getCortexConvexClient();
+      const convex = getLocalConvexClient();
       await convex.mutation(api.reminders.scheduleReminder, {
         appointmentId: draft.appointmentId,
         phoneNumber: context.phoneNumber,
@@ -2766,6 +2899,56 @@ async function handleQrCheckIn(
   const lang = context.language || "en";
   const now = new Date();
   const todayStr = formatDate(now);
+
+  // Phase 1: Issue 9 - Check-in profile disambiguation when multiple family members exist
+  if (!context.patientName && !context.patientId) {
+    const allProfiles = await findPatientsByPhone(phoneNumber);
+    if (allProfiles.length > 1) {
+      const allAppts = await getPatientAppointments(phoneNumber);
+      const todayAppts = allAppts.filter(
+        (a) => (a.date === todayStr || a.status === "CONFIRMED") && a.status !== "CANCELLED"
+      );
+
+      if (todayAppts.length > 1) {
+        return {
+          text: inLanguage(
+            lang,
+            "📍 *OPD QR Check-In*\n\nMultiple appointments found today for this phone number. Please select which patient is checking in:",
+            "📍 *OPD QR चेक-इन*\n\nइस नंबर पर आज एक से अधिक अपॉइंटमेंट मिली हैं। कृपया चेक-इन करने वाले मरीज का चयन करें:",
+            "📍 *OPD QR चेक-इन*\n\nया नंबरवर आज एकापेक्षा जास्त अपॉइंटमेंट्स आहेत. कृपया चेक-इन करणाऱ्या रुग्णाची निवड करा:"
+          ),
+          nextStep: "CHECKIN_SELECT_PROFILE",
+          interactive: {
+            kind: "buttons",
+            body: inLanguage(lang, "Select patient to check in:", "चेक-इन के लिए मरीज चुनें:", "चेक-इनसाठी रुग्ण निवडा:"),
+            buttons: todayAppts.slice(0, 3).map((a, i) => ({
+              id: `checkin_appt_${a._id}`,
+              title: `${i + 1}. ${(a.name || "Patient").slice(0, 16)}`,
+            })),
+          },
+        };
+      } else if (todayAppts.length === 0 && allProfiles.length > 1) {
+        return {
+          text: inLanguage(
+            lang,
+            "📍 *OPD QR Check-In*\n\nPlease select which family member is checking in for today's OPD consultation:",
+            "📍 *OPD QR चेक-इन*\n\nकृपया चुनें कि आज OPD के लिए कौन से परिजन चेक-इन कर रहे हैं:",
+            "📍 *OPD QR चेक-इन*\n\nकृपया आज OPD तपासणीसाठी कोणत्या व्यक्तीचे चेक-इन करायचे आहे ते निवडा:"
+          ),
+          nextStep: "CHECKIN_SELECT_PROFILE",
+          interactive: {
+            kind: "buttons",
+            body: inLanguage(lang, "Select patient to check in:", "चेक-इन के लिए मरीज चुनें:", "चेक-इनसाठी रुग्ण निवडा:"),
+            buttons: allProfiles.slice(0, 3).map((p, i) => ({
+              id: `checkin_prof_${p._id}`,
+              title: `${i + 1}. ${(p.name || "Patient").slice(0, 16)}`,
+            })),
+          },
+        };
+      }
+    }
+  }
+
   const appts = await getPatientAppointments(phoneNumber, context.patientName, context.patientReference);
   const todayAppt = appts.find(
     (a) => (a.date === todayStr || a.status === "CONFIRMED") && a.status !== "CANCELLED"
@@ -2788,7 +2971,7 @@ async function handleQrCheckIn(
       status: "ARRIVED",
     });
 
-    const convex = getCortexConvexClient();
+    const convex = getLocalConvexClient();
     await convex.mutation(api.audit.logAuditEvent, {
       eventType: "QR_CHECKIN",
       phoneNumber,
@@ -2826,6 +3009,73 @@ async function handleQrCheckIn(
       ],
     },
   };
+}
+
+async function handleCheckinSelectProfile(
+  userText: string,
+  context: AgentContext,
+  choiceId?: string
+): Promise<AgentResponse> {
+  const phoneNumber = context.phoneNumber;
+
+  if (choiceId && choiceId.startsWith("checkin_appt_")) {
+    const apptId = choiceId.replace("checkin_appt_", "");
+    const allAppts = await getPatientAppointments(phoneNumber);
+    const target = allAppts.find((a) => a._id === apptId);
+    if (target) {
+      return await handleQrCheckIn(phoneNumber, {
+        ...context,
+        patientName: target.name,
+        patientId: (target as any).patient_id || target._id,
+        currentStep: "IDLE",
+      });
+    }
+  }
+
+  if (choiceId && choiceId.startsWith("checkin_prof_")) {
+    const profId = choiceId.replace("checkin_prof_", "");
+    const profiles = await findPatientsByPhone(phoneNumber);
+    const target = profiles.find((p) => p._id === profId);
+    if (target) {
+      return await handleQrCheckIn(phoneNumber, {
+        ...context,
+        patientName: target.name,
+        patientId: target._id,
+        patientReference: target.reference_number,
+        currentStep: "IDLE",
+      });
+    }
+  }
+
+  // Handle typed text (e.g., "1", "2", "Nityom", "Priya")
+  const profiles = await findPatientsByPhone(phoneNumber);
+  const clean = userText.trim().toLowerCase();
+  const numIdx = parseInt(clean, 10);
+  if (!isNaN(numIdx) && numIdx >= 1 && numIdx <= profiles.length) {
+    const chosen = profiles[numIdx - 1];
+    return await handleQrCheckIn(phoneNumber, {
+      ...context,
+      patientName: chosen.name,
+      patientId: chosen._id,
+      patientReference: chosen.reference_number,
+      currentStep: "IDLE",
+    });
+  }
+
+  const nameMatch = profiles.find(
+    (p) => p.name.toLowerCase().includes(clean) || clean.includes(p.name.toLowerCase())
+  );
+  if (nameMatch) {
+    return await handleQrCheckIn(phoneNumber, {
+      ...context,
+      patientName: nameMatch.name,
+      patientId: nameMatch._id,
+      patientReference: nameMatch.reference_number,
+      currentStep: "IDLE",
+    });
+  }
+
+  return await handleQrCheckIn(phoneNumber, context);
 }
 
 /* =========================================================================
@@ -2881,7 +3131,7 @@ async function handleConsentQuery(
   const lang = context.language || "en";
 
   try {
-    const convex = getCortexConvexClient();
+    const convex = getLocalConvexClient();
     await convex.mutation(api.audit.logAuditEvent, {
       eventType: "CONSENT_RECORDED",
       phoneNumber,
@@ -3054,7 +3304,7 @@ async function displayAppointmentsForPatient(
       const ok = await cancelAppointment(active._id);
       if (ok) {
         try {
-          const convex = getCortexConvexClient();
+          const convex = getLocalConvexClient();
           await convex.mutation(api.reminders.cancelReminder, { appointmentId: active._id });
           await convex.mutation(api.audit.logAuditEvent, {
             eventType: "APPOINTMENT_CANCELLED",
