@@ -41,7 +41,7 @@ export interface NearestLocationResult<T extends GeoLocationItem = GeoLocationIt
 }
 
 /**
- * Finds the closest rental location from a list of active locations based on user's GPS coordinates.
+ * Finds the closest hospital or clinic location from a list of active locations based on user's GPS coordinates.
  */
 export function findNearestLocation<T extends GeoLocationItem>(
   userLat: number,

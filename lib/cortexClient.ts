@@ -59,6 +59,7 @@ export interface AppointmentRecord {
 
 export interface PrescriptionRecord {
   _id: string;
+  patient_id?: string;
   patient_name: string;
   phone_number: string;
   age: string;
@@ -100,6 +101,7 @@ export interface BillRecord {
 
 export interface FollowupRecord {
   _id: string;
+  patient_id?: string;
   patient_name: string;
   phone_number: string;
   reference_number?: string;
@@ -617,56 +619,69 @@ export async function rescheduleAppointment(
    4. PRESCRIPTIONS
    ========================================================================= */
 
+/**
+ * 4. PRESCRIPTIONS (Phase 0: Issue 1 - Strict Phone Scoping)
+ * Only returns prescriptions for patients legitimately registered under callerPhone.
+ * Prevents strangers from typing arbitrary CRX numbers or patient names.
+ */
 export async function getPatientPrescriptions(
-  phoneOrUhid: string,
+  callerPhone: string,
   patientName?: string,
   patientReference?: string
 ): Promise<PrescriptionRecord[]> {
   try {
     const client = getCortexConvexClient();
+    const normalizedCallerPhone = normalizePhone(callerPhone);
+    if (!normalizedCallerPhone) return [];
+
+    // 1. Fetch patient profiles legitimately registered under callerPhone
+    const registeredPatients = await findPatientsByPhone(callerPhone);
+    if (registeredPatients.length === 0) {
+      return [];
+    }
+
+    const allowedRefs = new Set(
+      registeredPatients.map((p) => (p.reference_number || "").trim().toUpperCase()).filter(Boolean)
+    );
+    const allowedNames = new Set(
+      registeredPatients.map((p) => p.name.trim().toLowerCase())
+    );
+    const allowedIds = new Set(registeredPatients.map((p) => p._id));
+
+    // Security check: If caller specified a reference or name, verify it belongs to this phone!
+    if (patientReference && !allowedRefs.has(patientReference.trim().toUpperCase())) {
+      console.warn(`[Security Alert] Phone +${callerPhone} attempted access to unlinked reference ${patientReference}`);
+      return [];
+    }
+    if (patientName && !allowedNames.has(patientName.trim().toLowerCase())) {
+      console.warn(`[Security Alert] Phone +${callerPhone} attempted access to unlinked patient name ${patientName}`);
+      return [];
+    }
+
     const all = (await client.query("prescriptions:list" as any)) as PrescriptionRecord[];
     if (Array.isArray(all)) {
-      const normalizedPhone = normalizePhone(phoneOrUhid);
-      const targetRef = (
-        patientReference ||
-        (phoneOrUhid.trim().toUpperCase().startsWith("CRX") ? phoneOrUhid.trim() : "")
-      ).toUpperCase();
-      const targetName = (patientName || "").trim().toLowerCase();
+      const targetRef = patientReference?.trim().toUpperCase();
+      const targetName = patientName?.trim().toLowerCase();
 
       return all.filter((p) => {
         const pRef = (p.reference_number || "").trim().toUpperCase();
         const pName = (p.patient_name || "").trim().toLowerCase();
         const pPhone = p.phone_number ? normalizePhone(p.phone_number) : "";
+        const pId = p.patient_id;
 
-        // 1. Exact match on reference number if provided
-        if (targetRef && pRef) {
-          return pRef === targetRef;
-        }
+        // Security invariant: record MUST belong to an allowed patient profile under this phone
+        const isAuthorizedPatient =
+          (pRef && allowedRefs.has(pRef)) ||
+          (pId && allowedIds.has(pId)) ||
+          (pPhone === normalizedCallerPhone && allowedNames.has(pName));
 
-        // 2. Match by both phone number AND patient name
-        if (targetName && normalizedPhone) {
-          const nameMatches =
-            pName === targetName ||
-            pName.includes(targetName) ||
-            targetName.includes(pName);
-          return pPhone === normalizedPhone && nameMatches;
-        }
+        if (!isAuthorizedPatient) return false;
 
-        // 3. Match by name alone if reference/phone missing
-        if (targetName) {
-          return (
-            pName === targetName ||
-            pName.includes(targetName) ||
-            targetName.includes(pName)
-          );
-        }
+        // Filter by requested patient if specified
+        if (targetRef) return pRef === targetRef;
+        if (targetName) return pName === targetName || pName.includes(targetName);
 
-        // 4. Fallback: match by phone number alone
-        if (normalizedPhone && pPhone) {
-          return pPhone === normalizedPhone;
-        }
-
-        return false;
+        return true;
       });
     }
   } catch (err) {
@@ -679,51 +694,63 @@ export async function getPatientPrescriptions(
    5. BILLS & INVOICES
    ========================================================================= */
 
+/**
+ * 5. BILLS & INVOICES (Phase 0: Issue 1 - Strict Phone Scoping)
+ * Only returns bills/invoices for patients legitimately registered under callerPhone.
+ */
 export async function getPatientBills(
-  phoneOrUhid: string,
+  callerPhone: string,
   patientName?: string,
   patientReference?: string
 ): Promise<BillRecord[]> {
   try {
     const client = getCortexConvexClient();
+    const normalizedCallerPhone = normalizePhone(callerPhone);
+    if (!normalizedCallerPhone) return [];
+
+    const registeredPatients = await findPatientsByPhone(callerPhone);
+    if (registeredPatients.length === 0) {
+      return [];
+    }
+
+    const allowedRefs = new Set(
+      registeredPatients.map((p) => (p.reference_number || "").trim().toUpperCase()).filter(Boolean)
+    );
+    const allowedNames = new Set(
+      registeredPatients.map((p) => p.name.trim().toLowerCase())
+    );
+    const allowedIds = new Set(registeredPatients.map((p) => p._id));
+
+    if (patientReference && !allowedRefs.has(patientReference.trim().toUpperCase())) {
+      console.warn(`[Security Alert] Phone +${callerPhone} attempted access to unlinked bill reference ${patientReference}`);
+      return [];
+    }
+    if (patientName && !allowedNames.has(patientName.trim().toLowerCase())) {
+      console.warn(`[Security Alert] Phone +${callerPhone} attempted access to unlinked patient bill name ${patientName}`);
+      return [];
+    }
+
     const allBills = (await client.query("bills:list" as any, {})) as BillRecord[];
     if (Array.isArray(allBills)) {
-      const targetRef = (
-        patientReference ||
-        (phoneOrUhid.trim().toUpperCase().startsWith("CRX") ? phoneOrUhid.trim() : "")
-      ).toUpperCase();
-      const targetName = (patientName || "").trim().toLowerCase();
-
-      // Find all patient IDs / references under this phone number if needed
-      let allowedRefs: Set<string> | null = null;
-      let allowedIds: Set<string> | null = null;
-      if (!targetRef && !targetName) {
-        const patients = await findPatientsByPhone(phoneOrUhid);
-        allowedRefs = new Set(patients.map((p) => (p.reference_number || "").toUpperCase()).filter(Boolean));
-        allowedIds = new Set(patients.map((p) => p._id).filter(Boolean));
-      }
+      const targetRef = patientReference?.trim().toUpperCase();
+      const targetName = patientName?.trim().toLowerCase();
 
       return allBills.filter((b) => {
         const bRef = (b.reference_number || "").trim().toUpperCase();
         const bName = (b.patient_name || "").trim().toLowerCase();
+        const bId = b.patient_id;
 
-        if (targetRef && bRef) {
-          return bRef === targetRef;
-        }
-        if (targetName && bName) {
-          return (
-            bName === targetName ||
-            bName.includes(targetName) ||
-            targetName.includes(bName)
-          );
-        }
-        if (allowedRefs && bRef && allowedRefs.has(bRef)) {
-          return true;
-        }
-        if (allowedIds && b.patient_id && allowedIds.has(b.patient_id)) {
-          return true;
-        }
-        return false;
+        const isAuthorizedPatient =
+          (bRef && allowedRefs.has(bRef)) ||
+          (bId && allowedIds.has(bId)) ||
+          allowedNames.has(bName);
+
+        if (!isAuthorizedPatient) return false;
+
+        if (targetRef) return bRef === targetRef;
+        if (targetName) return bName === targetName || bName.includes(targetName);
+
+        return true;
       });
     }
   } catch (err) {
@@ -736,48 +763,62 @@ export async function getPatientBills(
    6. FOLLOW-UPS
    ========================================================================= */
 
+/**
+ * 6. FOLLOW-UPS (Phase 0: Issue 1 - Strict Phone Scoping)
+ * Only returns follow-ups for patients legitimately registered under callerPhone.
+ */
 export async function getPatientFollowups(
-  phoneOrUhid: string,
+  callerPhone: string,
   patientName?: string,
   patientReference?: string
 ): Promise<FollowupRecord[]> {
   try {
     const client = getCortexConvexClient();
-    const normalizedPhone = normalizePhone(phoneOrUhid);
-    const targetRef = (
-      patientReference ||
-      (phoneOrUhid.trim().toUpperCase().startsWith("CRX") ? phoneOrUhid.trim() : "")
-    ).toUpperCase();
-    const targetName = (patientName || "").trim().toLowerCase();
+    const normalizedCallerPhone = normalizePhone(callerPhone);
+    if (!normalizedCallerPhone) return [];
+
+    const registeredPatients = await findPatientsByPhone(callerPhone);
+    if (registeredPatients.length === 0) {
+      return [];
+    }
+
+    const allowedRefs = new Set(
+      registeredPatients.map((p) => (p.reference_number || "").trim().toUpperCase()).filter(Boolean)
+    );
+    const allowedNames = new Set(
+      registeredPatients.map((p) => p.name.trim().toLowerCase())
+    );
+    const allowedIds = new Set(registeredPatients.map((p) => p._id));
+
+    if (patientReference && !allowedRefs.has(patientReference.trim().toUpperCase())) {
+      return [];
+    }
+    if (patientName && !allowedNames.has(patientName.trim().toLowerCase())) {
+      return [];
+    }
 
     const allFollowups = (await client.query("registers:listFollowups" as any, {})) as FollowupRecord[];
     if (Array.isArray(allFollowups)) {
+      const targetRef = patientReference?.trim().toUpperCase();
+      const targetName = patientName?.trim().toLowerCase();
+
       return allFollowups.filter((f) => {
         const fRef = (f.reference_number || "").trim().toUpperCase();
         const fName = (f.patient_name || "").trim().toLowerCase();
         const fPhone = f.phone_number ? normalizePhone(f.phone_number) : "";
+        const fId = f.patient_id;
 
-        if (targetRef && fRef) {
-          return fRef === targetRef;
-        }
-        if (targetName && normalizedPhone) {
-          const nameMatches =
-            fName === targetName ||
-            fName.includes(targetName) ||
-            targetName.includes(fName);
-          return fPhone === normalizedPhone && nameMatches;
-        }
-        if (targetName) {
-          return (
-            fName === targetName ||
-            fName.includes(targetName) ||
-            targetName.includes(fName)
-          );
-        }
-        if (normalizedPhone && fPhone) {
-          return fPhone === normalizedPhone;
-        }
-        return false;
+        const isAuthorizedPatient =
+          (fRef && allowedRefs.has(fRef)) ||
+          (fId && allowedIds.has(fId)) ||
+          (fPhone === normalizedCallerPhone && allowedNames.has(fName));
+
+        if (!isAuthorizedPatient) return false;
+
+        if (targetRef) return fRef === targetRef;
+        if (targetName) return fName === targetName || fName.includes(targetName);
+
+        return true;
       });
     }
   } catch (err) {

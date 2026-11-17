@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConvexClient } from '@/lib/conversation';
 import { api } from '@/convex/_generated/api';
+import { validateAdminAuth } from '@/lib/adminAuth';
 import {
   sendWhatsAppMessage,
   sendWhatsAppTemplate,
@@ -27,6 +28,9 @@ function formatWhatsAppRecipientPhone(phone: string): string {
 }
 
 export async function GET(request: NextRequest) {
+  const auth = validateAdminAuth(request);
+  if (!auth.authorized) return auth.response!;
+
   try {
     const convex = getConvexClient();
     const sessions = await convex.query(api.sessions.listAllSessions, {});
@@ -47,6 +51,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = validateAdminAuth(request);
+  if (!auth.authorized) return auth.response!;
+
   try {
     const convex = getConvexClient();
     const body = await request.json();

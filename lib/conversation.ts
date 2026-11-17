@@ -37,9 +37,6 @@ function sanitizeBookingDraft(draft?: Record<string, any>) {
     "slot", "slotTime", "patientName", "patientAge", "patientPhone",
     "patientAddress", "sex", "complaint", "isSecondBooking", "previousPatientName",
     "explicitPatientName",
-    "startDate", "pickupTime", "returnDate", "returnTime", "customerName",
-    "customerLatitude", "customerLongitude", "distanceKm", "locationName",
-    "locationAddress", "vehicleName", "vehiclePrice"
   ]);
   const clean: Record<string, any> = {};
   for (const [key, value] of Object.entries(draft)) {
@@ -78,8 +75,6 @@ export async function processIncomingMessage(
     patientReference: sessionDoc?.patientReference,
     patientName: sessionDoc?.patientName,
     isVerified: sessionDoc?.isVerified ?? false,
-    verificationOtp: sessionDoc?.verificationOtp,
-    otpExpiresAt: sessionDoc?.otpExpiresAt,
     pendingAction: sessionDoc?.pendingAction,
     isHandedOver: sessionDoc?.isHandedOver ?? false,
     handoverReason: sessionDoc?.handoverReason,
@@ -147,8 +142,6 @@ export async function processIncomingMessage(
       patientReference: shouldClearPatient ? "" : updatedContext.patientReference,
       patientName: shouldClearPatient ? "" : updatedContext.patientName,
       isVerified: updatedContext.isVerified,
-      verificationOtp: updatedContext.verificationOtp,
-      otpExpiresAt: updatedContext.otpExpiresAt,
       pendingAction: updatedContext.pendingAction,
       isHandedOver: updatedContext.isHandedOver,
       handoverReason: updatedContext.handoverReason,
