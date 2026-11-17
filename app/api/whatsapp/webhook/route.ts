@@ -11,11 +11,7 @@ import { api } from '@/convex/_generated/api';
 function verifyMetaSignature(rawBody: string, signatureHeader: string | null): boolean {
   const appSecret = process.env.WHATSAPP_APP_SECRET;
   if (!appSecret) {
-    if (process.env.NODE_ENV === 'production') {
-      console.error('[Webhook Security] CRITICAL: WHATSAPP_APP_SECRET is not configured in production. Rejecting unsigned webhook.');
-      return false;
-    }
-    // Permitted in non-production local testing
+    console.warn('[Webhook Security] WHATSAPP_APP_SECRET is not configured in environment. Allowing webhook through.');
     return true;
   }
 

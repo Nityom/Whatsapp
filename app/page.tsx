@@ -16,6 +16,7 @@ import { ContactsView } from '@/components/admin/ContactsView';
 import { SimulatorDrawer } from '@/components/admin/SimulatorDrawer';
 import { ReportsView } from '@/components/admin/ReportsView';
 import { AutomationView } from '@/components/admin/AutomationView';
+import { OpdQueueView } from '@/components/admin/OpdQueueView';
 import {
   NavTab,
   ChatFilter,
@@ -118,14 +119,31 @@ export default function AdminDashboardPage() {
   }, [selectedPhone, fetchChatHistory]);
 
   // Periodic poll to keep conversations reactive & in real-time sync with WhatsApp
+  // Bounded to 15s when active tab, and completely paused when tab is hidden in background
   useEffect(() => {
-    const interval = setInterval(() => {
+    const handlePoll = () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        return;
+      }
       fetchDashboardData();
       if (selectedPhone) {
         fetchChatHistory(selectedPhone);
       }
-    }, 2000);
-    return () => clearInterval(interval);
+    };
+
+    const interval = setInterval(handlePoll, 15000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handlePoll();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [fetchDashboardData, fetchChatHistory, selectedPhone]);
 
   // Active selected session object
@@ -373,7 +391,7 @@ export default function AdminDashboardPage() {
   const unreadTotal = sessions.reduce((acc, s) => acc + (s.unreadCount || 0), 0);
 
   return (
-    <div className="min-h-screen bg-[#f8faf8] text-[#173d37] flex">
+    <div className="h-screen bg-[#f8faf8] text-[#173d37] flex overflow-hidden">
       {/* 1. Left Persistent Sidebar with Minimize/Collapse & Mobile Drawer */}
       <Sidebar
         activeTab={activeTab}
@@ -387,7 +405,7 @@ export default function AdminDashboardPage() {
       />
 
       {/* 2. Main Dashboard Content */}
-      <main className="flex-1 p-3.5 sm:p-5 md:p-8 flex flex-col min-w-0 overflow-y-auto">
+      <main className="flex-1 p-4 sm:p-6 md:p-8 flex flex-col min-w-0 overflow-y-auto h-full">
         {/* Top Header */}
         <Header
           userName="Nityom"
@@ -398,13 +416,14 @@ export default function AdminDashboardPage() {
         />
 
         {/* 4 Stat Cards (Displayed on Executive Dashboard Overview) */}
-        {activeTab === 'dashboard' && <StatCards stats={stats} />}
+        {activeTab === 'dashboard' && <StatCards stats={stats} dateRange={dateRange} />}
 
         {/* TAB 1: EXECUTIVE DASHBOARD VIEW */}
         {activeTab === 'dashboard' && (
           <DashboardHomeView
             sessions={sessions}
             stats={stats}
+            dateRange={dateRange}
             onOpenChat={(phone) => {
               setSelectedPhone(phone);
               setMobileChatView('thread');
@@ -472,6 +491,13 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* TAB 2.5: OPD QUEUE & WALK-IN MANAGEMENT */}
+        {activeTab === 'opd' && (
+          <div className="mt-4">
+            <OpdQueueView />
           </div>
         )}
 
