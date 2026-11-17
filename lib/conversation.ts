@@ -85,6 +85,7 @@ export async function processIncomingMessage(
     handoverReason: sessionDoc?.handoverReason,
     lastBookedDoctor: sessionDoc?.lastBookedDoctor,
     lastBookedDate: sessionDoc?.lastBookedDate,
+    lastBookedPatientName: sessionDoc?.lastBookedPatientName,
     bookingDraft: sessionDoc?.bookingDraft,
   };
 
@@ -151,6 +152,7 @@ export async function processIncomingMessage(
       handoverReason: updatedContext.handoverReason,
       lastBookedDoctor: updatedContext.lastBookedDoctor,
       lastBookedDate: updatedContext.lastBookedDate,
+      lastBookedPatientName: updatedContext.lastBookedPatientName,
       clearBookingDraft: shouldClearDraft,
       clearPatient: shouldClearPatient,
       replaceDraft: true,
