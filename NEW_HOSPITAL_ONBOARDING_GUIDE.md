@@ -171,23 +171,23 @@ Under WhatsApp policy, free-form text messages can only be sent within the **24-
 
 ---
 
-## 6. Hosting & Deployment (Vercel)
+## 6. Hosting & Automated Reminders Setup (cron-job.org)
 
-1. Push your client repository to GitHub / GitLab.
+1. Push your client repository to GitHub.
 2. In Vercel, click **Add New Project** ➔ Import the repository.
 3. In **Environment Variables**, paste all the variables from Section 4.
-4. Verify [vercel.json](file:///Users/nityomtikhe/Whatsapp/vercel.json) is included in the repository root:
-   ```json
-   {
-     "crons": [
-       {
-         "path": "/api/whatsapp/reminders",
-         "schedule": "*/5 * * * *"
-       }
-     ]
-   }
-   ```
-5. Click **Deploy**. Vercel will trigger the 1-hour appointment reminder route every 5 minutes automatically.
+4. Click **Deploy**.
+
+### Setting Up Free 5-Minute Automated Reminders (cron-job.org)
+On Vercel's free tier, internal cron schedules shorter than once per day are restricted. Use the free industry-standard **[cron-job.org](https://cron-job.org)**:
+1. Create a free account at [cron-job.org](https://cron-job.org).
+2. Click **Create Cronjob**:
+   - **Title**: `Svaasth 1-Hour Reminder Dispatcher`
+   - **URL**: `https://<your-deployed-domain>/api/whatsapp/reminders` (e.g. `https://whatsapp-black-sigma.vercel.app/api/whatsapp/reminders`)
+   - **Schedule**: Execution schedule ➔ **Every 5 minutes** (or `*/5 * * * *`).
+   - **HTTP Method**: `GET`
+3. Click **Create**.
+4. Every 5 minutes, cron-job.org will ping the endpoint, and Svaasth Connect will automatically detect and dispatch all 1-hour advance reminders!
 
 ---
 
