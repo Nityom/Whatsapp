@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       }
 
       const reminderText = `⏰ *APPOINTMENT REMINDER (Starting in ~1 Hour)*
-━━━━━━━━━━━━━━━━━━━━━
+
 Hello *${reminder.patientName}*, your appointment is coming up today:
 
 👨‍⚕️ *Doctor:* ${reminder.doctorName}
