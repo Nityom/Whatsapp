@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
-import { sendWhatsAppMessage, sendWhatsAppInteractive } from "@/lib/whatsapp";
+import { sendWhatsAppMessage, sendWhatsAppInteractive, sendWhatsAppTemplate } from "@/lib/whatsapp";
 
 function getConvexClient(): ConvexHttpClient {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -10,8 +10,9 @@ function getConvexClient(): ConvexHttpClient {
 }
 
 /**
- * P0-5: Process and dispatch 1-hour appointment reminders
- * Can be triggered via cron job or on-demand
+ * P0-5 & Phase 2 (Issue 11): Process and dispatch 1-hour appointment reminders
+ * Checks DPDP consent (skips if user opted out with STOP) and falls back to
+ * approved utility templates outside the 24-hour service window.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -28,6 +29,19 @@ export async function GET(request: NextRequest) {
 
     for (const reminder of dueReminders) {
       const phoneToSend = isTest && testPhone ? testPhone : reminder.phoneNumber;
+
+      // Check DPDP Consent: Do not message users who sent STOP / opted out
+      const session = await convex.query(api.sessions.getWhatsAppSession, {
+        phoneNumber: reminder.phoneNumber,
+      });
+      if (session && session.consentGranted === false) {
+        console.log(`[Reminders DPDP Guard] Skipping reminder for +${reminder.phoneNumber} (Opted out / STOP).`);
+        await convex.mutation(api.reminders.cancelReminder, {
+          reminderId: reminder._id,
+        });
+        results.push({ id: reminder._id, phone: phoneToSend, status: "SKIPPED_OPT_OUT" });
+        continue;
+      }
 
       const reminderText = `⏰ *APPOINTMENT REMINDER (Starting in ~1 Hour)*
 ━━━━━━━━━━━━━━━━━━━━━
@@ -51,10 +65,25 @@ Hello *${reminder.patientName}*, your appointment is coming up today:
         ],
       };
 
-      // Send text message
-      await sendWhatsAppMessage(phoneToSend, reminderText);
-      // Send quick action buttons
-      await sendWhatsAppInteractive(phoneToSend, interactive);
+      // 1. Try sending free-form reminder message
+      const textRes = await sendWhatsAppMessage(phoneToSend, reminderText);
+      if (textRes.success) {
+        await sendWhatsAppInteractive(phoneToSend, interactive);
+      } else {
+        // 2. Outside 24-hour service window: fallback to Meta approved utility template
+        console.warn(`[Reminder 24h Window Fallback] Text message failed (${textRes.error}). Dispatching approved template.`);
+        await sendWhatsAppTemplate(phoneToSend, "svaasth_opd_update", "en_US", [
+          {
+            type: "body",
+            parameters: [
+              { type: "text", text: reminder.patientName },
+              { type: "text", text: reminder.token || "#1" },
+              { type: "text", text: reminder.doctorName },
+              { type: "text", text: `${reminder.date} at ${reminder.time}` },
+            ],
+          },
+        ]);
+      }
 
       // Mark sent in database
       await convex.mutation(api.reminders.markReminderSent, {

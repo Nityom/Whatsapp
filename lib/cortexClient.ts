@@ -6,6 +6,7 @@
 
 import { ConvexHttpClient } from "convex/browser";
 import { CORTEX_HOSPITAL_CONFIG, DoctorInfo } from "./cortexConfig";
+import { api } from "@/convex/_generated/api";
 
 // Target Convex environment: Strictly DEV (dev:jovial-sheep-76)
 const CORTEX_URL =
@@ -15,6 +16,12 @@ const CORTEX_URL =
 
 export function getCortexConvexClient(): ConvexHttpClient {
   return new ConvexHttpClient(CORTEX_URL);
+}
+
+/** Local WhatsApp Convex Client for session state, reminders, atomic tokens, and audit logs */
+export function getLocalConvexClient(): ConvexHttpClient {
+  const url = process.env.NEXT_PUBLIC_CONVEX_URL || "https://quaint-hound-638.convex.cloud";
+  return new ConvexHttpClient(url);
 }
 
 /** Normalize phone number by extracting the last 10 digits */
@@ -437,6 +444,20 @@ export async function getAvailableSlots(dateStr: string, doctorName?: string): P
     }
   } catch (err) {
     console.error("[Cortex PMS] Error getting booked slots:", err);
+  }
+
+  // Phase 1: Issue 10 - Check 5-minute active slot holds
+  try {
+    const localConvex = getLocalConvexClient();
+    const heldSlots = await localConvex.query(api.sessions.getActiveSlotHolds, {
+      doctorName: doctorName || "Dr. Vipeen Raut",
+      date: dateStr,
+    });
+    if (Array.isArray(heldSlots) && heldSlots.length > 0) {
+      bookedSlots = bookedSlots.concat(heldSlots);
+    }
+  } catch (holdErr) {
+    console.warn("[Slot Hold Query Warning]", holdErr);
   }
 
   const morningSlots: DetailedSlot[] = MORNING_SLOT_STARTS.map((slot) => {
@@ -959,8 +980,19 @@ export interface OpdQueueRecord {
   time: string;
 }
 
-/** Calculate the next sequential 2-digit daily token number (01, 02...) per doctor on a given date */
+/** Calculate the next sequential 2-digit daily token number (01, 02...) per doctor on a given date atomically (Phase 1: Issue 8) */
 export async function calculateNextDailyToken(doctorName: string, dateStr: string): Promise<string> {
+  try {
+    const localConvex = getLocalConvexClient();
+    const token = await localConvex.mutation(api.sessions.issueAtomicDailyToken, {
+      doctorName: doctorName || "Dr. Vipeen Raut",
+      date: dateStr,
+    });
+    if (token) return token;
+  } catch (convErr) {
+    console.warn("[Atomic Token Server Fallback]", convErr);
+  }
+
   try {
     const client = getCortexConvexClient();
     const existingTokens: number[] = [];
@@ -1029,6 +1061,7 @@ export async function upsertOpdQueueItem(item: {
   time?: string;
   consultationFee?: number;
   paymentMode?: string;
+  paymentStatus?: string;
 }): Promise<string> {
   const client = getCortexConvexClient();
   const dept = item.department || (item.doctor.includes("Shillpa") ? "Obstetrics & Gynaecology" : "Orthopaedics & Joint Replacement");
@@ -1036,7 +1069,7 @@ export async function upsertOpdQueueItem(item: {
   return (await client.mutation("opd_queue:upsert" as any, {
     id: item.id,
     token: item.token,
-    uhid: item.uhid || "CRX0001",
+    uhid: item.uhid,
     patientId: item.patientId,
     appointmentId: item.appointmentId,
     name: item.name,
@@ -1052,8 +1085,8 @@ export async function upsertOpdQueueItem(item: {
     status: item.status || "Waiting",
     vitals: {},
     consultationFee: item.consultationFee || 0,
-    paymentMode: item.paymentMode || "Free / Exempt",
-    paymentStatus: "PAID",
+    paymentMode: item.paymentMode || "Pending at Counter",
+    paymentStatus: item.paymentStatus || "PENDING",
     registeredAt: item.registeredAt || new Date().toISOString(),
     time: item.time || "10:30",
   })) as string;

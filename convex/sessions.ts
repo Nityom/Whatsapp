@@ -758,3 +758,127 @@ export const purgeLegacyVehicleData = mutation({
     return { cleaned, total: sessions.length };
   },
 });
+
+/**
+ * Atomic Server-Issued Daily Sequential Token (Phase 1: Issue 8)
+ * Issues a token once in a single transaction that never changes or renumbers.
+ */
+export const issueAtomicDailyToken = mutation({
+  args: {
+    doctorName: v.string(),
+    date: v.string(), // YYYY-MM-DD
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("dailyTokens")
+      .withIndex("by_doc_date", (q) =>
+        q.eq("doctorName", args.doctorName).eq("date", args.date)
+      )
+      .first();
+
+    const now = Date.now();
+    if (!existing) {
+      await ctx.db.insert("dailyTokens", {
+        doctorName: args.doctorName,
+        date: args.date,
+        lastToken: 1,
+        updatedAt: now,
+      });
+      return "01";
+    }
+
+    const nextTokenNum = existing.lastToken + 1;
+    await ctx.db.patch(existing._id, {
+      lastToken: nextTokenNum,
+      updatedAt: now,
+    });
+
+    return String(nextTokenNum).padStart(2, "0");
+  },
+});
+
+/**
+ * Temporary 5-Minute Slot Hold (Phase 1: Issue 10)
+ * Holds a slot for 5 minutes during patient address confirmation.
+ */
+export const holdSlot = mutation({
+  args: {
+    doctorName: v.string(),
+    date: v.string(),
+    slot: v.string(),
+    phoneNumber: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("slotHolds")
+      .withIndex("by_slot", (q) =>
+        q.eq("doctorName", args.doctorName).eq("date", args.date).eq("slot", args.slot)
+      )
+      .first();
+
+    if (existing && existing.expiresAt > now && existing.heldByPhone !== args.phoneNumber) {
+      return { success: false, reason: "SLOT_CURRENTLY_HELD" };
+    }
+
+    const expiresAt = now + 5 * 60 * 1000; // 5 minute hold
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        heldByPhone: args.phoneNumber,
+        expiresAt,
+      });
+    } else {
+      await ctx.db.insert("slotHolds", {
+        doctorName: args.doctorName,
+        date: args.date,
+        slot: args.slot,
+        heldByPhone: args.phoneNumber,
+        expiresAt,
+        createdAt: now,
+      });
+    }
+
+    return { success: true, expiresAt };
+  },
+});
+
+export const releaseSlotHold = mutation({
+  args: {
+    doctorName: v.string(),
+    date: v.string(),
+    slot: v.string(),
+    phoneNumber: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("slotHolds")
+      .withIndex("by_slot", (q) =>
+        q.eq("doctorName", args.doctorName).eq("date", args.date).eq("slot", args.slot)
+      )
+      .first();
+
+    if (existing && existing.heldByPhone === args.phoneNumber) {
+      await ctx.db.delete(existing._id);
+      return { success: true };
+    }
+    return { success: false };
+  },
+});
+
+export const getActiveSlotHolds = query({
+  args: {
+    doctorName: v.string(),
+    date: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const holds = await ctx.db
+      .query("slotHolds")
+      .withIndex("by_slot", (q) =>
+        q.eq("doctorName", args.doctorName).eq("date", args.date)
+      )
+      .collect();
+
+    return holds.filter((h) => h.expiresAt > now).map((h) => h.slot);
+  },
+});
