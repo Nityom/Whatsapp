@@ -36,6 +36,7 @@ export default defineSchema({
         complaint: v.optional(v.string()),
         isSecondBooking: v.optional(v.boolean()),
         previousPatientName: v.optional(v.string()),
+        explicitPatientName: v.optional(v.boolean()),
         // Legacy fields for backward compatibility
         startDate: v.optional(v.string()),
         pickupTime: v.optional(v.string()),

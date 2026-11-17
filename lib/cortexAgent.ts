@@ -64,6 +64,7 @@ export interface AgentContext {
     complaint?: string;
     isSecondBooking?: boolean;
     previousPatientName?: string;
+    explicitPatientName?: boolean;
   };
 }
 
@@ -1203,6 +1204,7 @@ async function initiateAppointmentBooking(
     specialty: matchedDoc ? matchedDoc.specialty : undefined,
     date: parsedDate || undefined,
     patientName: explicitPatientName,
+    explicitPatientName: Boolean(explicitPatientName),
   };
 
   // Step 1: If doctor not specified, ask doctor
@@ -1315,10 +1317,19 @@ async function handleBookingSelectDoctor(
     };
   }
 
+  const prevDraft = context.bookingDraft || {};
   const updatedDraft = {
-    ...(context.bookingDraft || {}),
     doctorName: selectedDoc.name,
     specialty: selectedDoc.specialty,
+    date: prevDraft.date,
+    session: prevDraft.session,
+    currentSession: prevDraft.currentSession,
+    slot: prevDraft.slot,
+    slotTime: prevDraft.slotTime,
+    isSecondBooking: prevDraft.isSecondBooking,
+    previousPatientName: prevDraft.previousPatientName,
+    patientName: prevDraft.explicitPatientName ? prevDraft.patientName : undefined,
+    explicitPatientName: prevDraft.explicitPatientName,
   };
 
   const nextDates = getNextAvailableDates();
@@ -1460,8 +1471,8 @@ async function proceedToPatientRegistration(
     delete updatedDraft.sex;
   }
 
-  // If user explicitly specified a name in their message (e.g. "for Rahul" or "for my sister Priya")
-  if (updatedDraft.patientName) {
+  // If user explicitly specified a name in their initial message (e.g. "for Rahul" or "for my sister Priya")
+  if (updatedDraft.explicitPatientName && updatedDraft.patientName) {
     const matchedProfile = profiles.find(
       (p) =>
         p.name.toLowerCase() === updatedDraft.patientName.toLowerCase() ||
@@ -2374,17 +2385,21 @@ Your health matters to us. We look forward to serving you! ❤️`,
 आपले आरोग्य आमची प्राथमिकता आहे। ❤️`
     );
 
+    const followupPrompt = inLanguage(
+      lang,
+      `👥 Need to book an appointment for another family member or second patient?`,
+      `👥 क्या आप परिवार के किसी अन्य सदस्य या दूसरे मरीज के लिए भी अपॉइंटमेंट बुक करना चाहते हैं?`,
+      `👥 आपण कुटुंबातील दुसऱ्या व्यक्तीसाठी अपॉइंटमेंट बुक करू इच्छिता का?`
+    );
+
+    const interactiveBody = `${confirmationText}\n\n━━━━━━━━━━━━━━━━━━━━━\n${followupPrompt}`.slice(0, 1024);
+
     return {
       text: confirmationText,
       nextStep: "IDLE",
       interactive: {
         kind: "buttons",
-        body: inLanguage(
-          lang,
-          `👥 Need to book an appointment for another family member or second patient?`,
-          `👥 क्या आप परिवार के किसी अन्य सदस्य या दूसरे मरीज के लिए भी अपॉइंटमेंट बुक करना चाहते हैं?`,
-          `👥 आपण कुटुंबातील दुसऱ्या व्यक्तीसाठी अपॉइंटमेंट बुक करू इच्छिता का?`
-        ),
+        body: interactiveBody,
         buttons: [
           {
             id: "book_another_member",
@@ -2404,8 +2419,9 @@ Your health matters to us. We look forward to serving you! ❤️`,
         bookingDraft: undefined,
         lastBookedDoctor: draft.doctorName,
         lastBookedDate: draft.date,
-        patientName: draft.patientName,
-        patientReference: patientInfo?.reference_number,
+        patientName: undefined,
+        patientReference: undefined,
+        patientId: undefined,
       },
       nativeLocation: {
         latitude: CORTEX_HOSPITAL_CONFIG.coordinates.latitude,
