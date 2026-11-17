@@ -25,6 +25,7 @@ export const ChatListColumn: React.FC<ChatListColumnProps> = ({
 }) => {
   // Compute unread total
   const unreadTotal = sessions.reduce((acc, s) => acc + (s.unreadCount || 0), 0);
+  const handoverTotal = sessions.filter((s) => s.isHandedOver || s.currentStep === 'HANDED_OVER').length;
 
   // Filter sessions
   const filteredSessions = sessions.filter((s) => {
@@ -41,11 +42,14 @@ export const ChatListColumn: React.FC<ChatListColumnProps> = ({
     if (filter === 'unread') {
       return (s.unreadCount || 0) > 0;
     }
+    if (filter === 'handover') {
+      return s.isHandedOver || s.currentStep === 'HANDED_OVER';
+    }
     if (filter === 'assigned') {
       return !!s.assignedTo;
     }
     if (filter === 'bot') {
-      return !s.isHandedOver;
+      return !s.isHandedOver && s.currentStep !== 'HANDED_OVER';
     }
     return true;
   });
@@ -104,6 +108,29 @@ export const ChatListColumn: React.FC<ChatListColumnProps> = ({
                   }`}
                 >
                   {unreadTotal}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onChangeFilter('handover')}
+              className={`h-7 px-2.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                filter === 'handover'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
+              }`}
+            >
+              <span>Handover</span>
+              {handoverTotal > 0 && (
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full tabular-nums font-bold ${
+                    filter === 'handover'
+                      ? 'bg-white text-amber-700'
+                      : 'bg-amber-500 text-white animate-pulse'
+                  }`}
+                >
+                  {handoverTotal}
                 </span>
               )}
             </button>
@@ -173,6 +200,7 @@ export const ChatListColumn: React.FC<ChatListColumnProps> = ({
         ) : (
           filteredSessions.map((session) => {
             const isSelected = selectedPhone === session.phoneNumber;
+            const isHandover = Boolean(session.isHandedOver || session.currentStep === 'HANDED_OVER');
             const initials = getAvatarInitials(session.patientName, session.phoneNumber);
             const unread = session.unreadCount || 0;
 
@@ -183,26 +211,42 @@ export const ChatListColumn: React.FC<ChatListColumnProps> = ({
                 className={`p-3 flex items-start gap-2.5 cursor-pointer transition-colors border-l-2 ${
                   isSelected
                     ? 'bg-[#f0f5f2] border-[#176e56]'
+                    : isHandover
+                    ? 'bg-amber-50/40 border-amber-500 hover:bg-amber-50'
                     : 'bg-white border-transparent hover:bg-[#f8faf8]'
                 }`}
               >
                 {/* Avatar */}
-                <div className="w-9 h-9 rounded-full bg-[#f0f5f2] border border-[#dbe9e0] text-[#176e56] font-medium text-xs flex items-center justify-center shrink-0">
+                <div
+                  className={`w-9 h-9 rounded-full border font-medium text-xs flex items-center justify-center shrink-0 ${
+                    isHandover
+                      ? 'bg-amber-100 border-amber-300 text-amber-900'
+                      : 'bg-[#f0f5f2] border-[#dbe9e0] text-[#176e56]'
+                  }`}
+                >
                   {initials}
                 </div>
 
                 {/* Details */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-1">
-                    <h3
-                      className={`text-xs truncate ${
-                        isSelected || unread > 0
-                          ? 'font-semibold text-[#173d37]'
-                          : 'font-medium text-[#173d37]'
-                      }`}
-                    >
-                      {session.patientName || `+${session.phoneNumber}`}
-                    </h3>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <h3
+                        className={`text-xs truncate ${
+                          isSelected || unread > 0 || isHandover
+                            ? 'font-semibold text-[#173d37]'
+                            : 'font-medium text-[#173d37]'
+                        }`}
+                      >
+                        {session.patientName || `+${session.phoneNumber}`}
+                      </h3>
+                      {isHandover && (
+                        <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 border border-amber-300 font-semibold shrink-0 flex items-center gap-1">
+                          <span className="w-1 h-1 rounded-full bg-amber-600 animate-pulse"></span>
+                          Staff
+                        </span>
+                      )}
+                    </div>
                     <span className="text-[11px] text-[#77a193] shrink-0 tabular-nums">
                       {formatTime(session.lastMessageTimestamp || session.updatedAt)}
                     </span>

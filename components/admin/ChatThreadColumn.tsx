@@ -342,6 +342,29 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
         </div>
       </div>
 
+      {/* Reception Handover Alert Banner */}
+      {isHandedOver && (
+        <div className="px-3.5 sm:px-4 py-2.5 bg-amber-50 border-b border-amber-200 text-amber-900 flex items-center justify-between gap-3 text-xs shrink-0 animate-in fade-in">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+            </span>
+            <span className="font-semibold shrink-0">☎️ Reception Handover Active:</span>
+            <span className="text-amber-800 truncate">
+              {session.handoverReason || 'Patient requested to speak with front desk staff. Type your reply below to assist.'}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onToggleBotHandover}
+            className="px-2.5 py-1 rounded-md bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 font-medium text-[11px] shrink-0 transition-colors shadow-2xs"
+          >
+            Resume AI Bot
+          </button>
+        </div>
+      )}
+
       {/* Meta 24-Hour Policy Indicator Bar */}
       <div
         className={`px-3.5 sm:px-4 py-2 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs transition-colors shrink-0 ${

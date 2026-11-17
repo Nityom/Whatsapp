@@ -24,6 +24,7 @@ interface SidebarProps {
   activeTab: NavTab;
   onSelectTab: (tab: NavTab) => void;
   unreadCount?: number;
+  handoverCount?: number;
   isWhatsAppConnected?: boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -35,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onSelectTab,
   unreadCount = 12,
+  handoverCount = 0,
   isWhatsAppConnected = true,
   isCollapsed = false,
   onToggleCollapse,
@@ -48,6 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Chats',
       icon: MessageSquare,
       badge: unreadCount > 0 ? unreadCount : undefined,
+      handoverCount: handoverCount > 0 ? handoverCount : undefined,
     },
     { id: 'opd' as NavTab, label: 'OPD Queue', icon: CalendarDays },
     { id: 'broadcast' as NavTab, label: 'Broadcast / Bulk', icon: Send },
@@ -166,15 +169,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {!isCollapsed && <span className="truncate">{item.label}</span>}
                   </div>
 
-                  {!isCollapsed && item.badge !== undefined && (
-                    <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-[#176e56] text-white tabular-nums">
-                      {item.badge}
+                  {!isCollapsed && item.handoverCount && item.handoverCount > 0 ? (
+                    <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-500 text-white tabular-nums animate-pulse flex items-center gap-1 shadow-2xs">
+                      <span>☎️</span>
+                      <span>{item.handoverCount}</span>
                     </span>
+                  ) : (
+                    !isCollapsed && item.badge !== undefined && (
+                      <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-[#176e56] text-white tabular-nums">
+                        {item.badge}
+                      </span>
+                    )
                   )}
 
                   {/* Collapsed Badge Dot */}
-                  {isCollapsed && item.badge !== undefined && (
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#176e56] ring-2 ring-white" />
+                  {isCollapsed && item.handoverCount && item.handoverCount > 0 ? (
+                    <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-white animate-ping" />
+                  ) : (
+                    isCollapsed && item.badge !== undefined && (
+                      <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#176e56] ring-2 ring-white" />
+                    )
                   )}
                 </button>
               );
