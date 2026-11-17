@@ -36,6 +36,7 @@ function sanitizeBookingDraft(draft?: Record<string, any>) {
     "doctorName", "specialty", "date", "session", "currentSession",
     "slot", "slotTime", "patientName", "patientAge", "patientPhone",
     "patientAddress", "sex", "complaint", "isSecondBooking", "previousPatientName",
+    "explicitPatientName",
     "startDate", "pickupTime", "returnDate", "returnTime", "customerName",
     "customerLatitude", "customerLongitude", "distanceKm", "locationName",
     "locationAddress", "vehicleName", "vehiclePrice"
