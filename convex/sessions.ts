@@ -28,6 +28,9 @@ export const saveWhatsAppSession = mutation({
     handoverTimestamp: v.optional(v.number()),
     lastBookedDoctor: v.optional(v.string()),
     lastBookedDate: v.optional(v.string()),
+    clearBookingDraft: v.optional(v.boolean()),
+    clearPatient: v.optional(v.boolean()),
+    replaceDraft: v.optional(v.boolean()),
     bookingDraft: v.optional(
       v.object({
         doctorName: v.optional(v.string()),
@@ -43,6 +46,8 @@ export const saveWhatsAppSession = mutation({
         patientAddress: v.optional(v.string()),
         sex: v.optional(v.union(v.literal("Male"), v.literal("Female"), v.literal("Other"))),
         complaint: v.optional(v.string()),
+        isSecondBooking: v.optional(v.boolean()),
+        previousPatientName: v.optional(v.string()),
         startDate: v.optional(v.string()),
         pickupTime: v.optional(v.string()),
         returnDate: v.optional(v.string()),
@@ -67,16 +72,21 @@ export const saveWhatsAppSession = mutation({
     const now = Date.now();
 
     if (existing) {
-      const mergedDraft = args.bookingDraft
-        ? { ...(existing.bookingDraft || {}), ...args.bookingDraft }
-        : existing.bookingDraft;
+      let finalDraft = existing.bookingDraft;
+      if (args.clearBookingDraft) {
+        finalDraft = undefined;
+      } else if (args.bookingDraft) {
+        finalDraft = args.replaceDraft
+          ? args.bookingDraft
+          : { ...(existing.bookingDraft || {}), ...args.bookingDraft };
+      }
 
       await ctx.db.patch(existing._id, {
         currentStep: args.currentStep,
         language: args.language ?? existing.language,
-        patientId: args.patientId === "" ? undefined : (args.patientId ?? existing.patientId),
-        patientReference: args.patientReference === "" ? undefined : (args.patientReference ?? existing.patientReference),
-        patientName: args.patientName === "" ? undefined : (args.patientName ?? existing.patientName),
+        patientId: args.clearPatient ? undefined : (args.patientId === "" ? undefined : (args.patientId ?? existing.patientId)),
+        patientReference: args.clearPatient ? undefined : (args.patientReference === "" ? undefined : (args.patientReference ?? existing.patientReference)),
+        patientName: args.clearPatient ? undefined : (args.patientName === "" ? undefined : (args.patientName ?? existing.patientName)),
         isVerified: args.isVerified ?? existing.isVerified,
         verificationOtp: args.verificationOtp ?? existing.verificationOtp,
         otpExpiresAt: args.otpExpiresAt ?? existing.otpExpiresAt,
@@ -86,7 +96,7 @@ export const saveWhatsAppSession = mutation({
         handoverTimestamp: args.handoverTimestamp ?? existing.handoverTimestamp,
         lastBookedDoctor: args.lastBookedDoctor ?? existing.lastBookedDoctor,
         lastBookedDate: args.lastBookedDate ?? existing.lastBookedDate,
-        bookingDraft: mergedDraft,
+        bookingDraft: finalDraft,
         updatedAt: now,
       });
 

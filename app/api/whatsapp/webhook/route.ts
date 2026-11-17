@@ -172,17 +172,23 @@ export async function POST(request: NextRequest) {
             longitude,
           });
 
-          // Send text reply via WhatsApp Business Cloud API only if text or interactive is present
-          if (result.interactive) {
-            const sent = await sendWhatsAppInteractive(sender, result.interactive);
-            if (!sent.success && result.text && result.text.trim().length > 0) {
+          // 1. Send formatted text reply if present and distinct from interactive body
+          if (result.text && result.text.trim().length > 0) {
+            const isDuplicateOfInteractive =
+              result.interactive &&
+              result.text.trim().toLowerCase() === result.interactive.body.trim().toLowerCase();
+
+            if (!isDuplicateOfInteractive) {
               await sendWhatsAppMessage(sender, result.text);
             }
-          } else if (result.text && result.text.trim().length > 0) {
-            await sendWhatsAppMessage(sender, result.text);
           }
 
-          // If a native WhatsApp location was generated on confirmation, send native location pin
+          // 2. Send interactive quick buttons or list picker if present
+          if (result.interactive) {
+            await sendWhatsAppInteractive(sender, result.interactive);
+          }
+
+          // 3. If a native WhatsApp location was generated on confirmation, send native location pin
           if (result.nativeLocation) {
             await sendWhatsAppLocation(sender, result.nativeLocation);
           }

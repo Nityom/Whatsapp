@@ -62,6 +62,8 @@ export interface AgentContext {
     patientAddress?: string;
     sex?: "Male" | "Female" | "Other";
     complaint?: string;
+    isSecondBooking?: boolean;
+    previousPatientName?: string;
   };
 }
 
@@ -978,12 +980,25 @@ export async function handleConversationTurn(
           date: dateStr,
           dateLabel: formatDisplayDate(dateStr),
           session: "morning",
+          isSecondBooking: true,
+          previousPatientName: context.patientName,
         },
-        context
+        {
+          ...context,
+          patientName: undefined,
+          patientId: undefined,
+          patientReference: undefined,
+        }
       );
 
       return {
         ...slotView,
+        updatedContext: {
+          ...slotView.updatedContext,
+          patientName: undefined,
+          patientId: undefined,
+          patientReference: undefined,
+        },
         text: inLanguage(
           lang,
           `👥 *Booking for Second Patient / Family Member*\n━━━━━━━━━━━━━━━━━━━━━\nHere are the adjacent slots with *${docName}* on *${formatDisplayDate(dateStr)}*:\n\n${slotView.text}`,
@@ -1436,6 +1451,15 @@ async function proceedToPatientRegistration(
   // Find all registered profiles under this WhatsApp phone number
   const profiles = await findPatientsByPhone(context.phoneNumber);
 
+  // If this is a second patient booking, make sure we do NOT inherit previous patient details
+  if (updatedDraft.isSecondBooking) {
+    delete updatedDraft.patientName;
+    delete updatedDraft.patientAge;
+    delete updatedDraft.patientPhone;
+    delete updatedDraft.patientAddress;
+    delete updatedDraft.sex;
+  }
+
   // If user explicitly specified a name in their message (e.g. "for Rahul" or "for my sister Priya")
   if (updatedDraft.patientName) {
     const matchedProfile = profiles.find(
@@ -1479,9 +1503,19 @@ async function proceedToPatientRegistration(
     }
   }
 
+  // Filter candidate profiles: when booking for 2nd person, exclude the previous patient
+  const availableProfiles =
+    updatedDraft.isSecondBooking && updatedDraft.previousPatientName
+      ? profiles.filter(
+          (p) =>
+            p.name.toLowerCase().trim() !==
+            String(updatedDraft.previousPatientName).toLowerCase().trim()
+        )
+      : profiles;
+
   // If registered profiles exist under this phone number: Ask who the appointment is for!
-  if (profiles.length > 0) {
-    const listLines = profiles
+  if (availableProfiles.length > 0) {
+    const listLines = availableProfiles
       .slice(0, 3)
       .map(
         (p, idx) =>
@@ -1489,15 +1523,15 @@ async function proceedToPatientRegistration(
       )
       .join("\n");
 
-    const someoneElseNum = Math.min(profiles.length, 3) + 1;
+    const someoneElseNum = Math.min(availableProfiles.length, 3) + 1;
     const someoneElseText = `*${someoneElseNum}️⃣ ➕ ${inLanguage(
       lang,
-      "Someone Else / Family Member (e.g. Sister, Parent)",
-      "किसी अन्य के लिए / नया परिजन (जैसे बहन, माता-पिता)",
-      "इतर व्यक्ती / नवीन कुटुंब सदस्य (उदा. बहीण, आई-वडील)"
+      "Someone Else / New Member",
+      "किसी अन्य के लिए / नया परिजन",
+      "इतर व्यक्ती / नवीन कुटुंब सदस्य"
     )}*`;
 
-    const buttons = profiles.slice(0, 2).map((p, idx) => ({
+    const buttons = availableProfiles.slice(0, 2).map((p, idx) => ({
       id: `profile_${idx + 1}`,
       title: `${idx + 1}. ${p.name.slice(0, 16)}`,
     }));
@@ -1506,15 +1540,34 @@ async function proceedToPatientRegistration(
       title: inLanguage(lang, `${someoneElseNum}. Someone Else`, `${someoneElseNum}. नया परिजन`, `${someoneElseNum}. इतर व्यक्ती`),
     });
 
+    const promptTitle = updatedDraft.isSecondBooking
+      ? inLanguage(
+          lang,
+          "👥 *Who is the second patient?*",
+          "👥 *दूसरा मरीज कौन है?*",
+          "👥 *दुसरे रुग्ण कोण आहेत?*"
+        )
+      : inLanguage(
+          lang,
+          "👤 *Who is this appointment for?*",
+          "👤 *यह अपॉइंटमेंट किसके लिए है?*",
+          "👤 *ही अपॉइंटमेंट कोणासाठी आहे?*"
+        );
+
     return {
       text: inLanguage(
         lang,
-        `📅 *Appointment Date:* ${dateDmy}\n👨‍⚕️ *Doctor:* ${docName}\n\n👤 *Who is this appointment for?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n${someoneElseText}\n\n👉 *Tap an option below or reply with a number (1, 2...) or write the patient's name:*`,
-        `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n\n👤 *यह अपॉइंटमेंट किसके लिए है?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n${someoneElseText}\n\n👉 *नीचे टैप करें या नंबर (1, 2...) भेजें या मरीज का नाम लिखें:*`,
-        `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n\n👤 *ही अपॉइंटमेंट कोणासाठी आहे?*\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n${someoneElseText}\n\n👉 *खाली टॅप करा किंवा नंबर (1, 2...) पाठवा किंवा रुग्णाचे नाव लिहा:*`
+        `📅 *Appointment Date:* ${dateDmy}\n👨‍⚕️ *Doctor:* ${docName}\n⏰ *Slot:* ${chosenSlot}\n\n${promptTitle}\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n${someoneElseText}\n\n👉 *Tap an option below or reply with a number (1, 2...) or write the patient's name:*`,
+        `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n⏰ *समय:* ${chosenSlot}\n\n${promptTitle}\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n${someoneElseText}\n\n👉 *नीचे टैप करें या नंबर (1, 2...) भेजें या मरीज का नाम लिखें:*`,
+        `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n⏰ *वेळ:* ${chosenSlot}\n\n${promptTitle}\n━━━━━━━━━━━━━━━━━━━━━\n${listLines}\n${someoneElseText}\n\n👉 *खाली टॅप करा किंवा नंबर (1, 2...) पाठवा किंवा रुग्णाचे नाव लिहा:*`
       ),
       nextStep: "BOOKING_SELECT_PROFILE",
-      updatedContext: { bookingDraft: updatedDraft },
+      updatedContext: {
+        bookingDraft: updatedDraft,
+        patientName: undefined,
+        patientId: undefined,
+        patientReference: undefined,
+      },
       interactive: {
         kind: "buttons",
         body: inLanguage(lang, "Select patient profile:", "मरीज का चयन करें:", "रुग्ण निवडा:"),
@@ -1523,16 +1576,21 @@ async function proceedToPatientRegistration(
     };
   }
 
-  // New patient: Prompt for Full Name
+  // New patient (or no other profiles): Prompt for Full Name
   return {
     text: inLanguage(
       lang,
-      `📅 *Appointment Date:* ${dateDmy}\n👨‍⚕️ *Doctor:* ${docName}\n\n👉 *Please enter the patient's full name (e.g. Ramesh Patil):*`,
-      `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n\n👉 *कृपया मरीज का पूरा नाम लिखें (जैसे रमेश पाटिल):*`,
-      `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n\n👉 *कृपया रुग्णाचे पूर्ण नाव लिहा (उदा. रमेश पाटील):*`
+      `📅 *Appointment Date:* ${dateDmy}\n👨‍⚕️ *Doctor:* ${docName}\n⏰ *Slot:* ${chosenSlot}\n\n👉 *Please enter the patient's full name (e.g. Ramesh Patil):*`,
+      `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n⏰ *समय:* ${chosenSlot}\n\n👉 *कृपया मरीज का पूरा नाम लिखें (जैसे रमेश पाटिल):*`,
+      `📅 *अपॉइंटमेंट तारीख:* ${dateDmy}\n👨‍⚕️ *डॉक्टर:* ${docName}\n⏰ *वेळ:* ${chosenSlot}\n\n👉 *कृपया रुग्णाचे पूर्ण नाव लिहा (उदा. रमेश पाटील):*`
     ),
     nextStep: "REGISTER_NAME",
-    updatedContext: { bookingDraft: updatedDraft },
+    updatedContext: {
+      bookingDraft: updatedDraft,
+      patientName: undefined,
+      patientId: undefined,
+      patientReference: undefined,
+    },
   };
 }
 
@@ -1848,9 +1906,17 @@ async function handleBookingSelectProfile(
   const lower = cleanInput.toLowerCase();
 
   const profiles = await findPatientsByPhone(context.phoneNumber);
+  const availableProfiles =
+    draft.isSecondBooking && draft.previousPatientName
+      ? profiles.filter(
+          (p) =>
+            p.name.toLowerCase().trim() !==
+            String(draft.previousPatientName).toLowerCase().trim()
+        )
+      : profiles;
 
   // Check if user selected "Someone Else / New"
-  const newOptionNum = Math.min(profiles.length, 3) + 1;
+  const newOptionNum = Math.min(availableProfiles.length, 3) + 1;
   const isNewSelected =
     lower === "profile_new" ||
     lower === String(newOptionNum) ||
@@ -1915,21 +1981,21 @@ async function handleBookingSelectProfile(
   // Check if selected by index (1, 2...)
   let selectedProfile: PatientRecord | undefined;
   const numIndex = parseInt(cleanInput, 10);
-  if (!isNaN(numIndex) && numIndex >= 1 && numIndex <= profiles.length) {
-    selectedProfile = profiles[numIndex - 1];
+  if (!isNaN(numIndex) && numIndex >= 1 && numIndex <= availableProfiles.length) {
+    selectedProfile = availableProfiles[numIndex - 1];
   } else if (lower.startsWith("profile_")) {
     const pIdx = parseInt(lower.replace("profile_", ""), 10);
-    if (!isNaN(pIdx) && pIdx >= 1 && pIdx <= profiles.length) {
-      selectedProfile = profiles[pIdx - 1];
+    if (!isNaN(pIdx) && pIdx >= 1 && pIdx <= availableProfiles.length) {
+      selectedProfile = availableProfiles[pIdx - 1];
     }
   }
 
   // Check if matched by name (e.g. "Nityom", "myself", "me")
   if (!selectedProfile) {
     if (lower === "myself" || lower === "me" || lower === "self" || lower === "खुद" || lower === "स्वयं" || lower === "स्वतः") {
-      selectedProfile = profiles[0];
+      selectedProfile = availableProfiles[0];
     } else {
-      selectedProfile = profiles.find(
+      selectedProfile = availableProfiles.find(
         (p) => p.name.toLowerCase() === lower || p.name.toLowerCase().includes(lower) || lower.includes(p.name.toLowerCase())
       );
     }
