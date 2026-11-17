@@ -33,7 +33,7 @@ export const SimulatorDrawer: React.FC<SimulatorDrawerProps> = ({ onRefreshSessi
     {
       id: 'init-1',
       sender: 'bot',
-      text: '👋 *Welcome to Svaasth Connect*\n━━━━━━━━━━━━━━━━━━━━━\nPlease select your preferred language:\n\n1️⃣ English\n2️⃣ हिन्दी\n3️⃣ मराठी\n\nReply with 1, 2, or 3 (or tap a button below).',
+      text: '👋 *Welcome to Svaasth Connect*\n\nPlease select your preferred language:\n\n1️⃣ English\n2️⃣ हिन्दी\n3️⃣ मराठी\n\nReply with 1, 2, or 3 (or tap a button below).',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -104,7 +104,7 @@ export const SimulatorDrawer: React.FC<SimulatorDrawerProps> = ({ onRefreshSessi
         {
           id: `reset-${Date.now()}`,
           sender: 'bot',
-          text: '👋 *Welcome to Svaasth Connect*\n━━━━━━━━━━━━━━━━━━━━━\nPlease select your preferred language:\n\n1️⃣ English\n2️⃣ हिन्दी\n3️⃣ मराठी\n\nReply with 1, 2, or 3.',
+          text: '👋 *Welcome to Svaasth Connect*\n\nPlease select your preferred language:\n\n1️⃣ English\n2️⃣ हिन्दी\n3️⃣ मराठी\n\nReply with 1, 2, or 3.',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);

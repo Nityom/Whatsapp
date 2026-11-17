@@ -155,13 +155,13 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
       id: 'tmpl-1',
       title: 'Appointment Confirmation',
       category: 'appointment',
-      text: '✅ *Appointment Confirmed – Svaasth Hospital*\n━━━━━━━━━━━━━━━━━━━━━\nDear {patient_name}, your appointment with Dr. Vipeen Raut is confirmed for tomorrow at 10:30 AM.\n📍 Aarti Chowk, Nagpur Road, Wardha\n\nPlease arrive 10 minutes before your slot.',
+      text: '✅ *Appointment Confirmed – Svaasth Hospital*\n\nDear {patient_name}, your appointment with Dr. Vipeen Raut is confirmed for tomorrow at 10:30 AM.\n📍 Aarti Chowk, Nagpur Road, Wardha\n\nPlease arrive 10 minutes before your slot.',
     },
     {
       id: 'tmpl-2',
       title: 'Digital Prescription Link',
       category: 'prescription',
-      text: '💊 *Digital Prescription – Svaasth Hospital*\n━━━━━━━━━━━━━━━━━━━━━\nDear {patient_name}, your official digital prescription has been issued by Dr. Raut.\n🔗 View/Download: https://jovial-sheep-76.convex.site/print-prescription?ref={reference}\n\nTake medications on time and feel better soon!',
+      text: '💊 *Digital Prescription – Svaasth Hospital*\n\nDear {patient_name}, your official digital prescription has been issued by Dr. Raut.\n🔗 View/Download: https://jovial-sheep-76.convex.site/print-prescription?ref={reference}\n\nTake medications on time and feel better soon!',
     },
     {
       id: 'tmpl-3',
@@ -173,7 +173,7 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
       id: 'tmpl-4',
       title: 'Follow-up Consultation Reminder',
       category: 'reminder',
-      text: '🔔 *Follow-up Reminder – Svaasth Hospital*\n━━━━━━━━━━━━━━━━━━━━━\nDear {patient_name}, this is a reminder for your upcoming follow-up checkup with Dr. Shillpa Raut. Timely follow-ups ensure seamless recovery.\nReply 1 to confirm your presence.',
+      text: '🔔 *Follow-up Reminder – Svaasth Hospital*\n\nDear {patient_name}, this is a reminder for your upcoming follow-up checkup with Dr. Shillpa Raut. Timely follow-ups ensure seamless recovery.\nReply 1 to confirm your presence.',
     },
     {
       id: 'tmpl-5',
@@ -185,7 +185,7 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
       id: 'tmpl-6',
       title: 'Consultation Fee Receipt',
       category: 'billing',
-      text: '🧾 *Receipt – Svaasth Hospital*\n━━━━━━━━━━━━━━━━━━━━━\nPatient: {patient_name}\nConsultation: ₹400\nPayment: Confirmed (Cash / UPI)\nThank you for trusting Svaasth Hospital with your care.',
+      text: '🧾 *Receipt – Svaasth Hospital*\n\nPatient: {patient_name}\nConsultation: ₹400\nPayment: Confirmed (Cash / UPI)\nThank you for trusting Svaasth Hospital with your care.',
     },
   ];
 

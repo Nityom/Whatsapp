@@ -153,7 +153,7 @@ export const QuickActionModals: React.FC<QuickActionModalsProps> = ({
               <button
                 onClick={() =>
                   handleSubmit(
-                    `✅ *Appointment Confirmed – Svaasth Hospital*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *Patient:* ${patientName}\n👨‍⚕️ *Doctor:* ${selectedDoctor}\n📅 *Date:* ${selectedDate}\n⏰ *Time:* ${selectedSlot}\n🏥 *Hospital:* Aarti Chowk, Nagpur Road, Wardha\n\nPlease arrive 10 minutes prior to your slot. See you soon!`
+                    `✅ *Appointment Confirmed – Svaasth Hospital*\n\n👤 *Patient:* ${patientName}\n👨‍⚕️ *Doctor:* ${selectedDoctor}\n📅 *Date:* ${selectedDate}\n⏰ *Time:* ${selectedSlot}\n🏥 *Hospital:* Aarti Chowk, Nagpur Road, Wardha\n\nPlease arrive 10 minutes prior to your slot. See you soon!`
                   )
                 }
                 disabled={isSubmitting}
@@ -191,7 +191,7 @@ export const QuickActionModals: React.FC<QuickActionModalsProps> = ({
               <button
                 onClick={() =>
                   handleSubmit(
-                    `💊 *Official Digital Prescription – Svaasth Hospital*\n━━━━━━━━━━━━━━━━━━━━━\nDear ${patientName},\nYour official consultation prescription is available for viewing and printing:\n\n🔗 https://jovial-sheep-76.convex.site/print-prescription?ref=${
+                    `💊 *Official Digital Prescription – Svaasth Hospital*\n\nDear ${patientName},\nYour official consultation prescription is available for viewing and printing:\n\n🔗 https://jovial-sheep-76.convex.site/print-prescription?ref=${
                       session.patientReference || 'CRX0077'
                     }\n\n*Instructions:*\n• Take prescribed medications with meals as directed.\n• Maintain adequate hydration.\n• For any questions, reply here.`
                   )
@@ -234,7 +234,7 @@ export const QuickActionModals: React.FC<QuickActionModalsProps> = ({
               <button
                 onClick={() =>
                   handleSubmit(
-                    `🧾 *OPD Consultation Bill – Svaasth Hospital*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *Patient:* ${patientName}\n💵 *Total Amount:* ₹${billAmount}\n📊 *Status:* ${billStatus}\n🏥 *Billing Desk:* Svaasth Hospital, Wardha\n\nThank you for choosing Svaasth Hospital!`
+                    `🧾 *OPD Consultation Bill – Svaasth Hospital*\n\n👤 *Patient:* ${patientName}\n💵 *Total Amount:* ₹${billAmount}\n📊 *Status:* ${billStatus}\n🏥 *Billing Desk:* Svaasth Hospital, Wardha\n\nThank you for choosing Svaasth Hospital!`
                   )
                 }
                 disabled={isSubmitting}
@@ -256,7 +256,7 @@ export const QuickActionModals: React.FC<QuickActionModalsProps> = ({
               <button
                 onClick={() =>
                   handleSubmit(
-                    `🔔 *Follow-up Care Reminder – Svaasth Hospital*\n━━━━━━━━━━━━━━━━━━━━━\nDear ${patientName},\nThis is a friendly reminder from Svaasth Hospital regarding your follow-up consultation with Dr. Vipeen Raut.\n\n⏰ OPD Hours: 10:30 AM – 1:00 PM & 6:00 PM – 7:30 PM\nReply *1* to confirm or *2* to reschedule.`
+                    `🔔 *Follow-up Care Reminder – Svaasth Hospital*\n\nDear ${patientName},\nThis is a friendly reminder from Svaasth Hospital regarding your follow-up consultation with Dr. Vipeen Raut.\n\n⏰ OPD Hours: 10:30 AM – 1:00 PM & 6:00 PM – 7:30 PM\nReply *1* to confirm or *2* to reschedule.`
                   )
                 }
                 disabled={isSubmitting}

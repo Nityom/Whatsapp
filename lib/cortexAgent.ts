@@ -1064,9 +1064,9 @@ export async function handleConversationTurn(
         },
         text: inLanguage(
           lang,
-          `👥 *Booking for Second Patient / Family Member*\n━━━━━━━━━━━━━━━━━━━━━\nHere are the adjacent slots with *${docName}* on *${formatDisplayDate(dateStr)}*:\n\n${slotView.text}`,
-          `👥 *दूसरे मरीज / परिजन के लिए बुकिंग*\n━━━━━━━━━━━━━━━━━━━━━\n*${formatDisplayDate(dateStr)}* को *${docName}* के साथ उपलब्ध समय:\n\n${slotView.text}`,
-          `👥 *दुसऱ्या रुग्णासाठी / कुटुंब सदस्यासाठी बुकिंग*\n━━━━━━━━━━━━━━━━━━━━━\n*${formatDisplayDate(dateStr)}* रोजी *${docName}* यांच्याकडे उपलब्ध वेळा:\n\n${slotView.text}`
+          `👥 *Booking for Second Patient / Family Member*\n\nHere are the adjacent slots with *${docName}* on *${formatDisplayDate(dateStr)}*:\n\n${slotView.text}`,
+          `👥 *दूसरे मरीज / परिजन के लिए बुकिंग*\n\n*${formatDisplayDate(dateStr)}* को *${docName}* के साथ उपलब्ध समय:\n\n${slotView.text}`,
+          `👥 *दुसऱ्या रुग्णासाठी / कुटुंब सदस्यासाठी बुकिंग*\n\n*${formatDisplayDate(dateStr)}* रोजी *${docName}* यांच्याकडे उपलब्ध वेळा:\n\n${slotView.text}`
         ),
       };
     }
@@ -2365,9 +2365,9 @@ async function handleRegisterAddress(
   return {
     text: inLanguage(
       lang,
-      `✅ *Family Member Profile Registered!*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *Name:* ${draft.patientName}\n🎂 *Age:* ${draft.patientAge || "N/A"} yrs (${draft.sex || "Male"})\n🏠 *Address:* ${address}\n🆔 *UHID / Ref:* \`${createdPatientRef || "CRX"}\`\n\nHow would you like to proceed for *${draft.patientName}*?\n1️⃣ Book an Appointment\n2️⃣ View Appointments\n3️⃣ Main Menu`,
-      `✅ *नया परिजन प्रोफ़ाइल दर्ज हो गया!*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *नाम:* ${draft.patientName}\n🎂 *उम्र:* ${draft.patientAge || "N/A"} वर्ष (${draft.sex === "Female" ? "महिला" : "पुरुष"})\n🏠 *पता:* ${address}\n🆔 *UHID / Ref:* \`${createdPatientRef || "CRX"}\`\n\n*${draft.patientName}* के लिए आप क्या करना चाहते हैं?\n1️⃣ अपॉइंटमेंट बुक करें\n2️⃣ अपॉइंटमेंट देखें\n3️⃣ मुख्य मेनू`,
-      `✅ *नवीन कुटुंब सदस्य प्रोफाइल नोंदवले गेले!*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *नाव:* ${draft.patientName}\n🎂 *वय:* ${draft.patientAge || "N/A"} वर्षे (${draft.sex === "Female" ? "महिला" : "पुरुष"})\n🏠 *पत्ता:* ${address}\n🆔 *UHID / Ref:* \`${createdPatientRef || "CRX"}\`\n\n*${draft.patientName}* यांच्यासाठी आपण काय करू इच्छिता?\n1️⃣ अपॉइंटमेंट बुक करा\n2️⃣ अपॉइंटमेंट्स पहा\n3️⃣ मुख्य मेनू`
+      `✅ *Family Member Profile Registered!*\n\n👤 *Name:* ${draft.patientName}\n🎂 *Age:* ${draft.patientAge || "N/A"} yrs (${draft.sex || "Male"})\n🏠 *Address:* ${address}\n🆔 *UHID / Ref:* \`${createdPatientRef || "CRX"}\`\n\nHow would you like to proceed for *${draft.patientName}*?\n1️⃣ Book an Appointment\n2️⃣ View Appointments\n3️⃣ Main Menu`,
+      `✅ *नया परिजन प्रोफ़ाइल दर्ज हो गया!*\n\n👤 *नाम:* ${draft.patientName}\n🎂 *उम्र:* ${draft.patientAge || "N/A"} वर्ष (${draft.sex === "Female" ? "महिला" : "पुरुष"})\n🏠 *पता:* ${address}\n🆔 *UHID / Ref:* \`${createdPatientRef || "CRX"}\`\n\n*${draft.patientName}* के लिए आप क्या करना चाहते हैं?\n1️⃣ अपॉइंटमेंट बुक करें\n2️⃣ अपॉइंटमेंट देखें\n3️⃣ मुख्य मेनू`,
+      `✅ *नवीन कुटुंब सदस्य प्रोफाइल नोंदवले गेले!*\n\n👤 *नाव:* ${draft.patientName}\n🎂 *वय:* ${draft.patientAge || "N/A"} वर्षे (${draft.sex === "Female" ? "महिला" : "पुरुष"})\n🏠 *पत्ता:* ${address}\n🆔 *UHID / Ref:* \`${createdPatientRef || "CRX"}\`\n\n*${draft.patientName}* यांच्यासाठी आपण काय करू इच्छिता?\n1️⃣ अपॉइंटमेंट बुक करा\n2️⃣ अपॉइंटमेंट्स पहा\n3️⃣ मुख्य मेनू`
     ),
     nextStep: "IDLE",
     updatedContext: {
@@ -2436,7 +2436,7 @@ async function executeBookingCreation(
     const confirmationText = inLanguage(
       lang,
       `✅ *APPOINTMENT CONFIRMED!* 🎉
-━━━━━━━━━━━━━━━━━━━━━
+
 🏥 *Cortex Hospital, Wardha*
 🎫 *OPD Token:* #${tokenNumber}
 🆔 *Appointment ID:* \`${appointmentId.slice(-8).toUpperCase()}\`
@@ -2457,7 +2457,7 @@ async function executeBookingCreation(
 Your health matters to us. We look forward to serving you! ❤️`,
 
       `✅ *अपॉइंटमेंट पक्की हो गई!* 🎉
-━━━━━━━━━━━━━━━━━━━━━
+
 🏥 *Cortex Hospital, वर्धा*
 🎫 *ओपीडी टोकन नंबर:* #${tokenNumber}
 🆔 *अपॉइंटमेंट ID:* \`${appointmentId.slice(-8).toUpperCase()}\`
@@ -2478,7 +2478,7 @@ Your health matters to us. We look forward to serving you! ❤️`,
 आपका स्वास्थ्य हमारी सर्वोच्च प्राथमिकता है। ❤️`,
 
       `✅ *अपॉइंटमेंट निश्चित झाली!* 🎉
-━━━━━━━━━━━━━━━━━━━━━
+
 🏥 *Cortex Hospital, वर्धा*
 🎫 *ओपीडी टोकन क्रमांक:* #${tokenNumber}
 🆔 *अपॉइंटमेंट ID:* \`${appointmentId.slice(-8).toUpperCase()}\`
@@ -2857,9 +2857,9 @@ async function handleRescheduleSelectSlot(
     return {
       text: inLanguage(
         lang,
-        `✅ *APPOINTMENT RESCHEDULED!* 🎉\n━━━━━━━━━━━━━━━━━━━━━\n👤 *Patient:* ${draft.patientName || "Patient"}\n👨‍⚕️ *Doctor:* ${docName}\n📅 *New Date:* ${newDateDmy}\n⏰ *New Time:* ${newTime}\n📍 *Location:* Cortex Hospital, Aarti Chowk, Wardha\n\n⏰ *Reminder:* A WhatsApp reminder has been set 1 hour before your new slot.`,
-        `✅ *अपॉइंटमेंट सफलतापूर्वक बदल दी गई!* 🎉\n━━━━━━━━━━━━━━━━━━━━━\n👤 *मरीज:* ${draft.patientName || "मरीज"}\n👨‍⚕️ *डॉक्टर:* ${docName}\n📅 *नई तारीख:* ${newDateDmy}\n⏰ *नया समय:* ${newTime}\n📍 *स्थान:* Cortex Hospital, आरती चौक, वर्धा\n\n⏰ *रिमाइंडर:* नए समय से 1 घंटे पहले WhatsApp रिमाइंडर सेट कर दिया गया है।`,
-        `✅ *अपॉइंटमेंट यशस्वीरीत्या बदलण्यात आली!* 🎉\n━━━━━━━━━━━━━━━━━━━━━\n👤 *रुग्ण:* ${draft.patientName || "रुग्ण"}\n👨‍⚕️ *डॉक्टर:* ${docName}\n📅 *नवीन तारीख:* ${newDateDmy}\n⏰ *नवीन वेळ:* ${newTime}\n📍 *ठिकाण:* Cortex Hospital, आरती चौक, वर्धा\n\n⏰ *स्मरणपत्र:* नवीन वेळेच्या 1 तास आधी WhatsApp रिमाइंडर सेट केले आहे.`
+        `✅ *APPOINTMENT RESCHEDULED!* 🎉\n\n👤 *Patient:* ${draft.patientName || "Patient"}\n👨‍⚕️ *Doctor:* ${docName}\n📅 *New Date:* ${newDateDmy}\n⏰ *New Time:* ${newTime}\n📍 *Location:* Cortex Hospital, Aarti Chowk, Wardha\n\n⏰ *Reminder:* A WhatsApp reminder has been set 1 hour before your new slot.`,
+        `✅ *अपॉइंटमेंट सफलतापूर्वक बदल दी गई!* 🎉\n\n👤 *मरीज:* ${draft.patientName || "मरीज"}\n👨‍⚕️ *डॉक्टर:* ${docName}\n📅 *नई तारीख:* ${newDateDmy}\n⏰ *नया समय:* ${newTime}\n📍 *स्थान:* Cortex Hospital, आरती चौक, वर्धा\n\n⏰ *रिमाइंडर:* नए समय से 1 घंटे पहले WhatsApp रिमाइंडर सेट कर दिया गया है।`,
+        `✅ *अपॉइंटमेंट यशस्वीरीत्या बदलण्यात आली!* 🎉\n\n👤 *रुग्ण:* ${draft.patientName || "रुग्ण"}\n👨‍⚕️ *डॉक्टर:* ${docName}\n📅 *नवीन तारीख:* ${newDateDmy}\n⏰ *नवीन वेळ:* ${newTime}\n📍 *ठिकाण:* Cortex Hospital, आरती चौक, वर्धा\n\n⏰ *स्मरणपत्र:* नवीन वेळेच्या 1 तास आधी WhatsApp रिमाइंडर सेट केले आहे.`
       ),
       nextStep: "IDLE",
       updatedContext: {
@@ -2994,9 +2994,9 @@ async function handleQrCheckIn(
   return {
     text: inLanguage(
       lang,
-      `✅ *OPD CHECK-IN SUCCESSFUL!* 🏥\n━━━━━━━━━━━━━━━━━━━━━\n👤 *Patient:* ${patientName}\n👨‍⚕️ *Consulting:* ${docName}\n🎫 *Your OPD Token:* *#${token}*\n\n📊 *Live Queue Status:*\n🟢 *Currently Consulting:* Token ${servingToken}\n⏳ *Patients Ahead of You:* ${aheadCount}\n⏱️ *Estimated Wait Time:* ~${estWait} mins\n📍 *Room:* OPD Consultation Room 1, Ground Floor\n\n_Please be seated in the patient waiting area. Your token will be announced on the display board._`,
-      `✅ *OPD चेक-इन सफल!* 🏥\n━━━━━━━━━━━━━━━━━━━━━\n👤 *मरीज:* ${patientName}\n👨‍⚕️ *डॉक्टर:* ${docName}\n🎫 *आपका टोकन नंबर:* *#${token}*\n\n📊 *लाइव कतार स्थिति:*\n🟢 *अभी चल रहा है:* टोकन ${servingToken}\n⏳ *आपसे आगे मरीज:* ${aheadCount}\n⏱️ *अनुमानित प्रतीक्षा समय:* ~${estWait} मिनट\n📍 *कक्ष:* OPD रूम 1, भूतल\n\n_कृपया प्रतीक्षा कक्ष में बैठें। टोकन नंबर डिस्प्ले बोर्ड पर दिखाया जाएगा।_`,
-      `✅ *OPD चेक-इन यशस्वी!* 🏥\n━━━━━━━━━━━━━━━━━━━━━\n👤 *रुग्ण:* ${patientName}\n👨‍⚕️ *डॉक्टर:* ${docName}\n🎫 *आपला OPD टोकन नंबर:* *#${token}*\n\n📊 *थेट रांग स्थिती:*\n🟢 *सध्या तपासणी सुरू:* टोकन ${servingToken}\n⏳ *तुमच्या पुढे रुग्ण:* ${aheadCount}\n⏱️ *अंदाजे प्रतीक्षा वेळ:* ~${estWait} मिनिटे\n📍 *खोली:* OPD रूम 1, तळमजला\n\n_कृपया प्रतीक्षा कक्षात बसावे. आपला टोकन नंबर स्क्रीनवर दाखवला जाईल._`
+      `✅ *OPD CHECK-IN SUCCESSFUL!* 🏥\n\n👤 *Patient:* ${patientName}\n👨‍⚕️ *Consulting:* ${docName}\n🎫 *Your OPD Token:* *#${token}*\n\n📊 *Live Queue Status:*\n🟢 *Currently Consulting:* Token ${servingToken}\n⏳ *Patients Ahead of You:* ${aheadCount}\n⏱️ *Estimated Wait Time:* ~${estWait} mins\n📍 *Room:* OPD Consultation Room 1, Ground Floor\n\n_Please be seated in the patient waiting area. Your token will be announced on the display board._`,
+      `✅ *OPD चेक-इन सफल!* 🏥\n\n👤 *मरीज:* ${patientName}\n👨‍⚕️ *डॉक्टर:* ${docName}\n🎫 *आपका टोकन नंबर:* *#${token}*\n\n📊 *लाइव कतार स्थिति:*\n🟢 *अभी चल रहा है:* टोकन ${servingToken}\n⏳ *आपसे आगे मरीज:* ${aheadCount}\n⏱️ *अनुमानित प्रतीक्षा समय:* ~${estWait} मिनट\n📍 *कक्ष:* OPD रूम 1, भूतल\n\n_कृपया प्रतीक्षा कक्ष में बैठें। टोकन नंबर डिस्प्ले बोर्ड पर दिखाया जाएगा।_`,
+      `✅ *OPD चेक-इन यशस्वी!* 🏥\n\n👤 *रुग्ण:* ${patientName}\n👨‍⚕️ *डॉक्टर:* ${docName}\n🎫 *आपला OPD टोकन नंबर:* *#${token}*\n\n📊 *थेट रांग स्थिती:*\n🟢 *सध्या तपासणी सुरू:* टोकन ${servingToken}\n⏳ *तुमच्या पुढे रुग्ण:* ${aheadCount}\n⏱️ *अंदाजे प्रतीक्षा वेळ:* ~${estWait} मिनिटे\n📍 *खोली:* OPD रूम 1, तळमजला\n\n_कृपया प्रतीक्षा कक्षात बसावे. आपला टोकन नंबर स्क्रीनवर दाखवला जाईल._`
     ),
     nextStep: "IDLE",
     interactive: {
@@ -3103,9 +3103,9 @@ async function handleLiveQueueStatus(
   return {
     text: inLanguage(
       lang,
-      `📊 *CORTEX HOSPITAL – LIVE OPD QUEUE* 🏥\n━━━━━━━━━━━━━━━━━━━━━\n📅 *Today's OPD:* ${formatDisplayDate(todayStr)}\n\n🟢 *Now Consulting:* Token ${currentToken}\n⏳ *Total Patients Waiting:* ${waitingCount}\n⏱️ *Average Consultation Time:* ~10-15 mins per patient\n\n${myTokenInfo}\n\n👨‍⚕️ *Doctors on Duty:*\n• *Dr. Vipeen Raut* (Orthopaedics) – Available\n• *Dr. Shillpa Raut* (Gynecology) – Available`,
-      `📊 *Cortex Hospital – लाइव OPD कतार स्थिति* 🏥\n━━━━━━━━━━━━━━━━━━━━━\n📅 *आज की OPD:* ${formatDisplayDate(todayStr)}\n\n🟢 *अभी चल रहा है:* टोकन ${currentToken}\n⏳ *प्रतीक्षारत मरीज:* ${waitingCount}\n⏱️ *औसत समय:* ~10-15 मिनट प्रति मरीज\n\n${myTokenInfo}\n\n👨‍⚕️ *उपस्थित डॉक्टर:*\n• *Dr. Vipeen Raut* (हड्डी रोग) – उपलब्ध\n• *Dr. Shillpa Raut* (स्त्री रोग) – उपलब्ध`,
-      `📊 *Cortex Hospital – थेट OPD रांग स्थिती* 🏥\n━━━━━━━━━━━━━━━━━━━━━\n📅 *आजची OPD:* ${formatDisplayDate(todayStr)}\n\n🟢 *सध्या सुरू:* टोकन ${currentToken}\n⏳ *प्रतीक्षेत असलेले रुग्ण:* ${waitingCount}\n⏱️ *सरासरी वेळ:* ~10-15 मिनिटे प्रति रुग्ण\n\n${myTokenInfo}\n\n👨‍⚕️ *हजर डॉक्टर:*\n• *Dr. Vipeen Raut* (हाडे व सांधे) – उपलब्ध\n• *Dr. Shillpa Raut* (स्त्रीरोग) – उपलब्ध`
+      `📊 *CORTEX HOSPITAL – LIVE OPD QUEUE* 🏥\n\n📅 *Today's OPD:* ${formatDisplayDate(todayStr)}\n\n🟢 *Now Consulting:* Token ${currentToken}\n⏳ *Total Patients Waiting:* ${waitingCount}\n⏱️ *Average Consultation Time:* ~10-15 mins per patient\n\n${myTokenInfo}\n\n👨‍⚕️ *Doctors on Duty:*\n• *Dr. Vipeen Raut* (Orthopaedics) – Available\n• *Dr. Shillpa Raut* (Gynecology) – Available`,
+      `📊 *Cortex Hospital – लाइव OPD कतार स्थिति* 🏥\n\n📅 *आज की OPD:* ${formatDisplayDate(todayStr)}\n\n🟢 *अभी चल रहा है:* टोकन ${currentToken}\n⏳ *प्रतीक्षारत मरीज:* ${waitingCount}\n⏱️ *औसत समय:* ~10-15 मिनट प्रति मरीज\n\n${myTokenInfo}\n\n👨‍⚕️ *उपस्थित डॉक्टर:*\n• *Dr. Vipeen Raut* (हड्डी रोग) – उपलब्ध\n• *Dr. Shillpa Raut* (स्त्री रोग) – उपलब्ध`,
+      `📊 *Cortex Hospital – थेट OPD रांग स्थिती* 🏥\n\n📅 *आजची OPD:* ${formatDisplayDate(todayStr)}\n\n🟢 *सध्या सुरू:* टोकन ${currentToken}\n⏳ *प्रतीक्षेत असलेले रुग्ण:* ${waitingCount}\n⏱️ *सरासरी वेळ:* ~10-15 मिनिटे प्रति रुग्ण\n\n${myTokenInfo}\n\n👨‍⚕️ *हजर डॉक्टर:*\n• *Dr. Vipeen Raut* (हाडे व सांधे) – उपलब्ध\n• *Dr. Shillpa Raut* (स्त्रीरोग) – उपलब्ध`
     ),
     nextStep: "IDLE",
     interactive: {
@@ -3143,9 +3143,9 @@ async function handleConsentQuery(
   return {
     text: inLanguage(
       lang,
-      `📋 *PATIENT CONSENT & DATA PRIVACY (ABDM)*\n━━━━━━━━━━━━━━━━━━━━━\n🏥 *Svaasth Connect – Cortex Hospital*\n\n✅ *Digital Healthcare Consent:*\nBy interacting with Svaasth Connect, you give informed consent to receive:\n1. 🎫 OPD tokens & appointment confirmations\n2. ⏰ 1-hour appointment reminders\n3. 💊 Official signed digital prescriptions & lab reports\n4. 🧾 Billing estimates & payment receipts\n\n🔒 *Privacy & Security:*\n• Your health data is strictly encrypted and shared only with consulting doctors and authorized hospital staff.\n• We adhere to the Telemedicine Practice Guidelines and Digital Personal Data Protection (DPDP) Act.\n\nType *Menu* to return to the main services.`,
-      `📋 *डिजिटल स्वास्थ्य सहमति और डेटा गोपनीयता (ABDM)*\n━━━━━━━━━━━━━━━━━━━━━\n🏥 *Svaasth Connect – Cortex Hospital*\n\n✅ *सहमति विवरण:*\nSvaasth Connect का उपयोग करने पर आप WhatsApp पर निम्नलिखित प्राप्त करने की सहमति देते हैं:\n1. 🎫 OPD टोकन और अपॉइंटमेंट रसीद\n2. ⏰ 1 घंटे पूर्व अपॉइंटमेंट रिमाइंडर\n3. 💊 डिजिटल प्रिस्क्रिप्शन और जांच रिपोर्ट\n4. 🧾 बिलिंग विवरण और रसीद\n\n🔒 *डेटा सुरक्षा:*\nआपका डेटा पूरी तरह सुरक्षित है और केवल अधिकृत डॉक्टरों के साथ साझा किया जाता है।\n\nवापस जाने के लिए *Menu* लिखें।`,
-      `📋 *रुग्ण संमती आणि डेटा गोपनीयता (ABDM)*\n━━━━━━━━━━━━━━━━━━━━━\n🏥 *Svaasth Connect – Cortex Hospital*\n\n✅ *डिजिटल संमती तपशील:*\nSvaasth Connect वापरताना आपण WhatsApp वर खालील गोष्टी मिळवण्यास संमती देता:\n1. 🎫 OPD टोकन आणि अपॉइंटमेंट पावती\n2. ⏰ 1 तास आधी अपॉइंटमेंट रिमाइंडर\n3. 💊 डिजिटल प्रिस्क्रिप्शन आणि रिपोर्ट्स\n4. 🧾 बिलिंग तपशील\n\n🔒 *सुरक्षा:*\nआपली माहिती पूर्णपणे सुरक्षित असून फक्त तपासणी करणाऱ्या डॉक्टरांकडेच उपलब्ध असते.\n\nमुख्य मेनूसाठी *Menu* पाठवा.`
+      `📋 *PATIENT CONSENT & DATA PRIVACY (ABDM)*\n\n🏥 *Svaasth Connect – Cortex Hospital*\n\n✅ *Digital Healthcare Consent:*\nBy interacting with Svaasth Connect, you give informed consent to receive:\n1. 🎫 OPD tokens & appointment confirmations\n2. ⏰ 1-hour appointment reminders\n3. 💊 Official signed digital prescriptions & lab reports\n4. 🧾 Billing estimates & payment receipts\n\n🔒 *Privacy & Security:*\n• Your health data is strictly encrypted and shared only with consulting doctors and authorized hospital staff.\n• We adhere to the Telemedicine Practice Guidelines and Digital Personal Data Protection (DPDP) Act.\n\nType *Menu* to return to the main services.`,
+      `📋 *डिजिटल स्वास्थ्य सहमति और डेटा गोपनीयता (ABDM)*\n\n🏥 *Svaasth Connect – Cortex Hospital*\n\n✅ *सहमति विवरण:*\nSvaasth Connect का उपयोग करने पर आप WhatsApp पर निम्नलिखित प्राप्त करने की सहमति देते हैं:\n1. 🎫 OPD टोकन और अपॉइंटमेंट रसीद\n2. ⏰ 1 घंटे पूर्व अपॉइंटमेंट रिमाइंडर\n3. 💊 डिजिटल प्रिस्क्रिप्शन और जांच रिपोर्ट\n4. 🧾 बिलिंग विवरण और रसीद\n\n🔒 *डेटा सुरक्षा:*\nआपका डेटा पूरी तरह सुरक्षित है और केवल अधिकृत डॉक्टरों के साथ साझा किया जाता है।\n\nवापस जाने के लिए *Menu* लिखें।`,
+      `📋 *रुग्ण संमती आणि डेटा गोपनीयता (ABDM)*\n\n🏥 *Svaasth Connect – Cortex Hospital*\n\n✅ *डिजिटल संमती तपशील:*\nSvaasth Connect वापरताना आपण WhatsApp वर खालील गोष्टी मिळवण्यास संमती देता:\n1. 🎫 OPD टोकन आणि अपॉइंटमेंट पावती\n2. ⏰ 1 तास आधी अपॉइंटमेंट रिमाइंडर\n3. 💊 डिजिटल प्रिस्क्रिप्शन आणि रिपोर्ट्स\n4. 🧾 बिलिंग तपशील\n\n🔒 *सुरक्षा:*\nआपली माहिती पूर्णपणे सुरक्षित असून फक्त तपासणी करणाऱ्या डॉक्टरांकडेच उपलब्ध असते.\n\nमुख्य मेनूसाठी *Menu* पाठवा.`
     ),
     nextStep: "IDLE",
     updatedContext: {
@@ -3349,9 +3349,9 @@ async function displayAppointmentsForPatient(
   return {
     text: inLanguage(
       lang,
-      `📋 *Appointments – Svaasth Connect:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\nPlease choose an action below:`,
-      `📋 *Svaasth Connect में आपकी अपॉइंटमेंट:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\nकृपया नीचे विकल्प चुनें:`,
-      `📋 *Svaasth Connect मधील अपॉइंटमेंट्स:*\n━━━━━━━━━━━━━━━━━━━━━\n${apptList}\n\nकृपया खालील पर्याय निवडा:`
+      `📋 *Appointments – Svaasth Connect:*\n\n${apptList}\n\nPlease choose an action below:`,
+      `📋 *Svaasth Connect में आपकी अपॉइंटमेंट:*\n\n${apptList}\n\nकृपया नीचे विकल्प चुनें:`,
+      `📋 *Svaasth Connect मधील अपॉइंटमेंट्स:*\n\n${apptList}\n\nकृपया खालील पर्याय निवडा:`
     ),
     nextStep: "IDLE",
     interactive: {
@@ -3646,9 +3646,9 @@ async function displayBillForPatient(
   return {
     text: inLanguage(
       lang,
-      `🧾 *SVAASHTH HOSPITAL – BILL SUMMARY*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *Patient:* ${latest.patient_name || patientName || "Patient"} (${latest.reference_number || "CRX"})\n📄 *Bill Number:* ${latest.bill_number || `CRX-INV-${latest._id.slice(-6).toUpperCase()}`}\n📊 *Status:* ${latest.payment_status === "PAID" ? "✅ FULLY PAID" : "⚠️ " + latest.payment_status}\n\n💰 *Total Amount:* ₹${latest.total_amount}\n💵 *Amount Paid:* ₹${latest.paid_amount}\n🔴 *Balance Due:* ₹${latest.balance_amount}\n\n${totalBalance > 0 ? "💳 UPI ID: `cortexhospital@upi`" : "All dues are cleared. Thank you!"}\n\n🔗 *Download Official Invoice:*\nhttps://cortexhospital.com/print-bill?billId=${latest._id}\n\n🔄 _Reply *Switch* to view bills for another family member._`,
-      `🧾 *SVAASHTH HOSPITAL – बिल विवरण*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *मरीज:* ${latest.patient_name || patientName || "Patient"} (${latest.reference_number || "CRX"})\n📄 *बिल नंबर:* ${latest.bill_number || `CRX-INV-${latest._id.slice(-6).toUpperCase()}`}\n📊 *स्थिति:* ${latest.payment_status === "PAID" ? "✅ पूर्ण भुगतान" : "⚠️ " + latest.payment_status}\n\n💰 *कुल राशि:* ₹${latest.total_amount}\n💵 *जमा राशि:* ₹${latest.paid_amount}\n🔴 *बकाया राशि:* ₹${latest.balance_amount}\n\n${totalBalance > 0 ? "💳 UPI: `cortexhospital@upi`" : "सभी बिल चुकता हैं। धन्यवाद!"}\n\n🔗 *बिल डाउनलोड लिंक:*\nhttps://cortexhospital.com/print-bill?billId=${latest._id}\n\n🔄 _अन्य परिजन के लिए *Switch* लिखें।_`,
-      `🧾 *SVAASHTH HOSPITAL – बिल तपशील*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *रुग्ण:* ${latest.patient_name || patientName || "Patient"} (${latest.reference_number || "CRX"})\n📄 *बिल क्रमांक:* ${latest.bill_number || `CRX-INV-${latest._id.slice(-6).toUpperCase()}`}\n📊 *स्थिती:* ${latest.payment_status === "PAID" ? "✅ पूर्ण भरले" : "⚠️ " + latest.payment_status}\n\n💰 *एकूण रक्कम:* ₹${latest.total_amount}\n💵 *भरलेली रक्कम:* ₹${latest.paid_amount}\n🔴 *बाकी रक्कम:* ₹${latest.balance_amount}\n\n${totalBalance > 0 ? "💳 UPI ID: `cortexhospital@upi`" : "सर्व बिल भरले आहे. धन्यवाद!"}\n\n🔗 *बिल डाउनलोड लिंक:*\nhttps://cortexhospital.com/print-bill?billId=${latest._id}\n\n🔄 _दुसऱ्या व्यक्तीसाठी *Switch* लिहा._`
+      `🧾 *SVAASHTH HOSPITAL – BILL SUMMARY*\n\n👤 *Patient:* ${latest.patient_name || patientName || "Patient"} (${latest.reference_number || "CRX"})\n📄 *Bill Number:* ${latest.bill_number || `CRX-INV-${latest._id.slice(-6).toUpperCase()}`}\n📊 *Status:* ${latest.payment_status === "PAID" ? "✅ FULLY PAID" : "⚠️ " + latest.payment_status}\n\n💰 *Total Amount:* ₹${latest.total_amount}\n💵 *Amount Paid:* ₹${latest.paid_amount}\n🔴 *Balance Due:* ₹${latest.balance_amount}\n\n${totalBalance > 0 ? "💳 UPI ID: `cortexhospital@upi`" : "All dues are cleared. Thank you!"}\n\n🔗 *Download Official Invoice:*\nhttps://cortexhospital.com/print-bill?billId=${latest._id}\n\n🔄 _Reply *Switch* to view bills for another family member._`,
+      `🧾 *SVAASHTH HOSPITAL – बिल विवरण*\n\n👤 *मरीज:* ${latest.patient_name || patientName || "Patient"} (${latest.reference_number || "CRX"})\n📄 *बिल नंबर:* ${latest.bill_number || `CRX-INV-${latest._id.slice(-6).toUpperCase()}`}\n📊 *स्थिति:* ${latest.payment_status === "PAID" ? "✅ पूर्ण भुगतान" : "⚠️ " + latest.payment_status}\n\n💰 *कुल राशि:* ₹${latest.total_amount}\n💵 *जमा राशि:* ₹${latest.paid_amount}\n🔴 *बकाया राशि:* ₹${latest.balance_amount}\n\n${totalBalance > 0 ? "💳 UPI: `cortexhospital@upi`" : "सभी बिल चुकता हैं। धन्यवाद!"}\n\n🔗 *बिल डाउनलोड लिंक:*\nhttps://cortexhospital.com/print-bill?billId=${latest._id}\n\n🔄 _अन्य परिजन के लिए *Switch* लिखें।_`,
+      `🧾 *SVAASHTH HOSPITAL – बिल तपशील*\n\n👤 *रुग्ण:* ${latest.patient_name || patientName || "Patient"} (${latest.reference_number || "CRX"})\n📄 *बिल क्रमांक:* ${latest.bill_number || `CRX-INV-${latest._id.slice(-6).toUpperCase()}`}\n📊 *स्थिती:* ${latest.payment_status === "PAID" ? "✅ पूर्ण भरले" : "⚠️ " + latest.payment_status}\n\n💰 *एकूण रक्कम:* ₹${latest.total_amount}\n💵 *भरलेली रक्कम:* ₹${latest.paid_amount}\n🔴 *बाकी रक्कम:* ₹${latest.balance_amount}\n\n${totalBalance > 0 ? "💳 UPI ID: `cortexhospital@upi`" : "सर्व बिल भरले आहे. धन्यवाद!"}\n\n🔗 *बिल डाउनलोड लिंक:*\nhttps://cortexhospital.com/print-bill?billId=${latest._id}\n\n🔄 _दुसऱ्या व्यक्तीसाठी *Switch* लिहा._`
     ),
     nextStep: "IDLE",
   };
@@ -3771,9 +3771,9 @@ async function displayFollowupForPatient(
   return {
     text: inLanguage(
       lang,
-      `🔔 *RECOMMENDED NEXT FOLLOW-UP*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *Patient:* ${patientName || "Patient"}\n👨‍⚕️ *Doctor:* ${doctorName}\n📅 *Recommended Date:* ${nextDateDmy}\n📝 *Condition:* ${summary || "Routine Follow-up"}\n\n💡 Consultations within 10 days of your visit are charged at discounted follow-up rates.\n\nWould you like to book this follow-up slot for *${nextDateDmy}*?\nReply *1* to Book this Follow-up.\n_(Reply *Switch* to view another family member)_`,
-      `🔔 *अगली अनुशंसित फ़ॉलो-अप तारीख*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *मरीज:* ${patientName || "मरीज"}\n👨‍⚕️ *डॉक्टर:* ${doctorName}\n📅 *तारीख:* ${nextDateDmy}\n📝 *स्थिति:* ${summary || "नियमित फ़ॉलो-अप"}\n\n💡 10 दिनों के भीतर परामर्श पर रियायती दर लागू होती है।\n\nक्या आप *${nextDateDmy}* के लिए समय बुक करना चाहते हैं?\n*1* भेजें।\n_(अन्य परिजन के लिए *Switch* लिखें)_`,
-      `🔔 *पुढील फॉलो-अप तारीख*\n━━━━━━━━━━━━━━━━━━━━━\n👤 *रुग्ण:* ${patientName || "रुग्ण"}\n👨‍⚕️ *डॉक्टर:* ${doctorName}\n📅 *तारीख:* ${nextDateDmy}\n📝 *तपासणी:* ${summary || "नियमित फॉलो-अप"}\n\n💡 10 दिवसांच्या आत तपासणी केल्यास कमी शुल्क आकारले जाते.\n\nआपण *${nextDateDmy}* साठी वेळ आरक्षित करू इच्छिता का?\n*1* पाठवा.\n_(दुसऱ्या व्यक्तीसाठी *Switch* लिहा)_`
+      `🔔 *RECOMMENDED NEXT FOLLOW-UP*\n\n👤 *Patient:* ${patientName || "Patient"}\n👨‍⚕️ *Doctor:* ${doctorName}\n📅 *Recommended Date:* ${nextDateDmy}\n📝 *Condition:* ${summary || "Routine Follow-up"}\n\n💡 Consultations within 10 days of your visit are charged at discounted follow-up rates.\n\nWould you like to book this follow-up slot for *${nextDateDmy}*?\nReply *1* to Book this Follow-up.\n_(Reply *Switch* to view another family member)_`,
+      `🔔 *अगली अनुशंसित फ़ॉलो-अप तारीख*\n\n👤 *मरीज:* ${patientName || "मरीज"}\n👨‍⚕️ *डॉक्टर:* ${doctorName}\n📅 *तारीख:* ${nextDateDmy}\n📝 *स्थिति:* ${summary || "नियमित फ़ॉलो-अप"}\n\n💡 10 दिनों के भीतर परामर्श पर रियायती दर लागू होती है।\n\nक्या आप *${nextDateDmy}* के लिए समय बुक करना चाहते हैं?\n*1* भेजें।\n_(अन्य परिजन के लिए *Switch* लिखें)_`,
+      `🔔 *पुढील फॉलो-अप तारीख*\n\n👤 *रुग्ण:* ${patientName || "रुग्ण"}\n👨‍⚕️ *डॉक्टर:* ${doctorName}\n📅 *तारीख:* ${nextDateDmy}\n📝 *तपासणी:* ${summary || "नियमित फॉलो-अप"}\n\n💡 10 दिवसांच्या आत तपासणी केल्यास कमी शुल्क आकारले जाते.\n\nआपण *${nextDateDmy}* साठी वेळ आरक्षित करू इच्छिता का?\n*1* पाठवा.\n_(दुसऱ्या व्यक्तीसाठी *Switch* लिहा)_`
     ),
     nextStep: "IDLE",
     updatedContext: {
@@ -3915,9 +3915,9 @@ async function handleDoctorAvailabilityQuery(
   return {
     text: inLanguage(
       lang,
-      `👨‍⚕️ *CORTEX HOSPITAL – SPECIALIST DOCTORS & OPD TIMINGS*\n━━━━━━━━━━━━━━━━━━━━━\n${docProfiles}\n\n⭐ *Special Clinic:*\n🦴 *HIP & KNEE JOINT CLINIC* – Every Thursday 6:00 PM to 8:00 PM\n\nReply *1* to book an appointment with any doctor!`,
-      `👨‍⚕️ *CORTEX HOSPITAL – विशेषज्ञ डॉक्टर एवं OPD समय*\n━━━━━━━━━━━━━━━━━━━━━\n${docProfiles}\n\n⭐ *विशेष क्लिनिक:*\n🦴 *हिप एवं घुटना जोड़ क्लिनिक* – प्रत्येक गुरुवार शाम 6:00 से 8:00 बजे\n\nअपॉइंटमेंट बुक करने के लिए *1* भेजें!`,
-      `👨‍⚕️ *CORTEX HOSPITAL – तज्ज्ञ डॉक्टर व OPD वेळ*\n━━━━━━━━━━━━━━━━━━━━━\n${docProfiles}\n\n⭐ *विशेष क्लिनिक:*\n🦴 *हिप व गुडघे सांधे क्लिनिक* – दर गुरुवारी संध्याकाळी 6:00 ते 8:00\n\nअपॉइंटमेंट बुक करण्यासाठी *1* पाठवा!`
+      `👨‍⚕️ *CORTEX HOSPITAL – SPECIALIST DOCTORS & OPD TIMINGS*\n\n${docProfiles}\n\n⭐ *Special Clinic:*\n🦴 *HIP & KNEE JOINT CLINIC* – Every Thursday 6:00 PM to 8:00 PM\n\nReply *1* to book an appointment with any doctor!`,
+      `👨‍⚕️ *CORTEX HOSPITAL – विशेषज्ञ डॉक्टर एवं OPD समय*\n\n${docProfiles}\n\n⭐ *विशेष क्लिनिक:*\n🦴 *हिप एवं घुटना जोड़ क्लिनिक* – प्रत्येक गुरुवार शाम 6:00 से 8:00 बजे\n\nअपॉइंटमेंट बुक करने के लिए *1* भेजें!`,
+      `👨‍⚕️ *CORTEX HOSPITAL – तज्ज्ञ डॉक्टर व OPD वेळ*\n\n${docProfiles}\n\n⭐ *विशेष क्लिनिक:*\n🦴 *हिप व गुडघे सांधे क्लिनिक* – दर गुरुवारी संध्याकाळी 6:00 ते 8:00\n\nअपॉइंटमेंट बुक करण्यासाठी *1* पाठवा!`
     ),
     nextStep: "IDLE",
   };
@@ -3937,9 +3937,9 @@ async function handleHospitalInfoQuery(
   return {
     text: inLanguage(
       lang,
-      `🏥 *CORTEX HOSPITAL, WARDHA*\n━━━━━━━━━━━━━━━━━━━━━\n📍 *Address:*\n${conf.address.fullFormatted}\n\n📞 *Telephone / Helplines:*\n• Reception: 07152-255795\n• Mobile / WhatsApp: +91 9373280505\n• Emergency 24/7 Casualty: +91 9373280505\n\n⏰ *OPD Working Hours:*\n• Monday to Saturday: 10:30 AM – 1:00 PM & 6:00 PM – 7:30 PM\n• Sunday: OPD Closed (Emergency Casualty 24/7 Open)\n\n🗺️ *Google Maps Link:*\nhttps://maps.google.com/?q=${conf.coordinates.latitude},${conf.coordinates.longitude}\n\nReply *1* to Book an Appointment or *8* to talk to Reception.`,
-      `🏥 *CORTEX HOSPITAL, वर्धा*\n━━━━━━━━━━━━━━━━━━━━━\n📍 *पता:*\n${conf.address.fullFormatted}\n\n📞 *हेल्पलाइन नंबर:*\n• रिसेप्शन: 07152-255795\n• मोबाइल / WhatsApp: +91 9373280505\n• 24/7 आपातकालीन सेवा: +91 9373280505\n\n⏰ *OPD समय:*\n• सोमवार से शनिवार: सुबह 10:30 – दोपहर 1:00 व शाम 6:00 – शाम 7:30\n• रविवार: OPD बंद (आपातकालीन सेवा 24 घंटे चालू)\n\n🗺️ *गूगल मैप्स लिंक:*\nhttps://maps.google.com/?q=${conf.coordinates.latitude},${conf.coordinates.longitude}\n\nअपॉइंटमेंट बुक करने के लिए *1* भेजें या रिसेप्शन के लिए *8* भेजें।`,
-      `🏥 *CORTEX HOSPITAL, वर्धा*\n━━━━━━━━━━━━━━━━━━━━━\n📍 *पत्ता:*\n${conf.address.fullFormatted}\n\n📞 *संपर्क क्रमांक:*\n• रिसेप्शन: 07152-255795\n• मोबाइल / WhatsApp: +91 9373280505\n• 24/7 आपत्कालीन सेवा: +91 9373280505\n\n⏰ *OPD वेळ:*\n• सोमवार ते शनिवार: सकाळी 10:30 ते दुपारी 1:00 आणि संध्याकाळी 6:00 ते 7:30\n• रविवार: OPD बंद (इमर्जन्सी 24 तास सुरू)\n\n🗺️ *गुगल मॅप्स लिंक:*\nhttps://maps.google.com/?q=${conf.coordinates.latitude},${conf.coordinates.longitude}\n\nअपॉइंटमेंटसाठी *1* पाठवा किंवा रिसेप्शनसाठी *8* पाठवा.`
+      `🏥 *CORTEX HOSPITAL, WARDHA*\n\n📍 *Address:*\n${conf.address.fullFormatted}\n\n📞 *Telephone / Helplines:*\n• Reception: 07152-255795\n• Mobile / WhatsApp: +91 9373280505\n• Emergency 24/7 Casualty: +91 9373280505\n\n⏰ *OPD Working Hours:*\n• Monday to Saturday: 10:30 AM – 1:00 PM & 6:00 PM – 7:30 PM\n• Sunday: OPD Closed (Emergency Casualty 24/7 Open)\n\n🗺️ *Google Maps Link:*\nhttps://maps.google.com/?q=${conf.coordinates.latitude},${conf.coordinates.longitude}\n\nReply *1* to Book an Appointment or *8* to talk to Reception.`,
+      `🏥 *CORTEX HOSPITAL, वर्धा*\n\n📍 *पता:*\n${conf.address.fullFormatted}\n\n📞 *हेल्पलाइन नंबर:*\n• रिसेप्शन: 07152-255795\n• मोबाइल / WhatsApp: +91 9373280505\n• 24/7 आपातकालीन सेवा: +91 9373280505\n\n⏰ *OPD समय:*\n• सोमवार से शनिवार: सुबह 10:30 – दोपहर 1:00 व शाम 6:00 – शाम 7:30\n• रविवार: OPD बंद (आपातकालीन सेवा 24 घंटे चालू)\n\n🗺️ *गूगल मैप्स लिंक:*\nhttps://maps.google.com/?q=${conf.coordinates.latitude},${conf.coordinates.longitude}\n\nअपॉइंटमेंट बुक करने के लिए *1* भेजें या रिसेप्शन के लिए *8* भेजें।`,
+      `🏥 *CORTEX HOSPITAL, वर्धा*\n\n📍 *पत्ता:*\n${conf.address.fullFormatted}\n\n📞 *संपर्क क्रमांक:*\n• रिसेप्शन: 07152-255795\n• मोबाइल / WhatsApp: +91 9373280505\n• 24/7 आपत्कालीन सेवा: +91 9373280505\n\n⏰ *OPD वेळ:*\n• सोमवार ते शनिवार: सकाळी 10:30 ते दुपारी 1:00 आणि संध्याकाळी 6:00 ते 7:30\n• रविवार: OPD बंद (इमर्जन्सी 24 तास सुरू)\n\n🗺️ *गुगल मॅप्स लिंक:*\nhttps://maps.google.com/?q=${conf.coordinates.latitude},${conf.coordinates.longitude}\n\nअपॉइंटमेंटसाठी *1* पाठवा किंवा रिसेप्शनसाठी *8* पाठवा.`
     ),
     nativeLocation: {
       latitude: conf.coordinates.latitude,
@@ -3985,9 +3985,9 @@ async function handleLabReportsQuery(
   return {
     text: inLanguage(
       lang,
-      `🧪 *CORTEX HOSPITAL – LABORATORY REPORTS*\n━━━━━━━━━━━━━━━━━━━━━\n${reportsList}\n\n⚠️ *Medical Note:* Lab reports must be clinically interpreted by your treating doctor. Please do not self-medicate based on report values.`,
-      `🧪 *CORTEX HOSPITAL – लैब रिपोर्ट*\n━━━━━━━━━━━━━━━━━━━━━\n${reportsList}\n\n⚠️ *महत्वपूर्ण:* लैब रिपोर्ट का विश्लेषण आपके विशेषज्ञ डॉक्टर द्वारा किया जाना अनिवार्य है। स्वयं दवा न लें।`,
-      `🧪 *CORTEX HOSPITAL – लॅब रिपोर्ट*\n━━━━━━━━━━━━━━━━━━━━━\n${reportsList}\n\n⚠️ *महत्त्वाची सूचना:* चाचणी अहवालांची तपासणी डॉक्टरांकडून करून घेणे आवश्यक आहे. परस्पर औषधे घेऊ नयेत.`
+      `🧪 *CORTEX HOSPITAL – LABORATORY REPORTS*\n\n${reportsList}\n\n⚠️ *Medical Note:* Lab reports must be clinically interpreted by your treating doctor. Please do not self-medicate based on report values.`,
+      `🧪 *CORTEX HOSPITAL – लैब रिपोर्ट*\n\n${reportsList}\n\n⚠️ *महत्वपूर्ण:* लैब रिपोर्ट का विश्लेषण आपके विशेषज्ञ डॉक्टर द्वारा किया जाना अनिवार्य है। स्वयं दवा न लें।`,
+      `🧪 *CORTEX HOSPITAL – लॅब रिपोर्ट*\n\n${reportsList}\n\n⚠️ *महत्त्वाची सूचना:* चाचणी अहवालांची तपासणी डॉक्टरांकडून करून घेणे आवश्यक आहे. परस्पर औषधे घेऊ नयेत.`
     ),
     nextStep: "IDLE",
   };
