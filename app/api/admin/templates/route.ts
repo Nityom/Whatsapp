@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { validateAdminAuth } from '@/lib/adminAuth';
 import {
   getWhatsAppTemplates,
   createWhatsAppTemplate,
@@ -6,6 +7,9 @@ import {
 } from '@/lib/whatsapp';
 
 export async function GET(request: NextRequest) {
+  const auth = validateAdminAuth(request);
+  if (!auth.authorized) return auth.response!;
+
   try {
     const result = await getWhatsAppTemplates();
     if (!result.success) {
@@ -27,6 +31,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = validateAdminAuth(request);
+  if (!auth.authorized) return auth.response!;
+
   try {
     const body = await request.json();
     const { name, category, bodyText, sampleValues, headerText, language } = body;
@@ -63,6 +70,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const auth = validateAdminAuth(request);
+  if (!auth.authorized) return auth.response!;
+
   try {
     const { searchParams } = new URL(request.url);
     let name = searchParams.get('name');

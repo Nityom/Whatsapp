@@ -87,3 +87,4 @@ Hello *${reminder.patientName}*, your appointment is coming up today:
 export async function POST(request: NextRequest) {
   return GET(request);
 }
+

@@ -53,3 +53,4 @@ export const listAuditLogs = query({
     return await ctx.db.query("auditLogs").order("desc").take(limit);
   },
 });
+

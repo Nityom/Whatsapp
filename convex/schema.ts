@@ -11,10 +11,14 @@ export default defineSchema({
     patientReference: v.optional(v.string()), // UHID e.g. CRX0001
     patientName: v.optional(v.string()),
     isVerified: v.optional(v.boolean()),
-    verificationOtp: v.optional(v.string()),
-    otpExpiresAt: v.optional(v.number()),
     pendingAction: v.optional(v.string()), // e.g. "VIEW_PRESCRIPTION", "VIEW_BILL"
     isHandedOver: v.optional(v.boolean()),
+    // Deprecated legacy fields allowed for existing record compatibility
+    customerId: v.optional(v.any()),
+    selectedVehicleId: v.optional(v.any()),
+    pickupLocationId: v.optional(v.any()),
+    verificationOtp: v.optional(v.any()),
+    otpExpiresAt: v.optional(v.any()),
     handoverReason: v.optional(v.string()),
     handoverTimestamp: v.optional(v.number()),
     lastBookedDoctor: v.optional(v.string()),
@@ -51,25 +55,21 @@ export default defineSchema({
         isSecondBooking: v.optional(v.boolean()),
         previousPatientName: v.optional(v.string()),
         explicitPatientName: v.optional(v.boolean()),
-        // Legacy fields for backward compatibility
-        startDate: v.optional(v.string()),
-        pickupTime: v.optional(v.string()),
-        returnDate: v.optional(v.string()),
-        returnTime: v.optional(v.string()),
-        customerName: v.optional(v.string()),
-        customerLatitude: v.optional(v.number()),
-        customerLongitude: v.optional(v.number()),
-        distanceKm: v.optional(v.number()),
-        locationName: v.optional(v.string()),
-        locationAddress: v.optional(v.string()),
-        vehicleName: v.optional(v.string()),
-        vehiclePrice: v.optional(v.number()),
+        // Deprecated fields from legacy sessions
+        startDate: v.optional(v.any()),
+        pickupTime: v.optional(v.any()),
+        returnDate: v.optional(v.any()),
+        returnTime: v.optional(v.any()),
+        customerName: v.optional(v.any()),
+        customerLatitude: v.optional(v.any()),
+        customerLongitude: v.optional(v.any()),
+        distanceKm: v.optional(v.any()),
+        locationName: v.optional(v.any()),
+        locationAddress: v.optional(v.any()),
+        vehicleName: v.optional(v.any()),
+        vehiclePrice: v.optional(v.any()),
       })
     ),
-    // Legacy fields for backward compatibility
-    customerId: v.optional(v.string()),
-    selectedVehicleId: v.optional(v.string()),
-    pickupLocationId: v.optional(v.string()),
     // Dashboard & CRM metadata
     notes: v.optional(v.string()),
     tags: v.optional(v.array(v.string())), // e.g. ["Patient", "Lead", "VIP"]
@@ -90,6 +90,13 @@ export default defineSchema({
     metadata: v.optional(v.any()),
     createdAt: v.number(),
   }).index("by_phone", ["phoneNumber"]),
+
+  // Webhook message deduplication table
+  processedMessages: defineTable({
+    messageId: v.string(),
+    phoneNumber: v.string(),
+    processedAt: v.number(),
+  }).index("by_messageId", ["messageId"]),
 
   // Broadcast & Bulk Campaigns
   broadcastCampaigns: defineTable({

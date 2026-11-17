@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { validateAdminAuth } from '@/lib/adminAuth';
 import {
   fetchLiveOpdQueue,
   calculateNextDailyToken,
@@ -250,6 +251,9 @@ async function dispatchOpdWhatsApp(params: {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = validateAdminAuth(req);
+  if (!auth.authorized) return auth.response!;
+
   try {
     const { searchParams } = new URL(req.url);
     const action = searchParams.get('action');
@@ -278,6 +282,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = validateAdminAuth(req);
+  if (!auth.authorized) return auth.response!;
+
   try {
     const body = await req.json();
     const { action } = body;

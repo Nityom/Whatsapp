@@ -20,8 +20,6 @@ export const saveWhatsAppSession = mutation({
     patientReference: v.optional(v.string()),
     patientName: v.optional(v.string()),
     isVerified: v.optional(v.boolean()),
-    verificationOtp: v.optional(v.string()),
-    otpExpiresAt: v.optional(v.number()),
     pendingAction: v.optional(v.string()),
     isHandedOver: v.optional(v.boolean()),
     handoverReason: v.optional(v.string()),
@@ -65,18 +63,6 @@ export const saveWhatsAppSession = mutation({
         isSecondBooking: v.optional(v.boolean()),
         previousPatientName: v.optional(v.string()),
         explicitPatientName: v.optional(v.boolean()),
-        startDate: v.optional(v.string()),
-        pickupTime: v.optional(v.string()),
-        returnDate: v.optional(v.string()),
-        returnTime: v.optional(v.string()),
-        customerName: v.optional(v.string()),
-        customerLatitude: v.optional(v.number()),
-        customerLongitude: v.optional(v.number()),
-        distanceKm: v.optional(v.number()),
-        locationName: v.optional(v.string()),
-        locationAddress: v.optional(v.string()),
-        vehicleName: v.optional(v.string()),
-        vehiclePrice: v.optional(v.number()),
       })
     ),
   },
@@ -97,8 +83,6 @@ export const saveWhatsAppSession = mutation({
           patientReference: undefined,
           patientName: undefined,
           isVerified: false,
-          verificationOtp: undefined,
-          otpExpiresAt: undefined,
           pendingAction: undefined,
           isHandedOver: false,
           handoverReason: undefined,
@@ -128,8 +112,6 @@ export const saveWhatsAppSession = mutation({
         patientReference: args.clearPatient ? undefined : (args.patientReference === "" ? undefined : (args.patientReference ?? existing.patientReference)),
         patientName: args.clearPatient ? undefined : (args.patientName === "" ? undefined : (args.patientName ?? existing.patientName)),
         isVerified: args.isVerified ?? existing.isVerified,
-        verificationOtp: args.verificationOtp ?? existing.verificationOtp,
-        otpExpiresAt: args.otpExpiresAt ?? existing.otpExpiresAt,
         pendingAction: args.pendingAction ?? existing.pendingAction,
         isHandedOver: args.isHandedOver ?? existing.isHandedOver,
         handoverReason: args.handoverReason ?? existing.handoverReason,
@@ -154,8 +136,6 @@ export const saveWhatsAppSession = mutation({
       patientReference: args.patientReference,
       patientName: args.patientName,
       isVerified: args.isVerified ?? false,
-      verificationOtp: args.verificationOtp,
-      otpExpiresAt: args.otpExpiresAt,
       pendingAction: args.pendingAction,
       isHandedOver: args.isHandedOver ?? false,
       handoverReason: args.handoverReason,
@@ -191,8 +171,6 @@ export const clearWhatsAppSession = mutation({
         isVerified: false,
         bookingDraft: undefined,
         pendingAction: undefined,
-        verificationOtp: undefined,
-        otpExpiresAt: undefined,
         isHandedOver: false,
         handoverReason: undefined,
         handoverTimestamp: undefined,
@@ -712,5 +690,71 @@ export const seedSampleData = mutation({
     }
 
     return { success: true, count: samples.length };
+  },
+});
+
+/**
+ * Webhook Deduplication Guard (Phase 0: Issue 4)
+ * Returns { isDuplicate: true } if Meta has already sent this messageId,
+ * preventing replay attacks and duplicate responses.
+ */
+export const checkAndRecordMessageId = mutation({
+  args: {
+    messageId: v.string(),
+    phoneNumber: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!args.messageId) {
+      return { isDuplicate: false };
+    }
+
+    const existing = await ctx.db
+      .query("processedMessages")
+      .withIndex("by_messageId", (q) => q.eq("messageId", args.messageId))
+      .first();
+
+    if (existing) {
+      return { isDuplicate: true };
+    }
+
+    await ctx.db.insert("processedMessages", {
+      messageId: args.messageId,
+      phoneNumber: args.phoneNumber,
+      processedAt: Date.now(),
+    });
+
+    return { isDuplicate: false };
+  },
+});
+
+/**
+ * Migration helper to clean up legacy vehicle-rental sessions and old test tokens (Phase 0: Issue 6).
+ */
+export const purgeLegacyVehicleData = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const sessions = await ctx.db.query("whatsappSessions").collect();
+    let cleaned = 0;
+    for (const session of sessions) {
+      const draft = session.bookingDraft as any;
+      const s = session as any;
+      if (
+        (draft && (draft.vehicleName || draft.vehiclePrice || draft.pickupTime || draft.startDate)) ||
+        s.customerId ||
+        s.selectedVehicleId ||
+        s.verificationOtp
+      ) {
+        await ctx.db.patch(session._id, {
+          bookingDraft: undefined,
+          customerId: undefined,
+          selectedVehicleId: undefined,
+          pickupLocationId: undefined,
+          verificationOtp: undefined,
+          otpExpiresAt: undefined,
+        });
+        cleaned++;
+      }
+    }
+    return { cleaned, total: sessions.length };
   },
 });

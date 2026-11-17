@@ -4,6 +4,7 @@
  * Connects directly to Cortex-Admin (Convex dev:jovial-sheep-76) for live PMS data.
  */
 
+import crypto from "crypto";
 import {
   CORTEX_HOSPITAL_CONFIG,
   DoctorInfo,
@@ -44,8 +45,6 @@ export interface AgentContext {
   patientReference?: string;
   patientName?: string;
   isVerified?: boolean;
-  verificationOtp?: string;
-  otpExpiresAt?: number;
   pendingAction?: string;
   isHandedOver?: boolean;
   handoverReason?: string;
@@ -562,8 +561,6 @@ export async function handleConversationTurn(
         handoverReason: undefined,
         handoverTimestamp: undefined,
         isVerified: false,
-        verificationOtp: undefined,
-        otpExpiresAt: undefined,
         pendingAction: undefined,
         resetSession: true,
       },
@@ -814,64 +811,6 @@ export async function handleConversationTurn(
     };
   }
 
-  // 7. Handle OTP Verification state for Sensitive Records
-  if (context.currentStep === "OTP_VERIFICATION") {
-    const cleanOtp = userText.replace(/\D/g, "");
-    if (cleanOtp === context.verificationOtp || cleanOtp === "1234") {
-      const pendingAction = context.pendingAction;
-      const updatedCtx: AgentContext = {
-        ...context,
-        phoneNumber: input.phoneNumber,
-        isVerified: true,
-        verificationOtp: undefined,
-        currentStep: "IDLE",
-        pendingAction: undefined,
-      };
-
-      if (pendingAction === "VIEW_PRESCRIPTION") {
-        const res = await handlePrescriptionQuery(input.phoneNumber, updatedCtx);
-        return {
-          ...res,
-          updatedContext: { ...updatedCtx, ...(res.updatedContext || {}) },
-        };
-      }
-      if (pendingAction === "VIEW_BILL") {
-        const res = await handleBillingQuery(input.phoneNumber, updatedCtx);
-        return {
-          ...res,
-          updatedContext: { ...updatedCtx, ...(res.updatedContext || {}) },
-        };
-      }
-      if (pendingAction === "VIEW_LAB") {
-        const res = await handleLabReportsQuery(input.phoneNumber, updatedCtx);
-        return {
-          ...res,
-          updatedContext: { ...updatedCtx, ...(res.updatedContext || {}) },
-        };
-      }
-
-      return {
-        text: inLanguage(
-          lang,
-          `✅ Identity verified successfully! How can I assist you with your records?\n\n💊 Reply *3* for Prescriptions\n🧾 Reply *4* for Bills & Payments\n🔔 Reply *5* for Follow-ups`,
-          `✅ पहचान सफलतापूर्वक सत्यापित हो गई! आप अपने रिकॉर्ड में क्या देखना चाहते हैं?\n\n💊 प्रिस्क्रिप्शन के लिए *3* भेजें\n🧾 बिल और भुगतान के लिए *4* भेजें\n🔔 फ़ॉलो-अप के लिए *5* भेजें`,
-          `✅ ओळख पडताळणी यशस्वी झाली! आपण आपले कोणते रेकॉर्ड पाहू इच्छिता?\n\n💊 प्रिस्क्रिप्शनसाठी *3* पाठवा\n🧾 बिल व पेमेंटसाठी *4* पाठवा\n🔔 फॉलो-अपसाठी *5* पाठवा`
-        ),
-        nextStep: "IDLE",
-        updatedContext: updatedCtx,
-      };
-    } else {
-      return {
-        text: inLanguage(
-          lang,
-          `❌ Incorrect verification code.\n\nPlease enter the 4-digit code sent to your number (*${context.verificationOtp}*), or type *Menu* to return.`,
-          `❌ गलत सत्यापन कोड।\n\nकृपया अपने नंबर पर भेजा गया 4 अंकों का कोड (*${context.verificationOtp}*) दर्ज करें, या *Menu* लिखें।`,
-          `❌ चुकीचा पडताळणी कोड.\n\nकृपया आपल्या नंबरवर आलेला 4 अंकी कोड (*${context.verificationOtp}*) प्रविष्ट करा, किंवा *Menu* लिहा.`
-        ),
-      };
-    }
-  }
-
   // 8. Multi-step Appointment Booking Interrupt check
   if (
     context.currentStep.startsWith("BOOKING_") ||
@@ -911,7 +850,7 @@ export async function handleConversationTurn(
     return await handlePrescriptionSelectProfile(userText, context);
   }
   if (context.currentStep === "VIEW_PRESCRIPTION_SEARCH_REF") {
-    return await displayPrescriptionForPatient(context.phoneNumber, userText, userText.toUpperCase().startsWith("CRX") ? userText : undefined, context);
+    return await handlePrescriptionSelectProfile(userText, context);
   }
   if (context.currentStep === "VIEW_BILL_SELECT_PROFILE") {
     return await handleBillSelectProfile(userText, context);
@@ -3214,14 +3153,10 @@ async function handlePrescriptionQuery(
       .join("\n");
     const otherOptionNum = Math.min(profiles.length, 4) + 1;
 
-    const buttons = profiles.slice(0, 2).map((p, idx) => ({
+    const buttons = profiles.slice(0, 3).map((p, idx) => ({
       id: `rx_profile_${idx + 1}`,
       title: `${idx + 1}. ${p.name.slice(0, 16)}`,
     }));
-    buttons.push({
-      id: "rx_profile_other",
-      title: inLanguage(lang, `${otherOptionNum}. Enter Ref / Other`, `${otherOptionNum}. अन्य पर्चा`, `${otherOptionNum}. इतर`),
-    });
 
     return {
       text: inLanguage(
@@ -3245,6 +3180,17 @@ async function handlePrescriptionQuery(
   return await displayPrescriptionForPatient(phoneNumber, pName, pRef, context);
 }
 
+/**
+ * Generates an expiring, HMAC-SHA256 signed URL for secure prescription access (Phase 0: Issue 5).
+ */
+export function generateSignedPrescriptionUrl(prescriptionId: string, phone: string): string {
+  const secret = process.env.WHATSAPP_APP_SECRET || process.env.CORTEX_PRESCRIPTION_WEBHOOK_SECRET || "svaasth_rx_sec_2026";
+  const expiresAt = Math.floor(Date.now() / 1000) + 86400 * 7; // 7 days expiry
+  const data = `${prescriptionId}:${phone}:${expiresAt}`;
+  const sig = crypto.createHmac("sha256", secret).update(data).digest("hex").slice(0, 16);
+  return `https://jovial-sheep-76.convex.site/print-prescription?id=${encodeURIComponent(prescriptionId)}&exp=${expiresAt}&sig=${sig}`;
+}
+
 async function handlePrescriptionSelectProfile(
   userText: string,
   context: AgentContext
@@ -3252,27 +3198,6 @@ async function handlePrescriptionSelectProfile(
   const lang = context.language || "en";
   const profiles = await findPatientsByPhone(context.phoneNumber);
   const cleanInput = userText.trim();
-  const lower = cleanInput.toLowerCase();
-  const otherOptionNum = Math.min(profiles.length, 4) + 1;
-
-  if (
-    lower === "rx_profile_other" ||
-    lower === String(otherOptionNum) ||
-    lower.includes("other") ||
-    lower.includes("अन्य") ||
-    lower.includes("इतर") ||
-    lower.includes("ref")
-  ) {
-    return {
-      text: inLanguage(
-        lang,
-        `👉 *Please enter the Patient's Reference Number (e.g. CRX0123) or Patient Full Name:*`,
-        `👉 *कृपया मरीज की संदर्भ संख्या (जैसे CRX0123) या मरीज का पूरा नाम लिखें:*`,
-        `👉 *कृपया रुग्णाचा रेफरन्स नंबर (उदा. CRX0123) किंवा पूर्ण नाव लिहा:*`
-      ),
-      nextStep: "VIEW_PRESCRIPTION_SEARCH_REF",
-    };
-  }
 
   const selected = matchProfileFromInput(cleanInput, profiles);
   if (selected) {
@@ -3284,24 +3209,23 @@ async function handlePrescriptionSelectProfile(
     );
   }
 
-  // Treat as custom name search
-  if (cleanInput.length >= 2) {
-    return await displayPrescriptionForPatient(
-      context.phoneNumber,
-      cleanInput,
-      cleanInput.toUpperCase().startsWith("CRX") ? cleanInput : undefined,
-      context
-    );
-  }
-
+  // Phase 0: Issue 1 Security Guard - Refuse unauthenticated or stranger records
   return {
     text: inLanguage(
       lang,
-      "Please select a valid option from the list or enter patient name:",
-      "कृपया सूची में से सही विकल्प चुनें या मरीज का नाम लिखें:",
-      "कृपया यादीतील योग्य पर्याय निवडा किंवा रुग्णाचे नाव लिहा:"
+      `🔒 *Patient Privacy & Confidentiality Notice:*\n\nUnder DPDP & healthcare privacy regulations, medical prescriptions can only be accessed for family profiles registered under this WhatsApp number (+${context.phoneNumber}).\n\nTo view prescriptions for another patient or hospital file, please visit the hospital reception or contact *07152-255795*.`,
+      `🔒 *मरीज गोपनीयता एवं डेटा सुरक्षा सूचना:*\n\nDPDP व स्वास्थ्य डेटा नियमों के तहत, मेडिकल पर्चे केवल इस मोबाइल नंबर (+${context.phoneNumber}) से जुड़े मरीजों के ही देखे जा सकते हैं।\n\nअन्य मरीज या अस्पताल फाइल के लिए कृपया रिसेप्शन *07152-255795* से संपर्क करें।`,
+      `🔒 *रुग्ण गोपनीयता व सुरक्षा सूचना:*\n\nDPDP आणि आरोग्य डेटा नियमांनुसार, वैद्यकीय प्रिस्क्रिप्शन फक्त या नोंदणीकृत मोबाइल नंबरशी (+${context.phoneNumber}) जोडलेल्या व्यक्तींसाठीच उपलब्ध आहेत.\n\nइतर फाइल किंवा रुग्णाच्या रेकॉर्डसाठी कृपया रिसेप्शन *07152-255795* शी संपर्क साधा.`
     ),
-    nextStep: "VIEW_PRESCRIPTION_SELECT_PROFILE",
+    nextStep: "IDLE",
+    interactive: {
+      kind: "buttons",
+      body: "Choose an option:",
+      buttons: [
+        { id: "menu_8", title: inLanguage(lang, "👩‍💼 Talk to Reception", "👩‍💼 रिसेप्शन से बात करें", "👩‍💼 रिसेप्शनशी बोला") },
+        { id: "menu_start", title: inLanguage(lang, "🏠 Main Menu", "🏠 मुख्य मेनू", "🏠 मुख्य मेनू") },
+      ],
+    },
   };
 }
 
@@ -3338,14 +3262,16 @@ async function displayPrescriptionForPatient(
           .join("\n")
       : inLanguage(lang, "No oral medicines recorded.", "कोई दवा दर्ज नहीं है।", "कोणतीही औषधे नोंदलेली नाहीत.");
 
+  const signedUrl = generateSignedPrescriptionUrl(latest._id, phoneNumber);
+
   return {
     text: inLanguage(
       lang,
-      `👤 *Patient:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *Doctor:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *Prescription Date:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *Diagnosis:* ${latest.diagnosis || "Consultation"}\n\n📋 *Prescribed Medicines:*\n${medsList}\n\n📝 *Doctor's Advice:*\n${latest.advice || "Follow medication schedule."}\n\n🔔 *Next Follow-up:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "As advised"}\n\n🔗 *View / Print Official Document:*\nhttps://jovial-sheep-76.convex.site/print-prescription?id=${latest._id}\n\n🔄 _Reply *Switch* to view prescription for another family member._`,
+      `👤 *Patient:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *Doctor:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *Prescription Date:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *Diagnosis:* ${latest.diagnosis || "Consultation"}\n\n📋 *Prescribed Medicines:*\n${medsList}\n\n📝 *Doctor's Advice:*\n${latest.advice || "Follow medication schedule."}\n\n🔔 *Next Follow-up:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "As advised"}\n\n🔗 *View / Print Official Document:*\n${signedUrl}\n\n🔄 _Reply *Switch* to view prescription for another family member._`,
 
-      `👤 *मरीज:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *डॉक्टर:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *तारीख:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *निदान:* ${latest.diagnosis || "परामर्श"}\n\n📋 *दवाएं:*\n${medsList}\n\n📝 *सलाह:*\n${latest.advice || "दवा की समय सारणी का पालन करें।"}\n\n🔔 *अगली फ़ॉलो-अप:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "डॉक्टर के निर्देशानुसार"}\n\n🔗 *पर्चा डाउनलोड लिंक:*\nhttps://jovial-sheep-76.convex.site/print-prescription?id=${latest._id}\n\n🔄 _अन्य परिजन का पर्चा देखने के लिए *Switch* लिखें।_`,
+      `👤 *मरीज:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *डॉक्टर:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *तारीख:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *निदान:* ${latest.diagnosis || "परामर्श"}\n\n📋 *दवाएं:*\n${medsList}\n\n📝 *सलाह:*\n${latest.advice || "दवा की समय सारणी का पालन करें।"}\n\n🔔 *अगली फ़ॉलो-अप:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "डॉक्टर के निर्देशानुसार"}\n\n🔗 *पर्चा डाउनलोड लिंक:*\n${signedUrl}\n\n🔄 _अन्य परिजन का पर्चा देखने के लिए *Switch* लिखें।_`,
 
-      `👤 *रुग्ण:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *डॉक्टर:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *तारीख:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *निदान:* ${latest.diagnosis || "तपासणी"}\n\n📋 *औषधे:*\n${medsList}\n\n📝 *डॉक्टरांचा सल्ला:*\n${latest.advice || "औषधांचे वेळापत्रक पाळावे."}\n\n🔔 *पुढील भेट:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "डॉक्टरांच्या सल्ल्यानुसार"}\n\n🔗 *प्रिस्क्रिप्शन डाउनलोड लिंक:*\nhttps://jovial-sheep-76.convex.site/print-prescription?id=${latest._id}\n\n🔄 _दुसऱ्या व्यक्तीचे प्रिस्क्रिप्शन पाहण्यासाठी *Switch* लिहा._`
+      `👤 *रुग्ण:* ${latest.patient_name} (${latest.reference_number || "CRX"})\n👨‍⚕️ *डॉक्टर:* ${latest.doctor_name || "Dr. Vipeen Raut"}\n📅 *तारीख:* ${formatDisplayDate(latest.prescription_date)}\n🩺 *निदान:* ${latest.diagnosis || "तपासणी"}\n\n📋 *औषधे:*\n${medsList}\n\n📝 *डॉक्टरांचा सल्ला:*\n${latest.advice || "औषधांचे वेळापत्रक पाळावे."}\n\n🔔 *पुढील भेट:* ${latest.followup_date ? formatDisplayDate(latest.followup_date) : "डॉक्टरांच्या सल्ल्यानुसार"}\n\n🔗 *प्रिस्क्रिप्शन डाउनलोड लिंक:*\n${signedUrl}\n\n🔄 _दुसऱ्या व्यक्तीचे प्रिस्क्रिप्शन पाहण्यासाठी *Switch* लिहा._`
     ),
     nextStep: "IDLE",
   };
