@@ -207,23 +207,11 @@ export const ChatListColumn: React.FC<ChatListColumnProps> = ({
                 className={`p-3 flex items-start gap-2.5 cursor-pointer transition-colors border-l-2 ${
                   isSelected
                     ? 'bg-[#f0f5f2] border-[#176e56]'
-                    : isWaiting
-                    ? 'bg-amber-50/40 border-amber-500 hover:bg-amber-50'
-                    : isReplied
-                    ? 'bg-emerald-50/25 border-emerald-400 hover:bg-emerald-50/40'
                     : 'bg-white border-transparent hover:bg-[#f8faf8]'
                 }`}
               >
                 {/* Avatar */}
-                <div
-                  className={`w-9 h-9 rounded-full border font-medium text-xs flex items-center justify-center shrink-0 ${
-                    isWaiting
-                      ? 'bg-amber-100 border-amber-300 text-amber-900'
-                      : isReplied
-                      ? 'bg-emerald-100 border-emerald-300 text-emerald-900'
-                      : 'bg-[#f0f5f2] border-[#dbe9e0] text-[#176e56]'
-                  }`}
-                >
+                <div className="w-9 h-9 rounded-full border border-[#dbe9e0] bg-[#f0f5f2] text-[#173d37] font-medium text-xs flex items-center justify-center shrink-0">
                   {initials}
                 </div>
 
@@ -233,23 +221,22 @@ export const ChatListColumn: React.FC<ChatListColumnProps> = ({
                     <div className="flex items-center gap-1.5 min-w-0">
                       <h3
                         className={`text-xs truncate ${
-                          isSelected || unread > 0 || isWaiting
+                          isSelected || unread > 0
                             ? 'font-semibold text-[#173d37]'
                             : 'font-medium text-[#173d37]'
                         }`}
                       >
                         {session.patientName || `+${session.phoneNumber}`}
                       </h3>
-                      {isWaiting && (
+                      {filter === 'handover' && isWaiting && (
                         <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 border border-amber-300 font-semibold shrink-0 flex items-center gap-1">
                           <span className="w-1 h-1 rounded-full bg-amber-600 animate-pulse"></span>
                           Waiting
                         </span>
                       )}
-                      {isReplied && (
-                        <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold shrink-0 flex items-center gap-1">
-                          <Check className="w-2.5 h-2.5 text-emerald-600" />
-                          Replied
+                      {filter === 'handover' && isReplied && (
+                        <span title="Replied by staff" className="inline-flex items-center">
+                          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                         </span>
                       )}
                     </div>
