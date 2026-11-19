@@ -222,7 +222,9 @@ export function detectLanguageChoice(
     clean === "language_en" ||
     clean === "english" ||
     clean === "1. english" ||
-    clean.startsWith("1. english")
+    clean.includes("english") ||
+    clean.includes("angrezi") ||
+    clean.includes("इंग्रजी")
   ) {
     return "en";
   }
@@ -230,15 +232,9 @@ export function detectLanguageChoice(
   if (
     clean === "lang_hi" ||
     clean === "language_hi" ||
-    clean === "hindi" ||
-    clean === "हिन्दी" ||
-    clean === "हिंदी" ||
-    clean === "2. हिन्दी" ||
-    clean === "2. हिंदी" ||
-    clean === "2. hindi" ||
-    clean.startsWith("2. हिन्दी") ||
-    clean.startsWith("2. हिंदी") ||
-    clean.startsWith("2. hindi")
+    clean.includes("hindi") ||
+    clean.includes("हिन्दी") ||
+    clean.includes("हिंदी")
   ) {
     return "hi";
   }
@@ -246,21 +242,17 @@ export function detectLanguageChoice(
   if (
     clean === "lang_mr" ||
     clean === "language_mr" ||
-    clean === "marathi" ||
-    clean === "मराठी" ||
-    clean === "3. मराठी" ||
-    clean === "3. marathi" ||
-    clean.startsWith("3. मराठी") ||
-    clean.startsWith("3. marathi")
+    clean.includes("marathi") ||
+    clean.includes("मराठी")
   ) {
     return "mr";
   }
 
   // Pure numbers '1', '2', '3' are ONLY language choices if currently in LANGUAGE_SELECT / WELCOME step
   if (isLanguageStep) {
-    if (clean === "1" || clean === "1.") return "en";
-    if (clean === "2" || clean === "2.") return "hi";
-    if (clean === "3" || clean === "3.") return "mr";
+    if (clean === "1" || clean === "1." || clean.startsWith("1")) return "en";
+    if (clean === "2" || clean === "2." || clean.startsWith("2")) return "hi";
+    if (clean === "3" || clean === "3." || clean.startsWith("3")) return "mr";
   }
 
   return undefined;
@@ -370,15 +362,15 @@ export function parseDateInput(input: string): string | null {
   if (clean === "3" || clean === "date_3") {
     return nextDates[2]?.dateStr || null;
   }
-  if (/\b(today|आज)\b/i.test(clean)) {
+  if (/\btoday\b/i.test(clean) || clean.includes("आज")) {
     return formatDate(new Date());
   }
-  if (/\b(tomorrow|कल|उद्या)\b/i.test(clean)) {
+  if (/\btomorrow\b/i.test(clean) || clean.includes("कल") || clean.includes("उद्या")) {
     const tmrw = new Date();
     tmrw.setDate(tmrw.getDate() + 1);
     return formatDate(tmrw);
   }
-  if (/\b(day after tomorrow|day after|परसों|परवा)\b/i.test(clean)) {
+  if (/\b(day after tomorrow|day after)\b/i.test(clean) || clean.includes("परसों") || clean.includes("परवा")) {
     const dayAfter = new Date();
     dayAfter.setDate(dayAfter.getDate() + 2);
     return formatDate(dayAfter);
@@ -526,11 +518,22 @@ export async function handleConversationTurn(
     userText = "morning";
   } else if (choiceId === "session_evening") {
     userText = "evening";
+  } else if (choiceId === "lang_hi") {
+    userText = "2";
+  } else if (choiceId === "lang_en") {
+    userText = "1";
+  } else if (choiceId === "lang_mr") {
+    userText = "3";
   }
   const lower = userText.toLowerCase();
+
+  // If input starts with a numbered choice like "1. अपॉइंटमेंट बुक करें" or "2. मेरी अपॉइंटमेंट"
+  const leadingNumMatch = lower.match(/^(\d{1,2})\s*[\.\)-]/);
+  const leadingNum = leadingNumMatch ? leadingNumMatch[1] : undefined;
+
   const normalizedText = lower.startsWith("menu_")
     ? lower.replace("menu_", "")
-    : lower;
+    : leadingNum || lower;
 
   // DEMO RESET: Keyword to treat as a brand-new first-time user
   if (
@@ -834,13 +837,18 @@ export async function handleConversationTurn(
   if (
     (isGlobalMenuStep && (normalizedText === "8" || normalizedText === "9")) ||
     choiceId === "menu_8" ||
+    choiceId === "menu_reception" ||
     lower.includes("reception") ||
+    lower.includes("रिसेप्शन") ||
     lower.includes("human") ||
     lower.includes("operator") ||
     lower.includes("staff") ||
     lower.includes("baat karni hai") ||
+    lower.includes("बात करनी है") ||
     lower.includes("bolna hai") ||
+    lower.includes("बोलना है") ||
     lower.includes("bolayche aahe") ||
+    lower.includes("बोलायचे आहे") ||
     lower.includes("connect to reception")
   ) {
     try {
@@ -1077,8 +1085,12 @@ export async function handleConversationTurn(
   // 1: Book Appointment
   if (
     normalizedText === "1" ||
+    choiceId === "menu_1" ||
     lower.includes("book") ||
     lower.includes("appointment") ||
+    lower.includes("अपॉइंटमेंट") ||
+    lower.includes("बुक") ||
+    lower.includes("नोंदणी") ||
     lower.includes("apointment") ||
     lower.includes("consult") ||
     lower.includes("dikhana") ||
@@ -1126,14 +1138,17 @@ export async function handleConversationTurn(
     return await handleRescheduleRequest(input.phoneNumber, userText, context);
   }
 
-  // P0-4: QR Check-In & Token
+  // P0-4: QR Check-In & Token (Menu Option 3)
   if (
     choiceId === "btn_checkin" ||
     choiceId === "menu_checkin" ||
     choiceId === "checkin" ||
     choiceId === "check_in" ||
+    normalizedText === "3" ||
     lower.includes("check in") ||
     lower.includes("checkin") ||
+    lower.includes("चेक-इन") ||
+    lower.includes("चेक इन") ||
     lower.includes("arrived") ||
     lower.includes("pohochlo") ||
     lower.includes("pohachlo") ||
@@ -1145,13 +1160,16 @@ export async function handleConversationTurn(
     return await handleQrCheckIn(input.phoneNumber, context);
   }
 
-  // P0-4: Live OPD Queue & Waiting Token
+  // P0-4: Live OPD Queue & Waiting Token (Menu Option 4)
   if (
     choiceId === "btn_queue" ||
     choiceId === "menu_queue" ||
     choiceId === "queue" ||
+    normalizedText === "4" ||
     lower.includes("live queue") ||
     lower.includes("opd queue") ||
+    lower.includes("कतार") ||
+    lower.includes("रांग") ||
     lower.includes("token number") ||
     lower.includes("my token") ||
     lower.includes("waiting time") ||
@@ -1175,7 +1193,10 @@ export async function handleConversationTurn(
   // 2: My Appointments
   if (
     normalizedText === "2" ||
+    choiceId === "menu_2" ||
     lower.includes("my appointment") ||
+    lower.includes("मेरी अपॉइंटमेंट") ||
+    lower.includes("माझी अपॉइंटमेंट") ||
     lower.includes("check appointment") ||
     lower.includes("upcoming appointment") ||
     lower.includes("booked appointment") ||
@@ -1184,26 +1205,36 @@ export async function handleConversationTurn(
     return await handleMyAppointments(input.phoneNumber, userText, context);
   }
 
-  // 3: My Prescriptions (No OTP required)
+  // 5: My Prescriptions (Menu Option 5 or legacy key menu_3)
   if (
-    normalizedText === "3" ||
+    normalizedText === "5" ||
+    choiceId === "menu_3" ||
     lower.includes("prescription") ||
     lower.includes("prescribtion") ||
+    lower.includes("प्रिस्क्रिप्शन") ||
     lower.includes("parcha") ||
     lower.includes("parchi") ||
+    lower.includes("पर्चा") ||
+    lower.includes("पर्ची") ||
     lower.includes("dawai") ||
     lower.includes("dawa") ||
+    lower.includes("दवा") ||
+    lower.includes("दवाई") ||
     lower.includes("medicine list") ||
-    lower.includes("aushadh")
+    lower.includes("aushadh") ||
+    lower.includes("औषध")
   ) {
     return await handlePrescriptionQuery(input.phoneNumber, context);
   }
 
-  // 4: Bills & Payments (No OTP required)
+  // 6: Bills & Payments (Menu Option 6 or legacy key menu_4)
   if (
-    normalizedText === "4" ||
+    normalizedText === "6" ||
+    choiceId === "menu_4" ||
     lower.includes("bill") ||
+    lower.includes("बिल") ||
     lower.includes("payment") ||
+    lower.includes("भुगतान") ||
     lower.includes("invoice") ||
     lower.includes("owe") ||
     lower.includes("balance") ||
@@ -1211,17 +1242,21 @@ export async function handleConversationTurn(
     lower.includes("charge") ||
     lower.includes("receipt") ||
     lower.includes("kharcha") ||
-    lower.includes("paisa")
+    lower.includes("paisa") ||
+    lower.includes("पैसे")
   ) {
     return await handleBillingQuery(input.phoneNumber, context);
   }
 
-  // 5: Next Follow-up
+  // 7: Next Follow-up (Menu Option 7 or legacy key menu_5)
   if (
-    normalizedText === "5" ||
+    normalizedText === "7" ||
+    choiceId === "menu_5" ||
     lower.includes("follow up") ||
     lower.includes("followup") ||
     lower.includes("follow-up") ||
+    lower.includes("फ़ॉलो-अप") ||
+    lower.includes("फॉलो-अप") ||
     lower.includes("next visit") ||
     lower.includes("kab aana hai") ||
     lower.includes("pudhchi tarikh") ||
@@ -1230,13 +1265,17 @@ export async function handleConversationTurn(
     return await handleFollowupQuery(input.phoneNumber, context);
   }
 
-  // 6: Doctor Availability & Schedules
+  // 8: Doctor Availability & Schedules (Menu Option 8 or legacy key menu_6)
   if (
-    normalizedText === "6" ||
+    (normalizedText === "8" && choiceId.startsWith("menu")) ||
+    choiceId === "menu_6" ||
     lower.includes("doctor") ||
+    lower.includes("डॉक्टर") ||
     lower.includes("availability") ||
     lower.includes("schedule") ||
     lower.includes("timing") ||
+    lower.includes("समय") ||
+    lower.includes("वेळ") ||
     lower.includes("kab baithenge") ||
     lower.includes("dr vipeen") ||
     lower.includes("dr shillpa") ||
@@ -1379,9 +1418,22 @@ async function initiateAppointmentBooking(
   // Doctor and Date are both known: ask for Session (Morning or Evening) or show session slots if specified
   const clean = userText.toLowerCase();
   let session: "morning" | "evening" | null = null;
-  if (clean.includes("morn") || clean.includes("subah") || clean.includes("sakal")) {
+  if (
+    clean.includes("morn") ||
+    clean.includes("subah") ||
+    clean.includes("sakal") ||
+    clean.includes("सुबह") ||
+    clean.includes("सकाळ")
+  ) {
     session = "morning";
-  } else if (clean.includes("even") || clean.includes("sham") || clean.includes("shaam") || clean.includes("sandhya")) {
+  } else if (
+    clean.includes("even") ||
+    clean.includes("sham") ||
+    clean.includes("shaam") ||
+    clean.includes("sandhya") ||
+    clean.includes("शाम") ||
+    clean.includes("संध्या")
+  ) {
     session = "evening";
   }
 
@@ -1784,7 +1836,9 @@ async function handleBookingSelectSession(
     clean === "session_morning" ||
     clean.includes("morn") ||
     clean.includes("subah") ||
-    clean.includes("sakal")
+    clean.includes("sakal") ||
+    clean.includes("सुबह") ||
+    clean.includes("सकाळ")
   ) {
     session = "morning";
   } else if (
@@ -1793,7 +1847,9 @@ async function handleBookingSelectSession(
     clean.includes("even") ||
     clean.includes("sham") ||
     clean.includes("shaam") ||
-    clean.includes("sandhya")
+    clean.includes("sandhya") ||
+    clean.includes("शाम") ||
+    clean.includes("संध्या")
   ) {
     session = "evening";
   }
@@ -1921,18 +1977,31 @@ async function handleBookingSelectSlot(
   const currentSession: "morning" | "evening" = draft.currentSession || "morning";
 
   // Check if user wants to switch session (e.g. "evening" or "morning")
-  if (cleanInput.includes("even") || cleanInput.includes("sham") || cleanInput.includes("shaam") || cleanInput.includes("sandhya")) {
+  if (
+    cleanInput.includes("even") ||
+    cleanInput.includes("sham") ||
+    cleanInput.includes("shaam") ||
+    cleanInput.includes("sandhya") ||
+    cleanInput.includes("शाम") ||
+    cleanInput.includes("संध्या")
+  ) {
     return await showAvailableSlotsForSession(dateStr, docName, "evening", draft, context);
   }
-  if (cleanInput.includes("morn") || cleanInput.includes("subah") || cleanInput.includes("sakal")) {
+  if (
+    cleanInput.includes("morn") ||
+    cleanInput.includes("subah") ||
+    cleanInput.includes("sakal") ||
+    cleanInput.includes("सुबह") ||
+    cleanInput.includes("सकाळ")
+  ) {
     return await showAvailableSlotsForSession(dateStr, docName, "morning", draft, context);
   }
 
   const slotData = await getAvailableSlots(dateStr, docName);
   const slotsList: DetailedSlot[] = currentSession === "morning" ? slotData.morningSlots : slotData.eveningSlots;
 
-  // Check if selected via "slot_X" or numeric index e.g. "1", "2"
-  const slotMatch = cleanInput.match(/^slot_(\d+)$/i);
+  // Check if selected via "slot_X" or numeric index e.g. "1", "2" or "1. 10:30 AM – 10:45 AM"
+  const slotMatch = cleanInput.match(/^slot_(\d+)$/i) || cleanInput.match(/^(\d{1,2})\s*[\.\)-]/);
   const numIndex = slotMatch ? parseInt(slotMatch[1], 10) : parseInt(cleanInput, 10);
 
   let matchedDetailed: DetailedSlot | undefined;

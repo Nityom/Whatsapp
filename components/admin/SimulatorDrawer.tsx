@@ -33,8 +33,16 @@ export const SimulatorDrawer: React.FC<SimulatorDrawerProps> = ({ onRefreshSessi
     {
       id: 'init-1',
       sender: 'bot',
-      text: '👋 *Welcome to Svaasth Connect*\n\nPlease select your preferred language:\n\n1️⃣ English\n2️⃣ हिन्दी\n3️⃣ मराठी\n\nReply with 1, 2, or 3 (or tap a button below).',
+      text: '👋 *Welcome to Svaasth Connect*\n\nPlease select your preferred language / भाषा चुनें:',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      interactive: {
+        kind: 'buttons',
+        buttons: [
+          { id: 'lang_en', title: '1. English' },
+          { id: 'lang_hi', title: '2. हिन्दी' },
+          { id: 'lang_mr', title: '3. मराठी' },
+        ],
+      },
     },
   ]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -43,14 +51,14 @@ export const SimulatorDrawer: React.FC<SimulatorDrawerProps> = ({ onRefreshSessi
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const sendToSimulator = async (textToSend: string, type = 'text') => {
-    if (!textToSend.trim() && type === 'text') return;
+  const sendToSimulator = async (payloadOrText: string, type = 'text', displayLabel?: string) => {
+    if (!payloadOrText.trim() && type === 'text') return;
     const cleanPhone = phoneNumber.replace(/\D/g, '');
 
     const userMsg: SimMessage = {
       id: `u-${Date.now()}`,
       sender: 'user',
-      text: textToSend,
+      text: displayLabel || payloadOrText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
@@ -65,7 +73,7 @@ export const SimulatorDrawer: React.FC<SimulatorDrawerProps> = ({ onRefreshSessi
         body: JSON.stringify({
           action: 'message',
           phoneNumber: cleanPhone,
-          text: textToSend,
+          text: payloadOrText,
           type,
         }),
       });
@@ -104,8 +112,16 @@ export const SimulatorDrawer: React.FC<SimulatorDrawerProps> = ({ onRefreshSessi
         {
           id: `reset-${Date.now()}`,
           sender: 'bot',
-          text: '👋 *Welcome to Svaasth Connect*\n\nPlease select your preferred language:\n\n1️⃣ English\n2️⃣ हिन्दी\n3️⃣ मराठी\n\nReply with 1, 2, or 3.',
+          text: '👋 *Welcome to Svaasth Connect*\n\nPlease select your preferred language / भाषा चुनें:',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          interactive: {
+            kind: 'buttons',
+            buttons: [
+              { id: 'lang_en', title: '1. English' },
+              { id: 'lang_hi', title: '2. हिन्दी' },
+              { id: 'lang_mr', title: '3. मराठी' },
+            ],
+          },
         },
       ]);
       onRefreshSessions?.();
@@ -219,39 +235,53 @@ export const SimulatorDrawer: React.FC<SimulatorDrawerProps> = ({ onRefreshSessi
 
         {/* Quick Test Chips */}
         <div className="bg-[#f8faf8] px-3 py-1.5 border-b border-[#e2ece6] flex items-center gap-1.5 overflow-x-auto text-[11px]">
-          <span className="text-[#55776d] shrink-0">Quick reply:</span>
+          <span className="text-[#55776d] shrink-0 font-medium">Quick:</span>
           <button
             type="button"
-            onClick={() => sendToSimulator('1')}
-            className="px-2 py-0.5 rounded bg-white text-[#176e56] border border-[#dbe9e0] hover:bg-[#f0f5f2]"
+            onClick={() => sendToSimulator('lang_hi', 'interactive', '2. हिन्दी')}
+            className="px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 font-semibold shrink-0 cursor-pointer shadow-2xs"
           >
-            1 (English)
+            2. हिन्दी
           </button>
           <button
             type="button"
-            onClick={() => sendToSimulator('Hi')}
-            className="px-2 py-0.5 rounded bg-white text-[#176e56] border border-[#dbe9e0] hover:bg-[#f0f5f2]"
+            onClick={() => sendToSimulator('lang_mr', 'interactive', '3. मराठी')}
+            className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-900 border border-emerald-300 hover:bg-emerald-100 font-semibold shrink-0 cursor-pointer shadow-2xs"
           >
-            Hi
+            3. मराठी
           </button>
           <button
             type="button"
-            onClick={() => sendToSimulator('1')}
-            className="px-2 py-0.5 rounded bg-white text-[#176e56] border border-[#dbe9e0] hover:bg-[#f0f5f2]"
+            onClick={() => sendToSimulator('lang_en', 'interactive', '1. English')}
+            className="px-2 py-0.5 rounded bg-white text-[#176e56] border border-[#dbe9e0] hover:bg-[#f0f5f2] shrink-0 cursor-pointer"
+          >
+            1. English
+          </button>
+          <button
+            type="button"
+            onClick={() => sendToSimulator('menu')}
+            className="px-2 py-0.5 rounded bg-white text-[#176e56] border border-[#dbe9e0] hover:bg-[#f0f5f2] shrink-0 cursor-pointer"
+          >
+            Menu
+          </button>
+          <button
+            type="button"
+            onClick={() => sendToSimulator('menu_1', 'interactive', '1. अपॉइंटमेंट')}
+            className="px-2 py-0.5 rounded bg-white text-[#176e56] border border-[#dbe9e0] hover:bg-[#f0f5f2] shrink-0 cursor-pointer"
           >
             1. Book
           </button>
           <button
             type="button"
-            onClick={() => sendToSimulator('3')}
-            className="px-2 py-0.5 rounded bg-white text-[#176e56] border border-[#dbe9e0] hover:bg-[#f0f5f2]"
+            onClick={() => sendToSimulator('menu_3', 'interactive', '5. पर्चा')}
+            className="px-2 py-0.5 rounded bg-white text-[#176e56] border border-[#dbe9e0] hover:bg-[#f0f5f2] shrink-0 cursor-pointer"
           >
-            3. Prescription
+            5. Prescription
           </button>
           <button
             type="button"
             onClick={handleSendLocation}
-            className="px-2 py-0.5 rounded bg-white text-[#176e56] border border-[#dbe9e0] hover:bg-[#f0f5f2] flex items-center gap-1"
+            className="px-2 py-0.5 rounded bg-white text-[#176e56] border border-[#dbe9e0] hover:bg-[#f0f5f2] flex items-center gap-1 shrink-0 cursor-pointer"
           >
             <MapPin className="w-3 h-3" />
             <span>Location</span>
@@ -267,8 +297,8 @@ export const SimulatorDrawer: React.FC<SimulatorDrawerProps> = ({ onRefreshSessi
                 <div
                   className={`max-w-[85%] p-3 rounded-xl text-xs leading-relaxed ${
                     isUser
-                      ? 'bg-[#dcf8c6] text-[#111b21] rounded-tr-xs'
-                      : 'bg-white text-[#111b21] border border-[#e2ece6] rounded-tl-xs'
+                      ? 'bg-[#dcf8c6] text-[#111b21] rounded-tr-xs shadow-2xs'
+                      : 'bg-white text-[#111b21] border border-[#e2ece6] rounded-tl-xs shadow-2xs'
                   }`}
                 >
                   <p className="whitespace-pre-wrap">{m.text}</p>
@@ -280,16 +310,56 @@ export const SimulatorDrawer: React.FC<SimulatorDrawerProps> = ({ onRefreshSessi
 
                 {/* Interactive buttons */}
                 {m.interactive?.kind === 'buttons' && (
-                  <div className="space-y-1 mt-1 max-w-[85%] w-full">
+                  <div className="space-y-1 mt-1.5 max-w-[85%] w-full">
                     {m.interactive.buttons?.map((b: any) => (
                       <button
                         key={b.id}
                         type="button"
-                        onClick={() => sendToSimulator(b.title)}
-                        className="w-full py-1.5 px-3 rounded-lg bg-white border border-[#176e56] text-[#176e56] text-xs font-medium hover:bg-[#f0f5f2] transition-colors text-center"
+                        onClick={() => sendToSimulator(b.id || b.title, 'interactive', b.title)}
+                        className="w-full py-1.5 px-3 rounded-lg bg-white border border-[#176e56] text-[#176e56] text-xs font-semibold hover:bg-[#f0f5f2] transition-colors text-center cursor-pointer shadow-2xs"
                       >
                         {b.title}
                       </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Interactive List Menu */}
+                {m.interactive?.kind === 'list' && (
+                  <div className="mt-2 space-y-1.5 max-w-[90%] w-full animate-in fade-in">
+                    {m.interactive.buttonText && (
+                      <div className="text-[11px] font-semibold text-[#176e56] bg-[#eaf5ef] px-2.5 py-1 rounded-md border border-[#cde3d6] flex items-center gap-1.5">
+                        <span>📋</span>
+                        <span>{m.interactive.buttonText}</span>
+                      </div>
+                    )}
+                    {m.interactive.sections?.map((section: any, sIdx: number) => (
+                      <div key={sIdx} className="space-y-1">
+                        {section.title && (
+                          <div className="text-[10px] font-medium text-[#55776d] px-1 uppercase tracking-wider">
+                            {section.title}
+                          </div>
+                        )}
+                        <div className="grid grid-cols-1 gap-1">
+                          {section.rows?.map((row: any) => (
+                            <button
+                              key={row.id}
+                              type="button"
+                              onClick={() => sendToSimulator(row.id || row.title, 'interactive', row.title)}
+                              className="w-full text-left p-2 rounded-lg bg-white border border-[#dbe9e0] hover:border-[#176e56] hover:bg-[#f0f5f2] transition-colors group cursor-pointer shadow-2xs"
+                            >
+                              <div className="text-xs font-semibold text-[#173d37] group-hover:text-[#176e56]">
+                                {row.title}
+                              </div>
+                              {row.description && (
+                                <div className="text-[11px] text-[#55776d] mt-0.5 leading-snug">
+                                  {row.description}
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}
