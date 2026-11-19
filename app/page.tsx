@@ -26,24 +26,58 @@ import {
   OpdWaitingPatient,
 } from '@/components/admin/types';
 
+let sharedAudioCtx: AudioContext | null = null;
+
+function getAudioContext(): AudioContext | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return null;
+    if (!sharedAudioCtx) {
+      sharedAudioCtx = new AudioContextClass();
+    }
+    if (sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+    return sharedAudioCtx;
+  } catch {
+    return null;
+  }
+}
+
 function playHandoverChime() {
   try {
-    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.4);
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+
+    // Pleasant hospital ding-dong bell chime (G5: 784Hz -> C6: 1046.5Hz)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(783.99, now);
+    gain1.gain.setValueAtTime(0.25, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.3);
+
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(1046.5, now + 0.15);
+    gain2.gain.setValueAtTime(0.28, now + 0.15);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.15);
+    osc2.stop(now + 0.55);
   } catch {
-    // Audio can be blocked before first interaction
+    // Audio fallback
   }
 }
 
@@ -81,6 +115,20 @@ export default function AdminDashboardPage() {
 
   // Audio & desktop notification on new handover
   useEffect(() => {
+    // Unlock browser audio context on first user interaction
+    const unlockAudio = () => {
+      getAudioContext();
+    };
+    window.addEventListener('click', unlockAudio, { once: true });
+    window.addEventListener('keydown', unlockAudio, { once: true });
+
+    return () => {
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
+  }, []);
+
+  useEffect(() => {
     if (handoverSessions.length > prevHandoverCountRef.current) {
       playHandoverChime();
       if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -89,6 +137,7 @@ export default function AdminDashboardPage() {
           new Notification('☎️ Reception Handover Alert', {
             body: `${patient?.patientName || '+' + patient?.phoneNumber} is waiting to speak with reception staff.`,
             icon: '/svaasth-logo.png',
+            silent: false,
           });
         } else if (Notification.permission === 'default') {
           Notification.requestPermission();
@@ -474,39 +523,6 @@ export default function AdminDashboardPage() {
           handoverCount={handoverSessions.length}
           onOpenHandover={() => handleOpenHandoverChat()}
         />
-
-        {/* Urgent Reception Handover Alert Bar */}
-        {handoverSessions.length > 0 && (
-          <div className="mt-4 p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 flex flex-wrap items-center justify-between gap-3 shadow-xs animate-in slide-in-from-top-2">
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="relative flex h-3 w-3 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
-              </span>
-              <div className="min-w-0">
-                <p className="text-xs sm:text-sm font-semibold flex items-center gap-2">
-                  <span>☎️ Reception Handover Alert</span>
-                  <span className="text-[10px] bg-amber-200 text-amber-950 px-2 py-0.5 rounded-full font-bold">
-                    {handoverSessions.length} {handoverSessions.length === 1 ? 'Patient Waiting' : 'Patients Waiting'}
-                  </span>
-                </p>
-                <p className="text-xs text-amber-800 mt-0.5 truncate">
-                  {handoverSessions.length === 1
-                    ? `${handoverSessions[0].patientName || '+' + handoverSessions[0].phoneNumber} is waiting to talk with front desk staff.`
-                    : `${handoverSessions.map((s) => s.patientName || '+' + s.phoneNumber).slice(0, 3).join(', ')}${handoverSessions.length > 3 ? ' and more' : ''} are waiting to talk with staff.`}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleOpenHandoverChat()}
-              className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer shrink-0"
-            >
-              <span>Talk with Patient</span>
-              <span>→</span>
-            </button>
-          </div>
-        )}
 
         {/* 4 Stat Cards (Displayed on Executive Dashboard Overview) */}
         {activeTab === 'dashboard' && <StatCards stats={stats} dateRange={dateRange} />}
