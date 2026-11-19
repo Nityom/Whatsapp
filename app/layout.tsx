@@ -6,9 +6,13 @@ export const metadata: Metadata = {
   description:
     'Official Svaasth Connect for Svaasth HMS Hospital Management System. 24/7 Appointments, Prescriptions, Live Two-Way Chat, Bulk Broadcasts, and Patient Care.',
   icons: {
-    icon: '/logo.png',
-    shortcut: '/logo.png',
-    apple: '/logo.png',
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon.png', type: 'image/png', sizes: '512x512' },
+      { url: '/logo.png', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
   },
 };
 

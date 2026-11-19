@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Search, SlidersHorizontal, ChevronDown, CheckCheck, Bot } from 'lucide-react';
+import { Search, ChevronDown, CheckCheck, Bot } from 'lucide-react';
 import { WhatsAppSession, ChatFilter } from './types';
 
 interface ChatListColumnProps {
@@ -74,98 +74,88 @@ export const ChatListColumn: React.FC<ChatListColumnProps> = ({
   return (
     <div className="w-full h-full bg-white border border-[#e2ece6] rounded-xl flex flex-col overflow-hidden">
       {/* Top Filter Tabs */}
-      <div className="p-3 border-b border-[#e2ece6] space-y-2.5">
-        <div className="flex items-center justify-between gap-1.5">
-          <div className="flex items-center gap-1 overflow-x-auto text-xs">
-            <button
-              type="button"
-              onClick={() => onChangeFilter('all')}
-              className={`h-7 px-2.5 rounded-md text-xs font-medium transition-colors ${
-                filter === 'all'
-                  ? 'bg-[#176e56] text-white'
-                  : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
-              }`}
-            >
-              All
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onChangeFilter('unread')}
-              className={`h-7 px-2.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                filter === 'unread'
-                  ? 'bg-[#176e56] text-white'
-                  : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
-              }`}
-            >
-              <span>Unread</span>
-              {unreadTotal > 0 && (
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full tabular-nums ${
-                    filter === 'unread'
-                      ? 'bg-white text-[#176e56] font-medium'
-                      : 'bg-[#176e56] text-white'
-                  }`}
-                >
-                  {unreadTotal}
-                </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onChangeFilter('handover')}
-              className={`h-7 px-2.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                filter === 'handover'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
-              }`}
-            >
-              <span>Handover</span>
-              {handoverTotal > 0 && (
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full tabular-nums font-bold ${
-                    filter === 'handover'
-                      ? 'bg-white text-amber-700'
-                      : 'bg-amber-500 text-white animate-pulse'
-                  }`}
-                >
-                  {handoverTotal}
-                </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onChangeFilter('assigned')}
-              className={`h-7 px-2.5 rounded-md text-xs font-medium transition-colors ${
-                filter === 'assigned'
-                  ? 'bg-[#176e56] text-white'
-                  : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
-              }`}
-            >
-              Assigned
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onChangeFilter('bot')}
-              className={`h-7 px-2.5 rounded-md text-xs font-medium transition-colors ${
-                filter === 'bot'
-                  ? 'bg-[#176e56] text-white'
-                  : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
-              }`}
-            >
-              Bot
-            </button>
-          </div>
+      <div className="p-2.5 sm:p-3 border-b border-[#e2ece6] space-y-2.5">
+        <div className="flex items-center gap-1 w-full overflow-hidden text-xs">
+          <button
+            type="button"
+            onClick={() => onChangeFilter('all')}
+            className={`h-7 px-2 rounded-md text-[11px] sm:text-xs font-medium transition-colors flex items-center justify-center shrink-0 ${
+              filter === 'all'
+                ? 'bg-[#176e56] text-white'
+                : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
+            }`}
+          >
+            All
+          </button>
 
           <button
             type="button"
-            title="Filter options"
-            className="p-1 rounded-md text-[#55776d] hover:text-[#173d37] hover:bg-[#f0f5f2] transition-colors shrink-0"
+            onClick={() => onChangeFilter('unread')}
+            className={`h-7 px-2 rounded-md text-[11px] sm:text-xs font-medium transition-colors flex items-center justify-center gap-1 shrink-0 ${
+              filter === 'unread'
+                ? 'bg-[#176e56] text-white'
+                : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
+            }`}
           >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>Unread</span>
+            {unreadTotal > 0 && (
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full tabular-nums font-semibold ${
+                  filter === 'unread'
+                    ? 'bg-white text-[#176e56]'
+                    : 'bg-[#176e56] text-white'
+                }`}
+              >
+                {unreadTotal}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onChangeFilter('handover')}
+            className={`h-7 px-2 rounded-md text-[11px] sm:text-xs font-medium transition-colors flex items-center justify-center gap-1 shrink-0 ${
+              filter === 'handover'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
+            }`}
+          >
+            <span>Handover</span>
+            {handoverTotal > 0 && (
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full tabular-nums font-bold ${
+                  filter === 'handover'
+                    ? 'bg-white text-amber-700'
+                    : 'bg-amber-500 text-white animate-pulse'
+                }`}
+              >
+                {handoverTotal}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onChangeFilter('assigned')}
+            className={`h-7 px-2 rounded-md text-[11px] sm:text-xs font-medium transition-colors flex items-center justify-center shrink-0 ${
+              filter === 'assigned'
+                ? 'bg-[#176e56] text-white'
+                : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
+            }`}
+          >
+            Assigned
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onChangeFilter('bot')}
+            className={`h-7 px-2 rounded-md text-[11px] sm:text-xs font-medium transition-colors flex items-center justify-center shrink-0 ${
+              filter === 'bot'
+                ? 'bg-[#176e56] text-white'
+                : 'bg-[#f0f5f2] text-[#55776d] hover:text-[#173d37]'
+            }`}
+          >
+            Bot
           </button>
         </div>
 
