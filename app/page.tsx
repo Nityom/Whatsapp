@@ -107,9 +107,14 @@ export default function AdminDashboardPage() {
     'appointment' | 'prescription' | 'bill' | 'reminder' | null
   >(null);
 
-  // Handover sessions
+  // Handover sessions (actively waiting for staff reply)
   const handoverSessions = React.useMemo(
-    () => sessions.filter((s) => s.isHandedOver || s.currentStep === 'HANDED_OVER'),
+    () =>
+      sessions.filter(
+        (s) =>
+          (s.isHandedOver || s.currentStep === 'HANDED_OVER') &&
+          s.handoverReason !== 'Staff reply sent from Svaasth Connect Dashboard'
+      ),
     [sessions]
   );
 
@@ -147,14 +152,35 @@ export default function AdminDashboardPage() {
     prevHandoverCountRef.current = handoverSessions.length;
   }, [handoverSessions]);
 
+  // Select session, open thread, and mark as read immediately
+  const handleSelectSession = useCallback((phone: string) => {
+    setSelectedPhone(phone);
+    setMobileChatView('thread');
+
+    // 1. Optimistically clear unread on the opened session
+    setSessions((prev) =>
+      prev.map((s) => (s.phoneNumber === phone ? { ...s, unreadCount: 0 } : s))
+    );
+
+    // 2. Persist unreadCount: 0 to backend
+    fetch('/api/admin/dashboard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'update_meta',
+        phoneNumber: phone,
+        unreadCount: 0,
+      }),
+    }).catch((err) => console.error('[Mark Read Error]', err));
+  }, []);
+
   const handleOpenHandoverChat = (phone?: string) => {
     const targetPhone = phone || handoverSessions[0]?.phoneNumber || selectedPhone;
     if (targetPhone) {
-      setSelectedPhone(targetPhone);
+      handleSelectSession(targetPhone);
     }
     setChatFilter('handover');
     setActiveTab('chats');
-    setMobileChatView('thread');
   };
 
   // Fetch all sessions & dashboard stats
@@ -273,7 +299,7 @@ export default function AdminDashboardPage() {
 
     const messageText = text || (attachment ? `📎 ${attachment.filename}` : '');
 
-    // Optimistic UI update
+    // Optimistic UI update for messages
     const optimisticMsg: ChatMessage = {
       phoneNumber: selectedPhone,
       sender: 'staff',
@@ -282,6 +308,23 @@ export default function AdminDashboardPage() {
       createdAt: Date.now(),
     };
     setMessages((prev) => [...prev, optimisticMsg]);
+
+    // Optimistically update session in list (clears unread and marks as staff replied)
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.phoneNumber === selectedPhone
+          ? {
+              ...s,
+              unreadCount: 0,
+              lastMessage: messageText,
+              lastMessageTimestamp: Date.now(),
+              isHandedOver: true,
+              currentStep: 'HANDED_OVER',
+              handoverReason: 'Staff reply sent from Svaasth Connect Dashboard',
+            }
+          : s
+      )
+    );
 
     try {
       await fetch('/api/admin/dashboard', {
@@ -308,6 +351,20 @@ export default function AdminDashboardPage() {
     if (!selectedPhone) return;
     setIsSendingMessage(true);
 
+    // Optimistically clear unread and update last message
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.phoneNumber === selectedPhone
+          ? {
+              ...s,
+              unreadCount: 0,
+              lastMessage: `Template: ${templateName}`,
+              lastMessageTimestamp: Date.now(),
+            }
+          : s
+      )
+    );
+
     try {
       await fetch('/api/admin/dashboard', {
         method: 'POST',
@@ -332,6 +389,22 @@ export default function AdminDashboardPage() {
   const handleToggleBotHandover = async () => {
     if (!activeSession) return;
     const nextHandoverState = !(activeSession.isHandedOver ?? false);
+
+    // Optimistically toggle handover in session list
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.phoneNumber === activeSession.phoneNumber
+          ? {
+              ...s,
+              isHandedOver: nextHandoverState,
+              currentStep: nextHandoverState ? 'HANDED_OVER' : 'IDLE',
+              handoverReason: nextHandoverState
+                ? 'Staff reply sent from Svaasth Connect Dashboard'
+                : undefined,
+            }
+          : s
+      )
+    );
 
     try {
       await fetch('/api/admin/dashboard', {
@@ -534,8 +607,7 @@ export default function AdminDashboardPage() {
             stats={stats}
             dateRange={dateRange}
             onOpenChat={(phone) => {
-              setSelectedPhone(phone);
-              setMobileChatView('thread');
+              handleSelectSession(phone);
               setActiveTab('chats');
             }}
             onOpenBulkModal={() => setIsBulkModalOpen(true)}
@@ -556,10 +628,7 @@ export default function AdminDashboardPage() {
               <ChatListColumn
                 sessions={sessions}
                 selectedPhone={selectedPhone}
-                onSelectSession={(phone) => {
-                  setSelectedPhone(phone);
-                  setMobileChatView('thread');
-                }}
+                onSelectSession={handleSelectSession}
                 filter={chatFilter}
                 onChangeFilter={setChatFilter}
                 searchQuery={searchQuery}

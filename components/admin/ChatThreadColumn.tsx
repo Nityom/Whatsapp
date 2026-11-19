@@ -22,6 +22,7 @@ import {
   ExternalLink,
   Image as ImageIcon,
   Check,
+  CheckCircle2,
   ArrowLeft,
 } from 'lucide-react';
 import { WhatsAppSession, ChatMessage, QuickTemplate } from './types';
@@ -342,23 +343,45 @@ export const ChatThreadColumn: React.FC<ChatThreadColumnProps> = ({
         </div>
       </div>
 
-      {/* Reception Handover Alert Banner */}
+      {/* Reception Handover Alert / Status Banner */}
       {isHandedOver && (
-        <div className="px-3.5 sm:px-4 py-2.5 bg-amber-50 border-b border-amber-200 text-amber-900 flex items-center justify-between gap-3 text-xs shrink-0 animate-in fade-in">
+        <div
+          className={`px-3.5 sm:px-4 py-2 border-b flex items-center justify-between gap-3 text-xs shrink-0 transition-colors animate-in fade-in ${
+            session?.handoverReason === 'Staff reply sent from Svaasth Connect Dashboard'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+              : 'bg-amber-50 border-amber-200 text-amber-900'
+          }`}
+        >
           <div className="flex items-center gap-2 min-w-0">
-            <span className="relative flex h-2.5 w-2.5 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
-            </span>
-            <span className="font-semibold shrink-0">☎️ Reception Handover Active:</span>
-            <span className="text-amber-800 truncate">
-              {session.handoverReason || 'Patient requested to speak with front desk staff. Type your reply below to assist.'}
-            </span>
+            {session?.handoverReason === 'Staff reply sent from Svaasth Connect Dashboard' ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="font-semibold shrink-0">Staff Active:</span>
+                <span className="text-emerald-800 truncate">
+                  You replied to this patient. AI Bot is paused for your live conversation.
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="relative flex h-2.5 w-2.5 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                </span>
+                <span className="font-semibold shrink-0">☎️ Reception Handover:</span>
+                <span className="text-amber-800 truncate">
+                  {session?.handoverReason || 'Patient requested front desk assistance. Type your reply below.'}
+                </span>
+              </>
+            )}
           </div>
           <button
             type="button"
             onClick={onToggleBotHandover}
-            className="px-2.5 py-1 rounded-md bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 font-medium text-[11px] shrink-0 transition-colors shadow-2xs"
+            className={`px-2.5 py-1 rounded-md font-medium text-[11px] shrink-0 transition-colors shadow-2xs cursor-pointer ${
+              session?.handoverReason === 'Staff reply sent from Svaasth Connect Dashboard'
+                ? 'bg-white border border-emerald-300 text-emerald-900 hover:bg-emerald-100'
+                : 'bg-white border border-amber-300 text-amber-900 hover:bg-amber-100'
+            }`}
           >
             Resume AI Bot
           </button>
