@@ -688,7 +688,7 @@ html_content = f"""<!DOCTYPE html>
     </div>
 
     <div class="footer-bar">
-      <div>Technical Onboarding: <span class="contact-badge">+91 9373280505</span> | support@svaasth.com</div>
+      <div><strong>Svaasth Connect</strong> – Hospital Management &amp; Patient AI System</div>
       <div>Page 3 of 3</div>
     </div>
   </div>
